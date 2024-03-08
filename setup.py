@@ -20,6 +20,6 @@ setup(
         'statsmodels',
         'scipy',
         'pingouin',
-        'sklearn',
+        'scikit-learn',
     ]
 )

@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='Hossam Data Helper',
+    name='hossam',
     version='0.0.1',
     description="Hossam Data Helper is a Python package that provides various functions to help you analyze data.",
     author="Lee Kwang-Ho",
@@ -21,5 +21,6 @@ setup(
         'scipy',
         'pingouin',
         'scikit-learn',
+        'pdoc3'
     ]
 )

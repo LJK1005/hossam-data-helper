@@ -30,4 +30,4 @@ pip uninstall -y Hossam-Data-Util
 
 ## How to use
 
-[Documentation](./hossam/index.html)
+[Documentation](https://leekh4232.github.io/hossam-data-helper/hossam)

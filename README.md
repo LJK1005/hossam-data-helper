@@ -25,14 +25,15 @@ MIT 라이센스를 따릅니다.
 ### [1] Remote Repository
 
 ```shell
-pip install --upgrade git+ssh://git@github.com:leekh4232/hossam-data-helper.git
+pip install --upgrade git+https://github.com/leekh4232/hossam-data-helper.git
 ```
 
 or
 
 ```shell
-pip install --upgrade git+https://github.com/leekh4232/hossam-data-helper.git
+pip install --upgrade git+ssh://git@github.com:leekh4232/hossam-data-helper.git
 ```
+
 
 
 ### [2] Local Repository

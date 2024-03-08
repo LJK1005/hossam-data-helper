@@ -13,7 +13,7 @@
 ### [1] Remote Repository
 
 ```shell
-pip install --upgrade git+ssh://git@github.com:leekh4232/hossam-data-util.git
+pip install --upgrade git+ssh://git@github.com:leekh4232/hossam-data-helper.git
 ```
 
 

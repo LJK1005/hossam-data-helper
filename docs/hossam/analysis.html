@@ -27,14 +27,32 @@
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">from pandas import DataFrame
-from scipy.stats import shapiro, normaltest, bartlett, levene, ttest_1samp, ttest_ind, ttest_rel, mannwhitneyu, pearsonr, spearmanr
+from scipy.stats import (
+    shapiro,
+    normaltest,
+    bartlett,
+    levene,
+    ttest_1samp,
+    ttest_ind,
+    ttest_rel,
+    mannwhitneyu,
+    pearsonr,
+    spearmanr,
+)
 from statsmodels.formula.api import ols
 from statsmodels.stats.anova import anova_lm
-from pingouin import anova, welch_anova, pairwise_tukey, pairwise_tests, pairwise_gameshowell
+from pingouin import (
+    anova,
+    welch_anova,
+    pairwise_tukey,
+    pairwise_tests,
+    pairwise_gameshowell,
+)
 from statsmodels.sandbox.stats.multicomp import MultiComparison
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 from .util import my_pretty_table, my_unmelt
 from .plot import my_heatmap
+
 
 def my_normal_test(data: DataFrame, method: str = &#34;n&#34;) -&gt; None:
     &#34;&#34;&#34;데이터프레임 내의 모든 컬럼에 대해 정규성 검정을 수행하고 결과를 출력한다.
@@ -50,8 +68,12 @@ def my_normal_test(data: DataFrame, method: str = &#34;n&#34;) -&gt; None:
         else:
             n = &#34;shapiro&#34;
             s, p = shapiro(data[c])
-            
-        print(&#34;[{0}-{1}] statistic: {2:.3f}, p-value: {3:.3f}, 정규성 충족 여부: {4}&#34;.format(n, c, s, p, p &gt; 0.05))
+
+        print(
+            &#34;[{0}-{1}] statistic: {2:.3f}, p-value: {3:.3f}, 정규성 충족 여부: {4}&#34;.format(
+                n, c, s, p, p &gt; 0.05
+            )
+        )
 
 
 def my_equal_var_test(data: DataFrame, normal_dist: bool = True) -&gt; None:
@@ -71,11 +93,17 @@ def my_equal_var_test(data: DataFrame, normal_dist: bool = True) -&gt; None:
     else:
         n: str = &#34;Levene&#34;
         s, p = levene(*fields)
-        
-    print(&#34;{0} 검정: statistic: {1:.3f}, p-value: {2:.3f}, 등분산성 충족 여부: {3}&#34;.format(n, s, p, p &gt; 0.05))
+
+    print(
+        &#34;{0} 검정: statistic: {1:.3f}, p-value: {2:.3f}, 등분산성 충족 여부: {3}&#34;.format(
+            n, s, p, p &gt; 0.05
+        )
+    )
 
 
-def my_normal_equal_var_1field(data: DataFrame, xname: str = &#39;x&#39;, hue: str = &#39;hue&#39;) -&gt; None:
+def my_normal_equal_var_1field(
+    data: DataFrame, xname: str = &#34;x&#34;, hue: str = &#34;hue&#34;
+) -&gt; None:
     &#34;&#34;&#34;데이터프레임 내에 있는 한 종류의 명목형 변수에 따라 종속변수의 정규성과 등분산성을 검정하고 결과를 출력한다.
 
     Args:
@@ -103,13 +131,15 @@ def my_normal_equal_var_1field(data: DataFrame, xname: str = &#39;x&#39;, hue: s
     else:
         n = &#34;Levene&#34;
         s, p = levene(*equal_var_fields)
-        
+
     report.append({&#34;field&#34;: n, &#34;statistic&#34;: s, &#34;p-value&#34;: p, &#34;result&#34;: p &gt; 0.05})
-    report_df = DataFrame(report).set_index(&#39;field&#39;)
+    report_df = DataFrame(report).set_index(&#34;field&#34;)
     my_pretty_table(report_df)
-    
-    
-def my_normal_equal_var_2field(data: DataFrame, xname: str = &#39;x&#39;, hue: list = [&#39;h1&#39;, &#39;h2&#39;]) -&gt; None:
+
+
+def my_normal_equal_var_2field(
+    data: DataFrame, xname: str = &#34;x&#34;, hue: list = [&#34;h1&#34;, &#34;h2&#34;]
+) -&gt; None:
     &#34;&#34;&#34;데이터프레임 내에 있는 두 종류의 명목형 변수에 따라 종속변수의 정규성과 등분산성을 검정하고 결과를 출력한다.
 
     Args:
@@ -130,7 +160,14 @@ def my_normal_equal_var_2field(data: DataFrame, xname: str = &#39;x&#39;, hue: l
             s, p = normaltest(filtered_data)
 
             normalize: bool = p &gt; 0.05
-            report.append({&#34;field&#34;: &#34;{0}, {1}&#34;.format(i, j), &#34;statistic&#34;: s, &#34;p-value&#34;: p, &#34;result&#34;: normalize})
+            report.append(
+                {
+                    &#34;field&#34;: &#34;{0}, {1}&#34;.format(i, j),
+                    &#34;statistic&#34;: s,
+                    &#34;p-value&#34;: p,
+                    &#34;result&#34;: normalize,
+                }
+            )
             normal_dist = normal_dist and normalize
 
     if normal_dist:
@@ -139,11 +176,10 @@ def my_normal_equal_var_2field(data: DataFrame, xname: str = &#39;x&#39;, hue: l
     else:
         n: str = &#34;Levene&#34;
         s, p = levene(*equal_var_fields)
-        
-    report.append({&#34;field&#34;: n, &#34;statistic&#34;: s, &#34;p-value&#34;: p, &#34;result&#34;: p &gt; 0.05})
-    report_df = DataFrame(report).set_index(&#39;field&#39;)
-    my_pretty_table(report_df)
 
+    report.append({&#34;field&#34;: n, &#34;statistic&#34;: s, &#34;p-value&#34;: p, &#34;result&#34;: p &gt; 0.05})
+    report_df = DataFrame(report).set_index(&#34;field&#34;)
+    my_pretty_table(report_df)
 
 
 def my_ttest_1samp(data: DataFrame, mean_value: int = 0) -&gt; None:
@@ -159,32 +195,36 @@ def my_ttest_1samp(data: DataFrame, mean_value: int = 0) -&gt; None:
     for c in data.columns:
         for a in alternative:
             s, p = ttest_1samp(data[c], mean_value, alternative=a)
-            
+
             itp = None
-            
+
             if a == &#34;two-sided&#34;:
                 itp = &#34;μ {0} {1}&#34;.format(&#34;==&#34; if p &gt; 0.05 else &#34;!=&#34;, mean_value)
             elif a == &#34;less&#34;:
                 itp = &#34;μ {0} {1}&#34;.format(&#34;&gt;=&#34; if p &gt; 0.05 else &#34;&lt;&#34;, mean_value)
             else:
                 itp = &#34;μ {0} {1}&#34;.format(&#34;&lt;=&#34; if p &gt; 0.05 else &#34;&gt;&#34;, mean_value)
-            
-            result.append({
-                &#34;field&#34;: c,
-                &#34;alternative&#34;: a,
-                &#34;statistic&#34;: round(s, 3),
-                &#34;p-value&#34;: round(p, 3),
-                &#34;H0&#34;: p &gt; 0.05,
-                &#34;H1&#34;: p &lt;= 0.05,
-                &#34;interpretation&#34;: itp
-            })
-            
+
+            result.append(
+                {
+                    &#34;field&#34;: c,
+                    &#34;alternative&#34;: a,
+                    &#34;statistic&#34;: round(s, 3),
+                    &#34;p-value&#34;: round(p, 3),
+                    &#34;H0&#34;: p &gt; 0.05,
+                    &#34;H1&#34;: p &lt;= 0.05,
+                    &#34;interpretation&#34;: itp,
+                }
+            )
+
     rdf = DataFrame(result)
     rdf.set_index([&#34;field&#34;, &#34;alternative&#34;], inplace=True)
     my_pretty_table(rdf)
 
 
-def my_ttest_ind(data: DataFrame, xname: str, yname: str, equal_var: bool = True) -&gt; None:
+def my_ttest_ind(
+    data: DataFrame, xname: str, yname: str, equal_var: bool = True
+) -&gt; None:
     &#34;&#34;&#34;독립표본 t-검정을 수행하고 결과를 출력한다.
 
     Args:
@@ -193,42 +233,45 @@ def my_ttest_ind(data: DataFrame, xname: str, yname: str, equal_var: bool = True
         yname (str): 두 번째 필드 이름
         equal_var (bool, optional): 등분산성 가정 여부. Defaults to True.
     &#34;&#34;&#34;
-    
+
     alternative: list = [&#34;two-sided&#34;, &#34;less&#34;, &#34;greater&#34;]
     result: list = []
     fmt: str = &#34;μ({f0}) {0} μ({f1})&#34;
-    
+
     for a in alternative:
         s, p = ttest_ind(data[xname], data[yname], equal_var=equal_var, alternative=a)
         n = &#34;t-test_ind&#34; if equal_var else &#34;Welch&#39;s t-test&#34;
-            
+
         # 검정 결과 해석
         itp = None
-        
+
         if a == &#34;two-sided&#34;:
             itp = fmt.format(&#34;==&#34; if p &gt; 0.05 else &#34;!=&#34;, f0=xname, f1=yname)
         elif a == &#34;less&#34;:
             itp = fmt.format(&#34;&gt;=&#34; if p &gt; 0.05 else &#34;&lt;&#34;, f0=xname, f1=yname)
         else:
             itp = fmt.format(&#34;&lt;=&#34; if p &gt; 0.05 else &#34;&gt;&#34;, f0=xname, f1=yname)
-            
-        result.append({
-            &#34;test&#34;: n,
-            &#34;alternative&#34;: a,
-            &#34;statistic&#34;: round(s, 3),
-            &#34;p-value&#34;: round(p, 3),
-            &#34;H0&#34;: p &gt; 0.05,
-            &#34;H1&#34;: p &lt;= 0.05,
-            &#34;interpretation&#34;: itp
-        })
-        
+
+        result.append(
+            {
+                &#34;test&#34;: n,
+                &#34;alternative&#34;: a,
+                &#34;statistic&#34;: round(s, 3),
+                &#34;p-value&#34;: round(p, 3),
+                &#34;H0&#34;: p &gt; 0.05,
+                &#34;H1&#34;: p &lt;= 0.05,
+                &#34;interpretation&#34;: itp,
+            }
+        )
+
     rdf = DataFrame(result)
     rdf.set_index([&#34;test&#34;, &#34;alternative&#34;], inplace=True)
     my_pretty_table(rdf)
 
 
-
-def my_ttest_rel(data: DataFrame, xname: str, yname: str, equal_var: bool = True) -&gt; None:
+def my_ttest_rel(
+    data: DataFrame, xname: str, yname: str, equal_var: bool = True
+) -&gt; None:
     &#34;&#34;&#34;대응표본 t-검정 또는 Mann-Whitney U 검정을 수행하고 결과를 출력한다.
 
     Args:
@@ -237,7 +280,7 @@ def my_ttest_rel(data: DataFrame, xname: str, yname: str, equal_var: bool = True
         yname (str): 두 번째 필드 이름
         equal_var (bool, optional): 등분산성 가정 여부. Defaults to True.
     &#34;&#34;&#34;
-    
+
     alternative: list = [&#34;two-sided&#34;, &#34;less&#34;, &#34;greater&#34;]
     result: list = []
     fmt: str = &#34;μ({f0}) {0} μ({f1})&#34;
@@ -249,32 +292,36 @@ def my_ttest_rel(data: DataFrame, xname: str, yname: str, equal_var: bool = True
         else:
             s, p = mannwhitneyu(data[xname], data[yname], alternative=a)
             n = &#34;Mann-Whitney&#34;
-            
+
         itp = None
-            
+
         if a == &#34;two-sided&#34;:
             itp = fmt.format(&#34;==&#34; if p &gt; 0.05 else &#34;!=&#34;, f0=xname, f1=yname)
         elif a == &#34;less&#34;:
             itp = fmt.format(&#34;&gt;=&#34; if p &gt; 0.05 else &#34;&lt;&#34;, f0=xname, f1=yname)
         else:
             itp = fmt.format(&#34;&lt;=&#34; if p &gt; 0.05 else &#34;&gt;&#34;, f0=xname, f1=yname)
-            
-        result.append({
-            &#34;test&#34;: n,
-            &#34;alternative&#34;: a,
-            &#34;statistic&#34;: s,
-            &#34;p-value&#34;: p,
-            &#34;H0&#34;: p &gt; 0.05,
-            &#34;H1&#34;: p &lt;= 0.05,
-            &#34;interpretation&#34;: itp
-        })
-            
+
+        result.append(
+            {
+                &#34;test&#34;: n,
+                &#34;alternative&#34;: a,
+                &#34;statistic&#34;: s,
+                &#34;p-value&#34;: p,
+                &#34;H0&#34;: p &gt; 0.05,
+                &#34;H1&#34;: p &lt;= 0.05,
+                &#34;interpretation&#34;: itp,
+            }
+        )
+
     rdf = DataFrame(result)
     rdf.set_index([&#34;test&#34;, &#34;alternative&#34;], inplace=True)
     my_pretty_table(rdf)
 
 
-def my_anova(data: DataFrame, target: str, hue: any, equal_var: bool = True, post: bool = False) -&gt; None:
+def my_anova(
+    data: DataFrame, target: str, hue: any, equal_var: bool = True, post: bool = False
+) -&gt; None:
     &#34;&#34;&#34;분산분석을 수행하고 결과를 출력한다.
 
     Args:
@@ -284,17 +331,16 @@ def my_anova(data: DataFrame, target: str, hue: any, equal_var: bool = True, pos
         equal_var (bool, optional): 등분산성 가정 여부. Defaults to True.
         post (bool, optional): 사후검정 수행 여부. Defaults to False.
     &#34;&#34;&#34;
-    
+
     # 일원 분산 분석 명목형 파라미터 정리
     if type(hue) == str or type(hue) == list and len(hue) == 1:
         anova_type = &#34;oneway&#34;
-        
-        if (type(hue) == list):
+
+        if type(hue) == list:
             hue = hue[0]
     else:
         anova_type = &#34;twoway&#34;
 
-    
     # pingouin 패키지를 사용하는 경우
     if equal_var:
         # 등분산성을 충족하는 경우에 대해서는 oneway, twoway 분석 모두 지원
@@ -307,46 +353,48 @@ def my_anova(data: DataFrame, target: str, hue: any, equal_var: bool = True, pos
             print(&#34;pingouin.welch_anova&#34;)
             aov = welch_anova(data=data, dv=target, between=hue)
             my_pretty_table(aov)
-    
-    
+
     # statsmodels 패키지를 사용하는 경우
-    if anova_type == &#39;oneway&#39;:            
-        expr = f&#39;{target} ~ C({hue})&#39;
+    if anova_type == &#34;oneway&#34;:
+        expr = f&#34;{target} ~ C({hue})&#34;
         typ = 1
-        
+
     # 이원 분산 분석 -&gt; type(hue) == list and len(hue) &gt; 1:
     else:
-        expr = f&#39;{target} ~ &#39;
-        
+        expr = f&#34;{target} ~ &#34;
+
         for i, h in enumerate(hue):
-            expr += f&#39;C({h})&#39;
-            
+            expr += f&#34;C({h})&#34;
+
             if i + 1 &lt; len(hue):
-                expr += &#39;*&#39;
-                
+                expr += &#34;*&#34;
+
         typ = 2
-    
-    
-    print(&#34;\nstatsmodels.anova.anova_lm&#34;)  
+
+    print(&#34;\nstatsmodels.anova.anova_lm&#34;)
     lm = ols(expr, data=data).fit()
-    
+
     if equal_var:
         anova_result = anova_lm(lm, typ=typ)
     else:
         anova_result = anova_lm(lm, typ=typ, robust=&#34;hc3&#34;)
-        
+
     my_pretty_table(anova_result)
-    
-    s = anova_result[&#39;F&#39;][0]
-    p = anova_result[&#39;PR(&gt;F)&#39;][0]
-    print(&#34;[anova_lm] statistic: {0:.3f}, p-value: {1:.3f}, {2}가설 채택&#34;.format(s, p, &#34;대립&#34; if p &lt;= 0.05 else &#34;귀무&#34;))
-    
+
+    s = anova_result[&#34;F&#34;][0]
+    p = anova_result[&#34;PR(&gt;F)&#34;][0]
+    print(
+        &#34;[anova_lm] statistic: {0:.3f}, p-value: {1:.3f}, {2}가설 채택&#34;.format(
+            s, p, &#34;대립&#34; if p &lt;= 0.05 else &#34;귀무&#34;
+        )
+    )
+
     # 일원 분산 분석인 경우 사후검정 수행
     if post and anova_type == &#34;oneway&#34;:
         # 등분산인 경우
         if equal_var:
             cnt = data[[target, hue]].groupby(hue).count()
-            
+
             # 샘플수가 같은 경우 투키 방법
             if cnt.iloc[0, 0] == cnt[cnt.columns[0]].mean():
                 print(&#34;\n사후검정: Tukey HSD 방법&#34;)
@@ -356,17 +404,25 @@ def my_anova(data: DataFrame, target: str, hue: any, equal_var: bool = True, pos
             # 샘플수가 다른 경우 본페로니 방법
             else:
                 print(&#34;\n사후검정: 본페로니 방법&#34;)
-                result = pairwise_tests(data=data, dv=target, between=hue, padjust=&#39;bonf&#39;)
+                result = pairwise_tests(
+                    data=data, dv=target, between=hue, padjust=&#34;bonf&#34;
+                )
                 my_pretty_table(result)
-        
+
         # 등분산이 아닌 경우 -&gt; gameshowell
         else:
             print(&#34;\n사후검정: Games-Howell 방법&#34;)
             result = pairwise_gameshowell(data=data, dv=target, between=hue)
             my_pretty_table(result)
 
-    
-def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = True, figsize: list=(10, 8), dpi: int=150) -&gt; None:
+
+def my_correlation(
+    data: DataFrame,
+    method: str = &#34;p&#34;,
+    heatmap: bool = True,
+    figsize: list = (10, 8),
+    dpi: int = 150,
+) -&gt; None:
     &#34;&#34;&#34;데이터프레임 내에 있는 모든 컬럼들에 대해 상관계수를 계산하고 결과를 출력한다.
 
     Args:
@@ -377,28 +433,34 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
         dpi (int, optional): 히트맵의 해상도. Defaults to 150.
     &#34;&#34;&#34;
     if heatmap:
-        my_heatmap(data.corr(method=&#34;pearson&#34; if method == &#34;p&#34; else &#34;spearman&#34;), figsize=figsize, dpi=dpi)
+        my_heatmap(
+            data.corr(method=&#34;pearson&#34; if method == &#34;p&#34; else &#34;spearman&#34;),
+            figsize=figsize,
+            dpi=dpi,
+        )
     else:
         my_pretty_table(data.corr(method=&#34;pearson&#34; if method == &#34;p&#34; else &#34;spearman&#34;))
-    
+
     result = []
-    
+
     for c in data.columns:
         for d in data.columns:
             if c != d:
-                if method == &#39;p&#39;:
+                if method == &#34;p&#34;:
                     s, p = pearsonr(data[c], data[d])
                 else:
                     s, p = spearmanr(data[c], data[d])
-                    
-                result.append({
-                    &#34;field1&#34;: c,
-                    &#34;field2&#34;: d,
-                    &#34;correlation&#34;: s,
-                    &#34;p-value&#34;: p,
-                    &#34;result&#34;: p &lt;= 0.05
-                })
-                
+
+                result.append(
+                    {
+                        &#34;field1&#34;: c,
+                        &#34;field2&#34;: d,
+                        &#34;correlation&#34;: s,
+                        &#34;p-value&#34;: p,
+                        &#34;result&#34;: p &lt;= 0.05,
+                    }
+                )
+
     rdf = DataFrame(result)
     rdf.set_index([&#34;field1&#34;, &#34;field2&#34;], inplace=True)
     my_pretty_table(rdf)</code></pre>
@@ -433,7 +495,9 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_anova(data: DataFrame, target: str, hue: any, equal_var: bool = True, post: bool = False) -&gt; None:
+<pre><code class="python">def my_anova(
+    data: DataFrame, target: str, hue: any, equal_var: bool = True, post: bool = False
+) -&gt; None:
     &#34;&#34;&#34;분산분석을 수행하고 결과를 출력한다.
 
     Args:
@@ -443,17 +507,16 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
         equal_var (bool, optional): 등분산성 가정 여부. Defaults to True.
         post (bool, optional): 사후검정 수행 여부. Defaults to False.
     &#34;&#34;&#34;
-    
+
     # 일원 분산 분석 명목형 파라미터 정리
     if type(hue) == str or type(hue) == list and len(hue) == 1:
         anova_type = &#34;oneway&#34;
-        
-        if (type(hue) == list):
+
+        if type(hue) == list:
             hue = hue[0]
     else:
         anova_type = &#34;twoway&#34;
 
-    
     # pingouin 패키지를 사용하는 경우
     if equal_var:
         # 등분산성을 충족하는 경우에 대해서는 oneway, twoway 분석 모두 지원
@@ -466,46 +529,48 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
             print(&#34;pingouin.welch_anova&#34;)
             aov = welch_anova(data=data, dv=target, between=hue)
             my_pretty_table(aov)
-    
-    
+
     # statsmodels 패키지를 사용하는 경우
-    if anova_type == &#39;oneway&#39;:            
-        expr = f&#39;{target} ~ C({hue})&#39;
+    if anova_type == &#34;oneway&#34;:
+        expr = f&#34;{target} ~ C({hue})&#34;
         typ = 1
-        
+
     # 이원 분산 분석 -&gt; type(hue) == list and len(hue) &gt; 1:
     else:
-        expr = f&#39;{target} ~ &#39;
-        
+        expr = f&#34;{target} ~ &#34;
+
         for i, h in enumerate(hue):
-            expr += f&#39;C({h})&#39;
-            
+            expr += f&#34;C({h})&#34;
+
             if i + 1 &lt; len(hue):
-                expr += &#39;*&#39;
-                
+                expr += &#34;*&#34;
+
         typ = 2
-    
-    
-    print(&#34;\nstatsmodels.anova.anova_lm&#34;)  
+
+    print(&#34;\nstatsmodels.anova.anova_lm&#34;)
     lm = ols(expr, data=data).fit()
-    
+
     if equal_var:
         anova_result = anova_lm(lm, typ=typ)
     else:
         anova_result = anova_lm(lm, typ=typ, robust=&#34;hc3&#34;)
-        
+
     my_pretty_table(anova_result)
-    
-    s = anova_result[&#39;F&#39;][0]
-    p = anova_result[&#39;PR(&gt;F)&#39;][0]
-    print(&#34;[anova_lm] statistic: {0:.3f}, p-value: {1:.3f}, {2}가설 채택&#34;.format(s, p, &#34;대립&#34; if p &lt;= 0.05 else &#34;귀무&#34;))
-    
+
+    s = anova_result[&#34;F&#34;][0]
+    p = anova_result[&#34;PR(&gt;F)&#34;][0]
+    print(
+        &#34;[anova_lm] statistic: {0:.3f}, p-value: {1:.3f}, {2}가설 채택&#34;.format(
+            s, p, &#34;대립&#34; if p &lt;= 0.05 else &#34;귀무&#34;
+        )
+    )
+
     # 일원 분산 분석인 경우 사후검정 수행
     if post and anova_type == &#34;oneway&#34;:
         # 등분산인 경우
         if equal_var:
             cnt = data[[target, hue]].groupby(hue).count()
-            
+
             # 샘플수가 같은 경우 투키 방법
             if cnt.iloc[0, 0] == cnt[cnt.columns[0]].mean():
                 print(&#34;\n사후검정: Tukey HSD 방법&#34;)
@@ -515,9 +580,11 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
             # 샘플수가 다른 경우 본페로니 방법
             else:
                 print(&#34;\n사후검정: 본페로니 방법&#34;)
-                result = pairwise_tests(data=data, dv=target, between=hue, padjust=&#39;bonf&#39;)
+                result = pairwise_tests(
+                    data=data, dv=target, between=hue, padjust=&#34;bonf&#34;
+                )
                 my_pretty_table(result)
-        
+
         # 등분산이 아닌 경우 -&gt; gameshowell
         else:
             print(&#34;\n사후검정: Games-Howell 방법&#34;)
@@ -547,7 +614,13 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = True, figsize: list=(10, 8), dpi: int=150) -&gt; None:
+<pre><code class="python">def my_correlation(
+    data: DataFrame,
+    method: str = &#34;p&#34;,
+    heatmap: bool = True,
+    figsize: list = (10, 8),
+    dpi: int = 150,
+) -&gt; None:
     &#34;&#34;&#34;데이터프레임 내에 있는 모든 컬럼들에 대해 상관계수를 계산하고 결과를 출력한다.
 
     Args:
@@ -558,28 +631,34 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
         dpi (int, optional): 히트맵의 해상도. Defaults to 150.
     &#34;&#34;&#34;
     if heatmap:
-        my_heatmap(data.corr(method=&#34;pearson&#34; if method == &#34;p&#34; else &#34;spearman&#34;), figsize=figsize, dpi=dpi)
+        my_heatmap(
+            data.corr(method=&#34;pearson&#34; if method == &#34;p&#34; else &#34;spearman&#34;),
+            figsize=figsize,
+            dpi=dpi,
+        )
     else:
         my_pretty_table(data.corr(method=&#34;pearson&#34; if method == &#34;p&#34; else &#34;spearman&#34;))
-    
+
     result = []
-    
+
     for c in data.columns:
         for d in data.columns:
             if c != d:
-                if method == &#39;p&#39;:
+                if method == &#34;p&#34;:
                     s, p = pearsonr(data[c], data[d])
                 else:
                     s, p = spearmanr(data[c], data[d])
-                    
-                result.append({
-                    &#34;field1&#34;: c,
-                    &#34;field2&#34;: d,
-                    &#34;correlation&#34;: s,
-                    &#34;p-value&#34;: p,
-                    &#34;result&#34;: p &lt;= 0.05
-                })
-                
+
+                result.append(
+                    {
+                        &#34;field1&#34;: c,
+                        &#34;field2&#34;: d,
+                        &#34;correlation&#34;: s,
+                        &#34;p-value&#34;: p,
+                        &#34;result&#34;: p &lt;= 0.05,
+                    }
+                )
+
     rdf = DataFrame(result)
     rdf.set_index([&#34;field1&#34;, &#34;field2&#34;], inplace=True)
     my_pretty_table(rdf)</code></pre>
@@ -618,8 +697,12 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
     else:
         n: str = &#34;Levene&#34;
         s, p = levene(*fields)
-        
-    print(&#34;{0} 검정: statistic: {1:.3f}, p-value: {2:.3f}, 등분산성 충족 여부: {3}&#34;.format(n, s, p, p &gt; 0.05))</code></pre>
+
+    print(
+        &#34;{0} 검정: statistic: {1:.3f}, p-value: {2:.3f}, 등분산성 충족 여부: {3}&#34;.format(
+            n, s, p, p &gt; 0.05
+        )
+    )</code></pre>
 </details>
 </dd>
 <dt id="hossam.analysis.my_normal_equal_var_1field"><code class="name flex">
@@ -640,7 +723,9 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_normal_equal_var_1field(data: DataFrame, xname: str = &#39;x&#39;, hue: str = &#39;hue&#39;) -&gt; None:
+<pre><code class="python">def my_normal_equal_var_1field(
+    data: DataFrame, xname: str = &#34;x&#34;, hue: str = &#34;hue&#34;
+) -&gt; None:
     &#34;&#34;&#34;데이터프레임 내에 있는 한 종류의 명목형 변수에 따라 종속변수의 정규성과 등분산성을 검정하고 결과를 출력한다.
 
     Args:
@@ -668,9 +753,9 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
     else:
         n = &#34;Levene&#34;
         s, p = levene(*equal_var_fields)
-        
+
     report.append({&#34;field&#34;: n, &#34;statistic&#34;: s, &#34;p-value&#34;: p, &#34;result&#34;: p &gt; 0.05})
-    report_df = DataFrame(report).set_index(&#39;field&#39;)
+    report_df = DataFrame(report).set_index(&#34;field&#34;)
     my_pretty_table(report_df)</code></pre>
 </details>
 </dd>
@@ -692,7 +777,9 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_normal_equal_var_2field(data: DataFrame, xname: str = &#39;x&#39;, hue: list = [&#39;h1&#39;, &#39;h2&#39;]) -&gt; None:
+<pre><code class="python">def my_normal_equal_var_2field(
+    data: DataFrame, xname: str = &#34;x&#34;, hue: list = [&#34;h1&#34;, &#34;h2&#34;]
+) -&gt; None:
     &#34;&#34;&#34;데이터프레임 내에 있는 두 종류의 명목형 변수에 따라 종속변수의 정규성과 등분산성을 검정하고 결과를 출력한다.
 
     Args:
@@ -713,7 +800,14 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
             s, p = normaltest(filtered_data)
 
             normalize: bool = p &gt; 0.05
-            report.append({&#34;field&#34;: &#34;{0}, {1}&#34;.format(i, j), &#34;statistic&#34;: s, &#34;p-value&#34;: p, &#34;result&#34;: normalize})
+            report.append(
+                {
+                    &#34;field&#34;: &#34;{0}, {1}&#34;.format(i, j),
+                    &#34;statistic&#34;: s,
+                    &#34;p-value&#34;: p,
+                    &#34;result&#34;: normalize,
+                }
+            )
             normal_dist = normal_dist and normalize
 
     if normal_dist:
@@ -722,9 +816,9 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
     else:
         n: str = &#34;Levene&#34;
         s, p = levene(*equal_var_fields)
-        
+
     report.append({&#34;field&#34;: n, &#34;statistic&#34;: s, &#34;p-value&#34;: p, &#34;result&#34;: p &gt; 0.05})
-    report_df = DataFrame(report).set_index(&#39;field&#39;)
+    report_df = DataFrame(report).set_index(&#34;field&#34;)
     my_pretty_table(report_df)</code></pre>
 </details>
 </dd>
@@ -758,8 +852,12 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
         else:
             n = &#34;shapiro&#34;
             s, p = shapiro(data[c])
-            
-        print(&#34;[{0}-{1}] statistic: {2:.3f}, p-value: {3:.3f}, 정규성 충족 여부: {4}&#34;.format(n, c, s, p, p &gt; 0.05))</code></pre>
+
+        print(
+            &#34;[{0}-{1}] statistic: {2:.3f}, p-value: {3:.3f}, 정규성 충족 여부: {4}&#34;.format(
+                n, c, s, p, p &gt; 0.05
+            )
+        )</code></pre>
 </details>
 </dd>
 <dt id="hossam.analysis.my_ttest_1samp"><code class="name flex">
@@ -791,26 +889,28 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
     for c in data.columns:
         for a in alternative:
             s, p = ttest_1samp(data[c], mean_value, alternative=a)
-            
+
             itp = None
-            
+
             if a == &#34;two-sided&#34;:
                 itp = &#34;μ {0} {1}&#34;.format(&#34;==&#34; if p &gt; 0.05 else &#34;!=&#34;, mean_value)
             elif a == &#34;less&#34;:
                 itp = &#34;μ {0} {1}&#34;.format(&#34;&gt;=&#34; if p &gt; 0.05 else &#34;&lt;&#34;, mean_value)
             else:
                 itp = &#34;μ {0} {1}&#34;.format(&#34;&lt;=&#34; if p &gt; 0.05 else &#34;&gt;&#34;, mean_value)
-            
-            result.append({
-                &#34;field&#34;: c,
-                &#34;alternative&#34;: a,
-                &#34;statistic&#34;: round(s, 3),
-                &#34;p-value&#34;: round(p, 3),
-                &#34;H0&#34;: p &gt; 0.05,
-                &#34;H1&#34;: p &lt;= 0.05,
-                &#34;interpretation&#34;: itp
-            })
-            
+
+            result.append(
+                {
+                    &#34;field&#34;: c,
+                    &#34;alternative&#34;: a,
+                    &#34;statistic&#34;: round(s, 3),
+                    &#34;p-value&#34;: round(p, 3),
+                    &#34;H0&#34;: p &gt; 0.05,
+                    &#34;H1&#34;: p &lt;= 0.05,
+                    &#34;interpretation&#34;: itp,
+                }
+            )
+
     rdf = DataFrame(result)
     rdf.set_index([&#34;field&#34;, &#34;alternative&#34;], inplace=True)
     my_pretty_table(rdf)</code></pre>
@@ -836,7 +936,9 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_ttest_ind(data: DataFrame, xname: str, yname: str, equal_var: bool = True) -&gt; None:
+<pre><code class="python">def my_ttest_ind(
+    data: DataFrame, xname: str, yname: str, equal_var: bool = True
+) -&gt; None:
     &#34;&#34;&#34;독립표본 t-검정을 수행하고 결과를 출력한다.
 
     Args:
@@ -845,35 +947,37 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
         yname (str): 두 번째 필드 이름
         equal_var (bool, optional): 등분산성 가정 여부. Defaults to True.
     &#34;&#34;&#34;
-    
+
     alternative: list = [&#34;two-sided&#34;, &#34;less&#34;, &#34;greater&#34;]
     result: list = []
     fmt: str = &#34;μ({f0}) {0} μ({f1})&#34;
-    
+
     for a in alternative:
         s, p = ttest_ind(data[xname], data[yname], equal_var=equal_var, alternative=a)
         n = &#34;t-test_ind&#34; if equal_var else &#34;Welch&#39;s t-test&#34;
-            
+
         # 검정 결과 해석
         itp = None
-        
+
         if a == &#34;two-sided&#34;:
             itp = fmt.format(&#34;==&#34; if p &gt; 0.05 else &#34;!=&#34;, f0=xname, f1=yname)
         elif a == &#34;less&#34;:
             itp = fmt.format(&#34;&gt;=&#34; if p &gt; 0.05 else &#34;&lt;&#34;, f0=xname, f1=yname)
         else:
             itp = fmt.format(&#34;&lt;=&#34; if p &gt; 0.05 else &#34;&gt;&#34;, f0=xname, f1=yname)
-            
-        result.append({
-            &#34;test&#34;: n,
-            &#34;alternative&#34;: a,
-            &#34;statistic&#34;: round(s, 3),
-            &#34;p-value&#34;: round(p, 3),
-            &#34;H0&#34;: p &gt; 0.05,
-            &#34;H1&#34;: p &lt;= 0.05,
-            &#34;interpretation&#34;: itp
-        })
-        
+
+        result.append(
+            {
+                &#34;test&#34;: n,
+                &#34;alternative&#34;: a,
+                &#34;statistic&#34;: round(s, 3),
+                &#34;p-value&#34;: round(p, 3),
+                &#34;H0&#34;: p &gt; 0.05,
+                &#34;H1&#34;: p &lt;= 0.05,
+                &#34;interpretation&#34;: itp,
+            }
+        )
+
     rdf = DataFrame(result)
     rdf.set_index([&#34;test&#34;, &#34;alternative&#34;], inplace=True)
     my_pretty_table(rdf)</code></pre>
@@ -899,7 +1003,9 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_ttest_rel(data: DataFrame, xname: str, yname: str, equal_var: bool = True) -&gt; None:
+<pre><code class="python">def my_ttest_rel(
+    data: DataFrame, xname: str, yname: str, equal_var: bool = True
+) -&gt; None:
     &#34;&#34;&#34;대응표본 t-검정 또는 Mann-Whitney U 검정을 수행하고 결과를 출력한다.
 
     Args:
@@ -908,7 +1014,7 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
         yname (str): 두 번째 필드 이름
         equal_var (bool, optional): 등분산성 가정 여부. Defaults to True.
     &#34;&#34;&#34;
-    
+
     alternative: list = [&#34;two-sided&#34;, &#34;less&#34;, &#34;greater&#34;]
     result: list = []
     fmt: str = &#34;μ({f0}) {0} μ({f1})&#34;
@@ -920,26 +1026,28 @@ def my_correlation(data: DataFrame, method: str = &#34;p&#34;, heatmap: bool = T
         else:
             s, p = mannwhitneyu(data[xname], data[yname], alternative=a)
             n = &#34;Mann-Whitney&#34;
-            
+
         itp = None
-            
+
         if a == &#34;two-sided&#34;:
             itp = fmt.format(&#34;==&#34; if p &gt; 0.05 else &#34;!=&#34;, f0=xname, f1=yname)
         elif a == &#34;less&#34;:
             itp = fmt.format(&#34;&gt;=&#34; if p &gt; 0.05 else &#34;&lt;&#34;, f0=xname, f1=yname)
         else:
             itp = fmt.format(&#34;&lt;=&#34; if p &gt; 0.05 else &#34;&gt;&#34;, f0=xname, f1=yname)
-            
-        result.append({
-            &#34;test&#34;: n,
-            &#34;alternative&#34;: a,
-            &#34;statistic&#34;: s,
-            &#34;p-value&#34;: p,
-            &#34;H0&#34;: p &gt; 0.05,
-            &#34;H1&#34;: p &lt;= 0.05,
-            &#34;interpretation&#34;: itp
-        })
-            
+
+        result.append(
+            {
+                &#34;test&#34;: n,
+                &#34;alternative&#34;: a,
+                &#34;statistic&#34;: s,
+                &#34;p-value&#34;: p,
+                &#34;H0&#34;: p &gt; 0.05,
+                &#34;H1&#34;: p &lt;= 0.05,
+                &#34;interpretation&#34;: itp,
+            }
+        )
+
     rdf = DataFrame(result)
     rdf.set_index([&#34;test&#34;, &#34;alternative&#34;], inplace=True)
     my_pretty_table(rdf)</code></pre>

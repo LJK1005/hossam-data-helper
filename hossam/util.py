@@ -7,7 +7,9 @@ from sklearn.impute import SimpleImputer
 from scipy.stats import normaltest
 
 
-def my_normalize_data(mean: float, std: float, size: int = 100, round: int = 2) -> np.ndarray:
+def my_normalize_data(
+    mean: float, std: float, size: int = 100, round: int = 2
+) -> np.ndarray:
     """정규분포를 따르는 데이터를 생성한다.
 
     Args:
@@ -23,11 +25,16 @@ def my_normalize_data(mean: float, std: float, size: int = 100, round: int = 2) 
     while p < 0.05:
         x = np.random.normal(mean, std, size).round(round)
         _, p = normaltest(x)
-        
+
     return x
 
 
-def my_normalize_df(means: list = [0, 0, 0], stds: list = [1, 1, 1], sizes: list = [100, 100, 100], rounds: int = 2) -> DataFrame:
+def my_normalize_df(
+    means: list = [0, 0, 0],
+    stds: list = [1, 1, 1],
+    sizes: list = [100, 100, 100],
+    rounds: int = 2,
+) -> DataFrame:
     """정규분포를 따르는 데이터프레임을 생성한다.
 
     Args:
@@ -41,16 +48,22 @@ def my_normalize_df(means: list = [0, 0, 0], stds: list = [1, 1, 1], sizes: list
     """
     data = {}
     for i in range(0, len(means)):
-        data[f'X{i+1}'] = my_normalize_data(means[i], stds[i], sizes[i], rounds)
-        
+        data[f"X{i+1}"] = my_normalize_data(means[i], stds[i], sizes[i], rounds)
+
     return DataFrame(data)
 
 
-def my_pretty_table(data: DataFrame, headers: str = 'keys') -> None:
-    print(tabulate(data, headers='keys', tablefmt='psql', showindex=True, numalign="right"))
+def my_pretty_table(data: DataFrame, headers: str = "keys") -> None:
+    print(
+        tabulate(
+            data, headers="keys", tablefmt="psql", showindex=True, numalign="right"
+        )
+    )
 
 
-def my_read_excel(path: str, index_col: str = None, info: bool = True, categories: list = None) -> DataFrame:
+def my_read_excel(
+    path: str, index_col: str = None, info: bool = True, categories: list = None
+) -> DataFrame:
     """엑셀 파일을 데이터프레임으로 로드하고 정보를 출력한다.
 
     Args:
@@ -70,7 +83,7 @@ def my_read_excel(path: str, index_col: str = None, info: bool = True, categorie
             data: DataFrame = read_excel(path)
     except Exception as e:
         raise Exception(f"\x1b[31m데이터를 로드하는데 실패했습니다. ({e})\x1b[0m")
-    
+
     if categories:
         data = my_category(data, *categories)
 
@@ -85,14 +98,14 @@ def my_read_excel(path: str, index_col: str = None, info: bool = True, categorie
 
         print("\n기술통계")
         desc = data.describe().T
-        desc['nan'] = data.isnull().sum()
+        desc["nan"] = data.isnull().sum()
         my_pretty_table(desc)
-        
+
         # 전달된 필드 이름 리스트가 있다면 반복
         if categories:
             print("\n카테고리 정보")
             for c in categories:
-                d = DataFrame({'count': data[c].value_counts()})
+                d = DataFrame({"count": data[c].value_counts()})
                 d.index.name = c
                 my_pretty_table(d)
 
@@ -105,43 +118,49 @@ def my_standard_scaler(data: DataFrame, yname: str = None) -> DataFrame:
     Args:
         data (DataFrame): 데이터프레임 객체
         yname (str, optional): 종속변수의 컬럼명. Defaults to None.
-        
+
     Returns:
         DataFrame: 표준화된 데이터프레임
     """
     # 원본 데이터 프레임 복사
     df = data.copy()
-    
+
     # 종속변수만 별도로 분리
     if yname:
         y = df[yname]
         df = df.drop(yname, axis=1)
-    
+
     # 카테고리 타입만 골라냄
     category_fields = []
     for f in df.columns:
-        if df[f].dtypes not in ['int', 'int32', 'int64', 'float', 'float32', 'float64']:
+        if df[f].dtypes not in ["int", "int32", "int64", "float", "float32", "float64"]:
             category_fields.append(f)
-    
+
     cate = df[category_fields]
     df = df.drop(category_fields, axis=1)
-    
+
     # 표준화 수행
     scaler = StandardScaler()
     std_df = DataFrame(scaler.fit_transform(df), index=data.index, columns=df.columns)
-    
+
     # 분리했던 명목형 변수를 다시 결합
     if category_fields:
         std_df[category_fields] = cate
-    
+
     # 분리했던 종속 변수를 다시 결합
     if yname:
         std_df[yname] = y
-    
+
     return std_df
 
 
-def my_train_test_split(data: DataFrame, yname: str = 'y', test_size: float = 0.2, random_state: int = 123, scalling: bool = False) -> tuple:
+def my_train_test_split(
+    data: DataFrame,
+    yname: str = "y",
+    test_size: float = 0.2,
+    random_state: int = 123,
+    scalling: bool = False,
+) -> tuple:
     """데이터프레임을 학습용 데이터와 테스트용 데이터로 나눈다.
 
     Args:
@@ -156,16 +175,21 @@ def my_train_test_split(data: DataFrame, yname: str = 'y', test_size: float = 0.
     """
     if yname not in data.columns:
         raise Exception(f"\x1b[31m종속변수 {yname}가 존재하지 않습니다.\x1b[0m")
-    
-    
+
     x = data.drop(yname, axis=1)
     y = data[yname]
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=test_size, random_state=random_state)
+    x_train, x_test, y_train, y_test = train_test_split(
+        x, y, test_size=test_size, random_state=random_state
+    )
 
     if scalling:
         scaler = StandardScaler()
-        x_train = DataFrame(scaler.fit_transform(x_train), index=x_train.index, columns=x_train.columns)
-        x_test = DataFrame(scaler.transform(x_test), index=x_test.index, columns=x_test.columns)
+        x_train = DataFrame(
+            scaler.fit_transform(x_train), index=x_train.index, columns=x_train.columns
+        )
+        x_test = DataFrame(
+            scaler.transform(x_test), index=x_test.index, columns=x_test.columns
+        )
 
     return x_train, x_test, y_train, y_test
 
@@ -181,17 +205,19 @@ def my_category(data: DataFrame, *args: str) -> DataFrame:
         DataFrame: 카테고리 설정된 데이터프레임
     """
     df = data.copy()
-    
+
     for k in args:
-        df[k] = df[k].astype('category')
+        df[k] = df[k].astype("category")
 
     return df
 
 
-def my_unmelt(data: DataFrame, id_vars: str ='class', value_vars: str='values') -> DataFrame:
+def my_unmelt(
+    data: DataFrame, id_vars: str = "class", value_vars: str = "values"
+) -> DataFrame:
     """두 개의 컬럼으로 구성된 데이터프레임에서 하나는 명목형, 나머지는 연속형일 경우
     명목형 변수의 값에 따라 고유한 변수를 갖는 데이터프레임으로 변환한다.
-    
+
     Args:
         data (DataFrame): 데이터프레임
         id_vars (str, optional): 명목형 변수의 컬럼명. Defaults to 'class'.
@@ -205,20 +231,20 @@ def my_unmelt(data: DataFrame, id_vars: str ='class', value_vars: str='values') 
 
     for i in result.index:
         mydict[i] = result[i]
-        
+
     return DataFrame(mydict)
 
 
-def my_replace_missing_value(data: DataFrame, strategy: str = 'mean') -> DataFrame:
+def my_replace_missing_value(data: DataFrame, strategy: str = "mean") -> DataFrame:
     # 결측치 처리 규칙 생성
     imr = SimpleImputer(missing_values=np.nan, strategy=strategy)
-    
+
     # 결측치 처리 규칙 적용 --> 2차원 배열로 반환됨
     df_imr = imr.fit_transform(data.values)
-    
+
     # 2차원 배열을 데이터프레임으로 변환 후 리턴
     return DataFrame(df_imr, index=data.index, columns=data.columns)
-    
+
 
 def my_outlier_table(data: DataFrame, *fields: str):
     """데이터프레임의 사분위수와 결측치 경계값을 구한다.
@@ -237,32 +263,39 @@ def my_outlier_table(data: DataFrame, *fields: str):
     result = []
     for f in fields:
         # 숫자 타입이 아니라면 건너뜀
-        if data[f].dtypes not in ['int', 'int32', 'int64', 'float', 'float32', 'float64']:
+        if data[f].dtypes not in [
+            "int",
+            "int32",
+            "int64",
+            "float",
+            "float32",
+            "float64",
+        ]:
             continue
-        
+
         # 사분위수
         q1 = data[f].quantile(q=0.25)
         q2 = data[f].quantile(q=0.5)
         q3 = data[f].quantile(q=0.75)
-        
+
         # 결측치 경계
         iqr = q3 - q1
         down = q1 - 1.5 * iqr
         up = q3 + 1.5 * iqr
-        
+
         iq = {
-            'FIELD': f,
-            'Q1': q1,
-            'Q2': q2,
-            'Q3': q3,
-            'IQR': iqr,
-            'UP': up,
-            'DOWN': down
+            "FIELD": f,
+            "Q1": q1,
+            "Q2": q2,
+            "Q3": q3,
+            "IQR": iqr,
+            "UP": up,
+            "DOWN": down,
         }
-        
+
         result.append(iq)
-        
-    return DataFrame(result).set_index('FIELD')
+
+    return DataFrame(result).set_index("FIELD")
 
 
 def my_replace_outliner(data: DataFrame, *fields: str) -> DataFrame:
@@ -275,34 +308,34 @@ def my_replace_outliner(data: DataFrame, *fields: str) -> DataFrame:
     Returns:
         DataFrame: 이상치가 경계값으로 대체된 데이터 프레임
     """
-    
+
     # 원본 데이터 프레임 복사
     df = data.copy()
-    
+
     # 카테고리 타입만 골라냄
     category_fields = []
     for f in df.columns:
-        if df[f].dtypes not in ['int', 'int32', 'int64', 'float', 'float32', 'float64']:
+        if df[f].dtypes not in ["int", "int32", "int64", "float", "float32", "float64"]:
             category_fields.append(f)
-    
+
     cate = df[category_fields]
     df = df.drop(category_fields, axis=1)
-    
+
     # 이상치 경계값을 구한다.
     outliner_table = my_outlier_table(df, *fields)
-    
+
     # 이상치가 발견된 필드에 대해서만 처리
     for f in outliner_table.index:
-        df.loc[df[f] < outliner_table.loc[f, 'DOWN'], f] = outliner_table.loc[f, 'DOWN']
-        df.loc[df[f] > outliner_table.loc[f, 'UP'], f] = outliner_table.loc[f, 'UP']
-    
+        df.loc[df[f] < outliner_table.loc[f, "DOWN"], f] = outliner_table.loc[f, "DOWN"]
+        df.loc[df[f] > outliner_table.loc[f, "UP"], f] = outliner_table.loc[f, "UP"]
+
     # 분리했던 카테고리 타입을 다시 병합
     if category_fields:
         df[category_fields] = cate
-    
+
     return df
 
-        
+
 def my_replace_outliner_to_nan(data: DataFrame, *fields: str) -> DataFrame:
     """이상치를 결측치로 대체한다.
 
@@ -313,31 +346,31 @@ def my_replace_outliner_to_nan(data: DataFrame, *fields: str) -> DataFrame:
     Returns:
         DataFrame: 이상치가 결측치로 대체된 데이터프레임
     """
-    
+
     # 원본 데이터 프레임 복사
     df = data.copy()
-    
+
     # 카테고리 타입만 골라냄
     category_fields = []
     for f in df.columns:
-        if df[f].dtypes not in ['int', 'int32', 'int64', 'float', 'float32', 'float64']:
+        if df[f].dtypes not in ["int", "int32", "int64", "float", "float32", "float64"]:
             category_fields.append(f)
-    
+
     cate = df[category_fields]
     df = df.drop(category_fields, axis=1)
-    
+
     # 이상치 경계값을 구한다.
     outliner_table = my_outlier_table(df, *fields)
-    
+
     # 이상치가 발견된 필드에 대해서만 처리
     for f in outliner_table.index:
-        df.loc[df[f] < outliner_table.loc[f, 'DOWN'], f] = np.nan
-        df.loc[df[f] > outliner_table.loc[f, 'UP'], f] = np.nan
-        
+        df.loc[df[f] < outliner_table.loc[f, "DOWN"], f] = np.nan
+        df.loc[df[f] > outliner_table.loc[f, "UP"], f] = np.nan
+
     # 분리했던 카테고리 타입을 다시 병합
     if category_fields:
         df[category_fields] = cate
-    
+
     return df
 
 
@@ -353,29 +386,29 @@ def my_replace_outliner_to_mean(data: DataFrame, *fields: str) -> DataFrame:
     """
     # 원본 데이터 프레임 복사
     df = data.copy()
-    
+
     # 카테고리 타입만 골라냄
     category_fields = []
     for f in df.columns:
-        if df[f].dtypes not in ['int', 'int32', 'int64', 'float', 'float32', 'float64']:
+        if df[f].dtypes not in ["int", "int32", "int64", "float", "float32", "float64"]:
             category_fields.append(f)
-    
+
     cate = df[category_fields]
     df = df.drop(category_fields, axis=1)
 
     # 이상치를 결측치로 대체한다.
     if not fields:
         fields = df.columns
-        
+
     df2 = my_replace_outliner_to_nan(df, *fields)
 
     # 결측치를 평균값으로 대체한다.
-    df3 = my_replace_missing_value(df2, 'mean')
-    
+    df3 = my_replace_missing_value(df2, "mean")
+
     # 분리했던 카테고리 타입을 다시 병합
     if category_fields:
         df3[category_fields] = cate
-        
+
     return df3
 
 
@@ -391,14 +424,14 @@ def my_dummies(data: DataFrame, *args: str) -> DataFrame:
     """
     if not args:
         args = []
-        
+
         for f in data.columns:
-            if data[f].dtypes == 'category':
+            if data[f].dtypes == "category":
                 args.append(f)
     else:
         args = list(args)
-                
-    return get_dummies(data, columns=args, drop_first=True, dtype='int')
+
+    return get_dummies(data, columns=args, drop_first=True, dtype="int")
 
 
 def my_trend(x: any, y: any, degree=2, value_count=100) -> tuple:
@@ -413,26 +446,28 @@ def my_trend(x: any, y: any, degree=2, value_count=100) -> tuple:
     Returns:
         tuple: (v_trend, t_trend)
     """
-    #[ a, b, c ] ==> ax^2 + bx + c
+    # [ a, b, c ] ==> ax^2 + bx + c
     coeff = np.polyfit(x, y, degree)
-    
-    if type(x) == 'list':
+
+    if type(x) == "list":
         minx = min(x)
         maxx = max(x)
     else:
         minx = x.min()
         maxx = x.max()
-        
+
     v_trend = np.linspace(minx, maxx, value_count)
-    
+
     t_trend = coeff[-1]
     for i in range(0, degree):
         t_trend += coeff[i] * v_trend ** (degree - i)
-        
+
     return (v_trend, t_trend)
 
 
-def my_poly_features(data: DataFrame, columns: list = [], ignore: list = [], degree: int = 2) -> DataFrame:
+def my_poly_features(
+    data: DataFrame, columns: list = [], ignore: list = [], degree: int = 2
+) -> DataFrame:
     """전달된 데이터프레임에 대해서 2차항을 추가한 새로온 데이터프레임을 리턴한다.
 
     Args:
@@ -445,25 +480,25 @@ def my_poly_features(data: DataFrame, columns: list = [], ignore: list = [], deg
         DataFrame: 2차항이 추가된 새로운 데이터 프레임
     """
     df = data.copy()
-    
+
     if not columns:
         columns = df.columns
-    
+
     ignore_df = None
     if ignore:
         ignore_df = df[ignore]
         df.drop(ignore, axis=1, inplace=True)
         columns = [c for c in columns if c not in ignore]
-        
+
     poly = PolynomialFeatures(degree=degree, include_bias=False)
     poly_fit = poly.fit_transform(df[columns])
     poly_df = DataFrame(poly_fit, columns=poly.get_feature_names_out(), index=df.index)
-    
+
     df[poly_df.columns] = poly_df[poly_df.columns]
-    
+
     if ignore_df is not None:
         df[ignore] = ignore_df
-    
+
     return df
 
 
@@ -478,10 +513,10 @@ def my_labelling(data: DataFrame, *fields: str) -> DataFrame:
         DataFrame: 라벨링된 데이터프레임
     """
     df = data.copy()
-    
+
     for f in fields:
         vc = sorted(list(df[f].unique()))
         label = {v: i for i, v in enumerate(vc)}
-        df[f] = df[f].map(label).astype('int')
-    
+        df[f] = df[f].map(label).astype("int")
+
     return df

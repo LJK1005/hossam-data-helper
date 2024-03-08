@@ -44,7 +44,7 @@ pip install --upgrade git+file///path/to/your/git/project/
 ## Uninstallation
 
 ```shell
-pip uninstall -y Hossam-Data-Util
+pip uninstall -y hossam
 ```
 
 ## How to use

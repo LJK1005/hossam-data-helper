@@ -1755,17 +1755,19 @@ def my_scatter_by_class(
     group: list = None,
     hue: str = None,
     palette: str = None,
+    outline: bool = False,
     figsize: tuple = (10, 5),
     dpi: int = 100,
     callback: any = None,
 ) -> None:
-    """클래스별로 산점도를 출력한다.
+    """클래스별로 독립변수의 산점도를 출력한다.
 
     Args:
         data (DataFrame): 독립변수
-        xnames (list): 독립변수의 이름
-        yname (str): 종속변수의 이름
-        hue (str): 클래스별로 구분할 변수
+        group (list, optional): 독립변수의 조합. Defaults to None.
+        hue (str, optional): 클래스별로 구분할 변수. Defaults to None.
+        palette (str, optional): 칼라맵. Defaults to None.
+        outline (bool, optional): 테두리 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
@@ -1789,5 +1791,9 @@ def my_scatter_by_class(
             j = (i + 1) % len(xnames)
             group.append([v, xnames[j]])
 
-    for i, v in enumerate(group):
-        my_scatterplot(data, v[0], v[1], hue, palette, figsize, dpi, callback)
+    if outline:
+        for i, v in enumerate(group):
+            my_convex_hull(data, v[0], v[1], hue, palette, figsize, dpi, callback)
+    else:
+        for i, v in enumerate(group):
+            my_scatterplot(data, v[0], v[1], hue, palette, figsize, dpi, callback)

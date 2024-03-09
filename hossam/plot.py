@@ -1679,6 +1679,7 @@ def my_distribution_by_class(
     type: str = "kde",
     bins: any = 5,
     palette: str = None,
+    fill: bool = False,
     figsize: tuple = (10, 5),
     dpi: int = 100,
     callback: any = None,
@@ -1692,6 +1693,7 @@ def my_distribution_by_class(
         type (str, optional): 그래프 종류 (kde, hist, histkde). Defaults to "kde".
         bins (any, optional): 히스토그램의 구간 수. Defaults to 5.
         palette (str, optional): 칼라맵. Defaults to None.
+        fill (bool, optional): kde 그래프의 채우기 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
@@ -1717,6 +1719,7 @@ def my_distribution_by_class(
                 v,
                 hue=hue,
                 palette=palette,
+                fill=fill,
                 figsize=figsize,
                 dpi=dpi,
                 callback=callback

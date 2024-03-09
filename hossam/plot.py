@@ -1670,3 +1670,134 @@ def my_roc_curve(
             my_roc_curve_multiclass_ovr(
                 estimator, x, y, hist, roc, pr, figsize, dpi, callback
             )
+
+
+def my_distribution_by_class(
+    data: DataFrame,
+    xnames: list = None,
+    hue: str = None,
+    type: str = "kde",
+    bins: any = 5,
+    palette: str = None,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+    callback: any = None,
+) -> None:
+    """클래스별로 독립변수의 분포를 출력한다.
+
+    Args:
+        data (DataFrame): 독립변수
+        xnames (list, optional): 독립변수의 이름. Defaults to None.
+        hue (str, optional): 클래스별로 구분할 변수. Defaults to None.
+        type (str, optional): 그래프 종류 (kde, hist, histkde). Defaults to "kde".
+        bins (any, optional): 히스토그램의 구간 수. Defaults to 5.
+        palette (str, optional): 칼라맵. Defaults to None.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
+    """
+    if xnames == None:
+        xnames = data.columns
+
+    for i, v in enumerate(xnames):
+        # 종속변수이거나 숫자형이 아닌 경우는 제외
+        if v == hue or data[v].dtype not in [
+            "int",
+            "int32",
+            "int64",
+            "float",
+            "float32",
+            "float64",
+        ]:
+            continue
+
+        plt.figure(figsize=figsize, dpi=dpi)
+        ax = plt.gca()
+
+        if type == "kde":
+            my_kdeplot(
+                data,
+                v,
+                hue,
+                palette=palette,
+                figsize=figsize,
+                dpi=dpi,
+                callback=callback,
+            )
+        elif type == "hist":
+            my_histplot(
+                data,
+                v,
+                hue,
+                bins=bins,
+                kde=False,
+                palette=palette,
+                figsize=figsize,
+                dpi=dpi,
+                callback=callback,
+            )
+        elif type == "histkde":
+            my_histplot(
+                data,
+                v,
+                hue,
+                bins=bins,
+                kde=True,
+                palette=palette,
+                figsize=figsize,
+                dpi=dpi,
+                callback=callback,
+            )
+
+        ax.set_title(v)
+        ax.grid()
+
+        if callback:
+            callback(ax)
+
+        plt.tight_layout()
+        plt.show()
+        plt.close()
+
+
+def my_scatter_by_class(
+    data: DataFrame,
+    group: list = None,
+    hue: str = None,
+    palette: str = None,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+    callback: any = None,
+) -> None:
+    """클래스별로 산점도를 출력한다.
+
+    Args:
+        data (DataFrame): 독립변수
+        xnames (list): 독립변수의 이름
+        yname (str): 종속변수의 이름
+        hue (str): 클래스별로 구분할 변수
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
+    """
+    if group == None:
+        group = []
+
+        xnames = data.columns
+
+        for i, v in enumerate(xnames):
+            if data[v].dtype not in [
+                "int",
+                "int32",
+                "int64",
+                "float",
+                "float32",
+                "float64",
+            ]:
+                continue
+
+            j = (i + 1) % len(xnames)
+            group.append([v, xnames[j]])
+
+    for i, v in enumerate(group):
+        my_scatterplot(data, v[0], v[1], hue, palette, figsize, dpi, callback)

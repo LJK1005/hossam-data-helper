@@ -1,11 +1,13 @@
 import numpy as np
 from tabulate import tabulate
-from pandas import DataFrame, read_excel, get_dummies
+from pandas import DataFrame, Series, read_excel, get_dummies
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 from sklearn.impute import SimpleImputer
 from scipy.stats import normaltest
 
+from imblearn.over_sampling import SMOTE, RandomOverSampler
+from imblearn.under_sampling import RandomUnderSampler
 
 def my_normalize_data(
     mean: float, std: float, size: int = 100, round: int = 2
@@ -520,3 +522,30 @@ def my_labelling(data: DataFrame, *fields: str) -> DataFrame:
         df[f] = df[f].map(label).astype("int")
 
     return df
+
+
+def my_balance(xdata: DataFrame, ydata: Series, method: str = 'smote') -> DataFrame:
+    """불균형 데이터를 균형 데이터로 변환한다.
+
+    Args:
+        xdata (DataFrame): 독립변수 데이터 프레임
+        ydata (Series): 종속변수 데이터 시리즈
+        method (str, optional): 균형화 방법. Defaults to 'smote'.
+
+    Returns:
+        DataFrame: _description_
+    """
+    
+    if method == 'smote':
+        smote = SMOTE(random_state=0)
+        xdata, ydata = smote.fit_resample(xdata, ydata)
+    elif method == 'over':
+        ros = RandomOverSampler(random_state=0)
+        xdata, ydata = ros.fit_resample(xdata, ydata)
+    elif method == 'under':
+        rus = RandomUnderSampler(random_state=0)
+        xdata, ydata = rus.fit_resample(xdata, ydata)
+    else:
+        raise Exception(f"\x1b[31m지원하지 않는 방법입니다.(smote, over, under중 하나를 지정해야 합니다.) ({method})\x1b[0m")
+    
+    return xdata, ydata

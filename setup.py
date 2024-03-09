@@ -21,6 +21,7 @@ setup(
         'scipy',
         'pingouin',
         'scikit-learn',
+        'imblearn',
         'pdoc3'
     ]
 )

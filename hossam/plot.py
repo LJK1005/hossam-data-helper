@@ -655,14 +655,17 @@ def my_convex_hull(
         # 한 종류만 필터링한 결과에서 두 변수만 선택
         df_c = data.loc[data[hue] == c, [xname, yname]]
 
-        # 외각선 좌표 계산
-        hull = ConvexHull(df_c)
+        try:
+            # 외각선 좌표 계산
+            hull = ConvexHull(df_c)
 
-        # 마지막 좌표 이후에 첫 번째 좌표를 연결
-        points = np.append(hull.vertices, hull.vertices[0])
+            # 마지막 좌표 이후에 첫 번째 좌표를 연결
+            points = np.append(hull.vertices, hull.vertices[0])
 
-        ax.plot(df_c.iloc[points, 0], df_c.iloc[points, 1], linewidth=1, linestyle=":")
-        ax.fill(df_c.iloc[points, 0], df_c.iloc[points, 1], alpha=0.1)
+            ax.plot(df_c.iloc[points, 0], df_c.iloc[points, 1], linewidth=1, linestyle=":")
+            ax.fill(df_c.iloc[points, 0], df_c.iloc[points, 1], alpha=0.1)
+        except:
+            pass
 
     sb.scatterplot(data=data, x=xname, y=yname, hue=hue, palette=palette, ax=ax)
     ax.grid()

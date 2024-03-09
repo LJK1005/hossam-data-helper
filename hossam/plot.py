@@ -1715,35 +1715,35 @@ def my_distribution_by_class(
             my_kdeplot(
                 data,
                 v,
-                hue,
+                hue=hue,
                 palette=palette,
                 figsize=figsize,
                 dpi=dpi,
-                callback=callback,
+                callback=callback
             )
         elif type == "hist":
             my_histplot(
                 data,
                 v,
-                hue,
+                hue=hue,
                 bins=bins,
                 kde=False,
                 palette=palette,
                 figsize=figsize,
                 dpi=dpi,
-                callback=callback,
+                callback=callback
             )
         elif type == "histkde":
             my_histplot(
                 data,
                 v,
-                hue,
+                hue=hue,
                 bins=bins,
                 kde=True,
                 palette=palette,
                 figsize=figsize,
                 dpi=dpi,
-                callback=callback,
+                callback=callback
             )
 
 

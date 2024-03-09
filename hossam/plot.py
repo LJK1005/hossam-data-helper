@@ -1711,9 +1711,6 @@ def my_distribution_by_class(
         ]:
             continue
 
-        plt.figure(figsize=figsize, dpi=dpi)
-        ax = plt.gca()
-
         if type == "kde":
             my_kdeplot(
                 data,
@@ -1748,16 +1745,6 @@ def my_distribution_by_class(
                 dpi=dpi,
                 callback=callback,
             )
-
-        ax.set_title(v)
-        ax.grid()
-
-        if callback:
-            callback(ax)
-
-        plt.tight_layout()
-        plt.show()
-        plt.close()
 
 
 def my_scatter_by_class(

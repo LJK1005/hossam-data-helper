@@ -1403,6 +1403,8 @@ def my_roc_curve_multiclass_ovo(
             fpr, tpr, _ = roc_curve(df_aux["class"], df_aux["prob"])
             auc = roc_auc_score(df_aux["class"], df_aux["prob"])
 
+            auc_list.append(auc)
+
             sb.lineplot(
                 x=fpr,
                 y=tpr,
@@ -1467,11 +1469,10 @@ def my_roc_curve_multiclass_ovo(
         plt.show()
         plt.close()
 
-        auc_list.append(auc)
-
         # break
 
-    print(f"mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}")
+    if auc_list:
+        print(f"mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}")
 
 
 def my_roc_curve_multiclass_ovr(
@@ -1565,6 +1566,8 @@ def my_roc_curve_multiclass_ovr(
             fpr, tpr, _ = roc_curve(df_aux["class"], df_aux["prob"])
             auc = roc_auc_score(df_aux["class"], df_aux["prob"])
 
+            auc_list.append(auc)
+
             sb.lineplot(
                 x=fpr,
                 y=tpr,
@@ -1628,11 +1631,10 @@ def my_roc_curve_multiclass_ovr(
         plt.show()
         plt.close()
 
-        auc_list.append(auc)
-
         # break
 
-    print(f"mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}")
+    if auc_list:
+        print(f"mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}")
 
 
 def my_roc_curve(

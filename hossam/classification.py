@@ -147,10 +147,22 @@ def my_logistic_classification(
     # ------------------------------------------------------
     # 보고서 출력
     if report:
-        if x_test is not None and y_test is not None:
-            my_classification_report(estimator, x=x_test, y=y_test)
+        is_binary = len(estimator.classes_) == 2
+
+        if is_binary:
+            if x_test is not None and y_test is not None:
+                my_classification_binary_report(estimator, x=x_test, y=y_test)
+            else:
+                my_classification_binary_report(estimator, x=x_train, y=y_train)
         else:
-            my_classification_report(estimator, x=x_train, y=y_train)
+            if x_test is not None and y_test is not None:
+                my_classification_multiclass_report(
+                    estimator, x=x_test, y=y_test, sort=sort
+                )
+            else:
+                my_classification_multiclass_report(
+                    estimator, x=x_train, y=y_train, sort=sort
+                )
 
     return estimator
 
@@ -406,13 +418,13 @@ def my_classification_result(
             )
 
 
-def my_classification_report(
+def my_classification_binary_report(
     estimator: any,
     x: DataFrame = None,
     y: Series = None,
     sort: str = None,
 ) -> None:
-    """로지스틱 회귀분석 결과를 출력한다.
+    """이항로지스틱 회귀분석 결과를 출력한다.
 
     Args:
         estimator (any): 분류분석 추정기 (모델 객체)
@@ -488,3 +500,91 @@ def my_classification_report(
             result_df.sort_values("유의확률", inplace=True)
 
     my_pretty_table(result_df)
+
+
+def my_classification_multiclass_report(
+    estimator: any,
+    x: DataFrame = None,
+    y: Series = None,
+    sort: str = None,
+) -> None:
+    """다중로지스틱 회귀분석 결과를 출력한다.
+
+    Args:
+        estimator (any): 분류분석 추정기 (모델 객체)
+        x (DataFrame, optional): 독립변수. Defaults to None.
+        y (Series, optional): 종속변수. Defaults to None.
+        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+    """
+    class_list = list(estimator.classes_)
+    class_size = len(class_list)
+
+    # 추정 확률
+    y_pred_proba = estimator.predict_proba(x)
+
+    # 추정확률의 길이(=샘플수)
+    n = len(y_pred_proba)
+
+    for i in range(0, class_size):
+        # 계수의 수 + 1(절편)
+        m = len(estimator.coef_[i]) + 1
+
+        # 절편과 계수를 하나의 배열로 결합
+        coefs = np.concatenate([[estimator.intercept_[i]], estimator.coef_[i]])
+
+        # 상수항 추가
+        x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
+
+        # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
+        ans = np.zeros((m, m))
+
+        # 표준오차
+        for j in range(n):
+            ans = (
+                ans
+                + np.dot(np.transpose(x_full[j, :]), x_full[j, :]) * y_pred_proba[j, i]
+            )
+
+        vcov = np.linalg.inv(np.matrix(ans))
+        se = np.sqrt(np.diag(vcov))
+
+        # t값
+        t = coefs / se
+
+        # p-value
+        p_values = (1 - norm.cdf(abs(t))) * 2
+
+        # VIF
+        if len(x.columns) > 1:
+            vif = [
+                variance_inflation_factor(x, list(x.columns).index(v))
+                for i, v in enumerate(x.columns)
+            ]
+        else:
+            vif = 0
+
+        # 결과표 생성
+        xnames = estimator.feature_names_in_
+
+        result_df = DataFrame(
+            {
+                "종속변수": [y.name] * len(xnames),
+                "CLASS": [class_list[i]] * len(xnames),
+                "독립변수": xnames,
+                "B(계수)": np.round(estimator.coef_[i], 4),
+                "표준오차": np.round(se[1:], 3),
+                "t": np.round(t[1:], 4),
+                "유의확률": np.round(p_values[1:], 3),
+                "VIF": vif,
+                "OddsRate": np.round(np.exp(estimator.coef_[i]), 4),
+            }
+        )
+
+        if sort:
+            if sort.upper() == "V":
+                result_df.sort_values("VIF", inplace=True)
+            elif sort.upper() == "P":
+                result_df.sort_values("유의확률", inplace=True)
+                pass
+
+        my_pretty_table(result_df)

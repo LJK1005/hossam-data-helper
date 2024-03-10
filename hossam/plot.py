@@ -662,7 +662,9 @@ def my_convex_hull(
             # 마지막 좌표 이후에 첫 번째 좌표를 연결
             points = np.append(hull.vertices, hull.vertices[0])
 
-            ax.plot(df_c.iloc[points, 0], df_c.iloc[points, 1], linewidth=1, linestyle=":")
+            ax.plot(
+                df_c.iloc[points, 0], df_c.iloc[points, 1], linewidth=1, linestyle=":"
+            )
             ax.fill(df_c.iloc[points, 0], df_c.iloc[points, 1], alpha=0.1)
         except:
             pass
@@ -1385,6 +1387,9 @@ def my_roc_curve_multiclass_ovo(
         fig, ax = plt.subplots(1, cols, figsize=figsize_, dpi=dpi)
         plt.suptitle(title, fontsize=16)
 
+        if cols < 2:
+            ax = [ax]
+
         # ax[0] : histogram -------------------------
         if hist:
             sb.histplot(data=df_aux, x="prob", hue="class", bins=bins, ax=ax[fig_index])
@@ -1541,8 +1546,11 @@ def my_roc_curve_multiclass_ovr(
         # my_pretty_table(df_aux.head(10))
 
         # 시각화 시작
-        fig, ax = plt.subplots(1, 3, figsize=figsize_, dpi=dpi)
+        fig, ax = plt.subplots(1, cols, figsize=figsize_, dpi=dpi)
         plt.suptitle(title, fontsize=16)
+
+        if cols < 2:
+            ax = [ax]
 
         # ax[0] : histogram -------------------------
         if hist:
@@ -1725,7 +1733,7 @@ def my_distribution_by_class(
                 fill=fill,
                 figsize=figsize,
                 dpi=dpi,
-                callback=callback
+                callback=callback,
             )
         elif type == "hist":
             my_histplot(
@@ -1737,7 +1745,7 @@ def my_distribution_by_class(
                 palette=palette,
                 figsize=figsize,
                 dpi=dpi,
-                callback=callback
+                callback=callback,
             )
         elif type == "histkde":
             my_histplot(
@@ -1749,7 +1757,7 @@ def my_distribution_by_class(
                 palette=palette,
                 figsize=figsize,
                 dpi=dpi,
-                callback=callback
+                callback=callback,
             )
 
 

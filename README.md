@@ -47,7 +47,7 @@ pip install --upgrade git+file:///path/to/your/git/project/
 ### [3] Local Directory
 
 ```shell
-pip install --upgrade /path/to/your/git/project/
+pip install --upgrade /path/to/your/project/
 ```
 
 

@@ -530,7 +530,7 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = 'smote') -> DataFr
     Args:
         xdata (DataFrame): 독립변수 데이터 프레임
         ydata (Series): 종속변수 데이터 시리즈
-        method (str, optional): 균형화 방법. Defaults to 'smote'.
+        method (str, optional): 균형화 방법 [smote, over, under]. Defaults to 'smote'.
 
     Returns:
         DataFrame: _description_

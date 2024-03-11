@@ -28,6 +28,30 @@ plt.rcParams["figure.dpi"] = 200
 plt.rcParams["axes.unicode_minus"] = False
 
 
+def my_lineplot(
+    df: DataFrame,
+    xname: str = None,
+    yname: str = None,
+    hue: str = None,
+    palette: str = None,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+    callback: any = None,
+) -> None:
+    plt.figure(figsize=figsize, dpi=dpi)
+    ax = plt.gca()
+
+    sb.lineplot(data=df, x=xname, y=yname, hue=hue, palette=palette, ax=ax)
+    ax.grid()
+
+    if callback:
+        callback(ax)
+
+    plt.tight_layout()
+    plt.show()
+    plt.close()
+
+
 def my_boxplot(
     df: DataFrame,
     xname: str = None,

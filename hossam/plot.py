@@ -1791,7 +1791,7 @@ def my_scatter_by_class(
         xnames = data.columns
 
         for i, v in enumerate(xnames):
-            if data[v].dtype not in [
+            if v == hue or data[v].dtype not in [
                 "int",
                 "int32",
                 "int64",

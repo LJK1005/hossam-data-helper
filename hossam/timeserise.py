@@ -39,6 +39,10 @@ def my_diff(
         else:
             print("=========== %d차 차분 데이터 ===========" % count)
 
+        if count > 0:
+            # 차분 수행
+            df = df.diff().dropna()
+
         if plot:
             my_lineplot(df=df, yname=yname, xname=df.index, figsize=figsize, dpi=dpi)
 
@@ -61,12 +65,11 @@ def my_diff(
         ardf = DataFrame(ardict, index=["ADF Test"]).T
         my_pretty_table(ardf)
 
-        # 차분 수행
-        df = df.diff().dropna()
-
         # 반복회차 1 증가
         count += 1
 
         # 최대 차분 횟수가 지정되어 있고, 반복회차가 최대 차분 횟수에 도달하면 종료
         if max_diff and count == max_diff:
             break
+
+    return df

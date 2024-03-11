@@ -147,22 +147,7 @@ def my_logistic_classification(
     # ------------------------------------------------------
     # 보고서 출력
     if report:
-        is_binary = len(estimator.classes_) == 2
-
-        if is_binary:
-            if x_test is not None and y_test is not None:
-                my_classification_binary_report(estimator, x=x_test, y=y_test)
-            else:
-                my_classification_binary_report(estimator, x=x_train, y=y_train)
-        else:
-            if x_test is not None and y_test is not None:
-                my_classification_multiclass_report(
-                    estimator, x=x_test, y=y_test, sort=sort
-                )
-            else:
-                my_classification_multiclass_report(
-                    estimator, x=x_train, y=y_train, sort=sort
-                )
+        my_classification_report(estimator, x_train, y_train, x_test, y_test, sort)
 
     return estimator
 
@@ -418,11 +403,44 @@ def my_classification_result(
             )
 
 
-def my_classification_binary_report(
+def my_classification_report(
     estimator: any,
-    x: DataFrame = None,
-    y: Series = None,
+    x_train: DataFrame = None,
+    y_train: Series = None,
+    x_test: DataFrame = None,
+    y_test: Series = None,
     sort: str = None,
+) -> None:
+    """분류분석 결과를 이항분류와 다항분류로 구분하여 출력한다. 훈련데이터와 검증데이터가 함께 전달 될 경우 검증 데이터를 우선한다.
+
+    Args:
+        estimator (any): 분류분석 추정기 (모델 객체)
+        x_train (DataFrame, optional): 훈련 데이터의 독립변수. Defaults to None.
+        y_train (Series, optional): 훈련 데이터의 종속변수. Defaults to None.
+        x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
+        y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
+        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+    """
+    is_binary = len(estimator.classes_) == 2
+
+    if is_binary:
+        if x_test is not None and y_test is not None:
+            my_classification_binary_report(estimator, x=x_test, y=y_test, sort=sort)
+        else:
+            my_classification_binary_report(estimator, x=x_train, y=y_train, sort=sort)
+    else:
+        if x_test is not None and y_test is not None:
+            my_classification_multiclass_report(
+                estimator, x=x_test, y=y_test, sort=sort
+            )
+        else:
+            my_classification_multiclass_report(
+                estimator, x=x_train, y=y_train, sort=sort
+            )
+
+
+def my_classification_binary_report(
+    estimator: any, x: DataFrame = None, y: Series = None, sort: str = None
 ) -> None:
     """이항로지스틱 회귀분석 결과를 출력한다.
 

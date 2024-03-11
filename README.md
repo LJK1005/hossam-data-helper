@@ -39,7 +39,7 @@ pip install --upgrade git+ssh://git@github.com:leekh4232/hossam-data-helper.git
 ### [2] Local Repository
 
 ```shell
-pip install --upgrade git+file///path/to/your/git/project/
+pip install --upgrade git+file:///path/to/your/git/project/
 ```
 
 ## Uninstallation

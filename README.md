@@ -22,6 +22,8 @@ MIT 라이센스를 따릅니다.
 
 ## Installation
 
+`pip` 명령으로 `setup.py` 파일이 있는 위치를 지정합니다.
+
 ### [1] Remote Repository
 
 ```shell
@@ -41,6 +43,13 @@ pip install --upgrade git+ssh://git@github.com:leekh4232/hossam-data-helper.git
 ```shell
 pip install --upgrade git+file:///path/to/your/git/project/
 ```
+
+### [3] Local Directory
+
+```shell
+pip install --upgrade /path/to/your/git/project/
+```
+
 
 ## Uninstallation
 

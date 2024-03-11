@@ -56,6 +56,30 @@ plt.rcParams[&#34;figure.dpi&#34;] = 200
 plt.rcParams[&#34;axes.unicode_minus&#34;] = False
 
 
+def my_lineplot(
+    df: DataFrame,
+    xname: str = None,
+    yname: str = None,
+    hue: str = None,
+    palette: str = None,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+    callback: any = None,
+) -&gt; None:
+    plt.figure(figsize=figsize, dpi=dpi)
+    ax = plt.gca()
+
+    sb.lineplot(data=df, x=xname, y=yname, hue=hue, palette=palette, ax=ax)
+    ax.grid()
+
+    if callback:
+        callback(ax)
+
+    plt.tight_layout()
+    plt.show()
+    plt.close()
+
+
 def my_boxplot(
     df: DataFrame,
     xname: str = None,
@@ -683,14 +707,19 @@ def my_convex_hull(
         # 한 종류만 필터링한 결과에서 두 변수만 선택
         df_c = data.loc[data[hue] == c, [xname, yname]]
 
-        # 외각선 좌표 계산
-        hull = ConvexHull(df_c)
+        try:
+            # 외각선 좌표 계산
+            hull = ConvexHull(df_c)
 
-        # 마지막 좌표 이후에 첫 번째 좌표를 연결
-        points = np.append(hull.vertices, hull.vertices[0])
+            # 마지막 좌표 이후에 첫 번째 좌표를 연결
+            points = np.append(hull.vertices, hull.vertices[0])
 
-        ax.plot(df_c.iloc[points, 0], df_c.iloc[points, 1], linewidth=1, linestyle=&#34;:&#34;)
-        ax.fill(df_c.iloc[points, 0], df_c.iloc[points, 1], alpha=0.1)
+            ax.plot(
+                df_c.iloc[points, 0], df_c.iloc[points, 1], linewidth=1, linestyle=&#34;:&#34;
+            )
+            ax.fill(df_c.iloc[points, 0], df_c.iloc[points, 1], alpha=0.1)
+        except:
+            pass
 
     sb.scatterplot(data=data, x=xname, y=yname, hue=hue, palette=palette, ax=ax)
     ax.grid()
@@ -1410,6 +1439,9 @@ def my_roc_curve_multiclass_ovo(
         fig, ax = plt.subplots(1, cols, figsize=figsize_, dpi=dpi)
         plt.suptitle(title, fontsize=16)
 
+        if cols &lt; 2:
+            ax = [ax]
+
         # ax[0] : histogram -------------------------
         if hist:
             sb.histplot(data=df_aux, x=&#34;prob&#34;, hue=&#34;class&#34;, bins=bins, ax=ax[fig_index])
@@ -1422,6 +1454,8 @@ def my_roc_curve_multiclass_ovo(
         if roc:
             fpr, tpr, _ = roc_curve(df_aux[&#34;class&#34;], df_aux[&#34;prob&#34;])
             auc = roc_auc_score(df_aux[&#34;class&#34;], df_aux[&#34;prob&#34;])
+
+            auc_list.append(auc)
 
             sb.lineplot(
                 x=fpr,
@@ -1487,11 +1521,10 @@ def my_roc_curve_multiclass_ovo(
         plt.show()
         plt.close()
 
-        auc_list.append(auc)
-
         # break
 
-    print(f&#34;mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}&#34;)
+    if auc_list:
+        print(f&#34;mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}&#34;)
 
 
 def my_roc_curve_multiclass_ovr(
@@ -1566,8 +1599,11 @@ def my_roc_curve_multiclass_ovr(
         # my_pretty_table(df_aux.head(10))
 
         # 시각화 시작
-        fig, ax = plt.subplots(1, 3, figsize=figsize_, dpi=dpi)
+        fig, ax = plt.subplots(1, cols, figsize=figsize_, dpi=dpi)
         plt.suptitle(title, fontsize=16)
+
+        if cols &lt; 2:
+            ax = [ax]
 
         # ax[0] : histogram -------------------------
         if hist:
@@ -1581,6 +1617,8 @@ def my_roc_curve_multiclass_ovr(
         if roc:
             fpr, tpr, _ = roc_curve(df_aux[&#34;class&#34;], df_aux[&#34;prob&#34;])
             auc = roc_auc_score(df_aux[&#34;class&#34;], df_aux[&#34;prob&#34;])
+
+            auc_list.append(auc)
 
             sb.lineplot(
                 x=fpr,
@@ -1645,11 +1683,10 @@ def my_roc_curve_multiclass_ovr(
         plt.show()
         plt.close()
 
-        auc_list.append(auc)
-
         # break
 
-    print(f&#34;mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}&#34;)
+    if auc_list:
+        print(f&#34;mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}&#34;)
 
 
 def my_roc_curve(
@@ -1707,6 +1744,7 @@ def my_distribution_by_class(
     type: str = &#34;kde&#34;,
     bins: any = 5,
     palette: str = None,
+    fill: bool = False,
     figsize: tuple = (10, 5),
     dpi: int = 100,
     callback: any = None,
@@ -1720,6 +1758,7 @@ def my_distribution_by_class(
         type (str, optional): 그래프 종류 (kde, hist, histkde). Defaults to &#34;kde&#34;.
         bins (any, optional): 히스토그램의 구간 수. Defaults to 5.
         palette (str, optional): 칼라맵. Defaults to None.
+        fill (bool, optional): kde 그래프의 채우기 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
@@ -1743,8 +1782,9 @@ def my_distribution_by_class(
             my_kdeplot(
                 data,
                 v,
-                hue,
+                hue=hue,
                 palette=palette,
+                fill=fill,
                 figsize=figsize,
                 dpi=dpi,
                 callback=callback,
@@ -1753,7 +1793,7 @@ def my_distribution_by_class(
             my_histplot(
                 data,
                 v,
-                hue,
+                hue=hue,
                 bins=bins,
                 kde=False,
                 palette=palette,
@@ -1765,7 +1805,7 @@ def my_distribution_by_class(
             my_histplot(
                 data,
                 v,
-                hue,
+                hue=hue,
                 bins=bins,
                 kde=True,
                 palette=palette,
@@ -1780,17 +1820,19 @@ def my_scatter_by_class(
     group: list = None,
     hue: str = None,
     palette: str = None,
+    outline: bool = False,
     figsize: tuple = (10, 5),
     dpi: int = 100,
     callback: any = None,
 ) -&gt; None:
-    &#34;&#34;&#34;클래스별로 산점도를 출력한다.
+    &#34;&#34;&#34;클래스별로 독립변수의 산점도를 출력한다.
 
     Args:
         data (DataFrame): 독립변수
-        xnames (list): 독립변수의 이름
-        yname (str): 종속변수의 이름
-        hue (str): 클래스별로 구분할 변수
+        group (list, optional): 독립변수의 조합. Defaults to None.
+        hue (str, optional): 클래스별로 구분할 변수. Defaults to None.
+        palette (str, optional): 칼라맵. Defaults to None.
+        outline (bool, optional): 테두리 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
@@ -1801,7 +1843,7 @@ def my_scatter_by_class(
         xnames = data.columns
 
         for i, v in enumerate(xnames):
-            if data[v].dtype not in [
+            if v == hue or data[v].dtype not in [
                 &#34;int&#34;,
                 &#34;int32&#34;,
                 &#34;int64&#34;,
@@ -1814,8 +1856,12 @@ def my_scatter_by_class(
             j = (i + 1) % len(xnames)
             group.append([v, xnames[j]])
 
-    for i, v in enumerate(group):
-        my_scatterplot(data, v[0], v[1], hue, palette, figsize, dpi, callback)</code></pre>
+    if outline:
+        for i, v in enumerate(group):
+            my_convex_hull(data, v[0], v[1], hue, palette, figsize, dpi, callback)
+    else:
+        for i, v in enumerate(group):
+            my_scatterplot(data, v[0], v[1], hue, palette, figsize, dpi, callback)</code></pre>
 </details>
 </section>
 <section>
@@ -2151,14 +2197,19 @@ def my_scatter_by_class(
         # 한 종류만 필터링한 결과에서 두 변수만 선택
         df_c = data.loc[data[hue] == c, [xname, yname]]
 
-        # 외각선 좌표 계산
-        hull = ConvexHull(df_c)
+        try:
+            # 외각선 좌표 계산
+            hull = ConvexHull(df_c)
 
-        # 마지막 좌표 이후에 첫 번째 좌표를 연결
-        points = np.append(hull.vertices, hull.vertices[0])
+            # 마지막 좌표 이후에 첫 번째 좌표를 연결
+            points = np.append(hull.vertices, hull.vertices[0])
 
-        ax.plot(df_c.iloc[points, 0], df_c.iloc[points, 1], linewidth=1, linestyle=&#34;:&#34;)
-        ax.fill(df_c.iloc[points, 0], df_c.iloc[points, 1], alpha=0.1)
+            ax.plot(
+                df_c.iloc[points, 0], df_c.iloc[points, 1], linewidth=1, linestyle=&#34;:&#34;
+            )
+            ax.fill(df_c.iloc[points, 0], df_c.iloc[points, 1], alpha=0.1)
+        except:
+            pass
 
     sb.scatterplot(data=data, x=xname, y=yname, hue=hue, palette=palette, ax=ax)
     ax.grid()
@@ -2243,7 +2294,7 @@ def my_scatter_by_class(
 </details>
 </dd>
 <dt id="hossam.plot.my_distribution_by_class"><code class="name flex">
-<span>def <span class="ident">my_distribution_by_class</span></span>(<span>data: pandas.core.frame.DataFrame, xnames: list = None, hue: str = None, type: str = 'kde', bins: <built-in function any> = 5, palette: str = None, figsize: tuple = (10, 5), dpi: int = 100, callback: <built-in function any> = None) ‑> None</span>
+<span>def <span class="ident">my_distribution_by_class</span></span>(<span>data: pandas.core.frame.DataFrame, xnames: list = None, hue: str = None, type: str = 'kde', bins: <built-in function any> = 5, palette: str = None, fill: bool = False, figsize: tuple = (10, 5), dpi: int = 100, callback: <built-in function any> = None) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>클래스별로 독립변수의 분포를 출력한다.</p>
@@ -2261,6 +2312,8 @@ def my_scatter_by_class(
 <dd>히스토그램의 구간 수. Defaults to 5.</dd>
 <dt><strong><code>palette</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>칼라맵. Defaults to None.</dd>
+<dt><strong><code>fill</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>kde 그래프의 채우기 여부. Defaults to False.</dd>
 <dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
 <dd>그래프의 크기. Defaults to (10, 5).</dd>
 <dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
@@ -2279,6 +2332,7 @@ def my_scatter_by_class(
     type: str = &#34;kde&#34;,
     bins: any = 5,
     palette: str = None,
+    fill: bool = False,
     figsize: tuple = (10, 5),
     dpi: int = 100,
     callback: any = None,
@@ -2292,6 +2346,7 @@ def my_scatter_by_class(
         type (str, optional): 그래프 종류 (kde, hist, histkde). Defaults to &#34;kde&#34;.
         bins (any, optional): 히스토그램의 구간 수. Defaults to 5.
         palette (str, optional): 칼라맵. Defaults to None.
+        fill (bool, optional): kde 그래프의 채우기 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
@@ -2315,8 +2370,9 @@ def my_scatter_by_class(
             my_kdeplot(
                 data,
                 v,
-                hue,
+                hue=hue,
                 palette=palette,
+                fill=fill,
                 figsize=figsize,
                 dpi=dpi,
                 callback=callback,
@@ -2325,7 +2381,7 @@ def my_scatter_by_class(
             my_histplot(
                 data,
                 v,
-                hue,
+                hue=hue,
                 bins=bins,
                 kde=False,
                 palette=palette,
@@ -2337,7 +2393,7 @@ def my_scatter_by_class(
             my_histplot(
                 data,
                 v,
-                hue,
+                hue=hue,
                 bins=bins,
                 kde=True,
                 palette=palette,
@@ -2928,6 +2984,39 @@ def my_scatter_by_class(
     ax.set_xlabel(&#34;훈련 셋트 크기&#34;)
     ax.set_ylabel(ylabel)
     ax.legend()
+
+    if callback:
+        callback(ax)
+
+    plt.tight_layout()
+    plt.show()
+    plt.close()</code></pre>
+</details>
+</dd>
+<dt id="hossam.plot.my_lineplot"><code class="name flex">
+<span>def <span class="ident">my_lineplot</span></span>(<span>df: pandas.core.frame.DataFrame, xname: str = None, yname: str = None, hue: str = None, palette: str = None, figsize: tuple = (10, 5), dpi: int = 100, callback: <built-in function any> = None) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_lineplot(
+    df: DataFrame,
+    xname: str = None,
+    yname: str = None,
+    hue: str = None,
+    palette: str = None,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+    callback: any = None,
+) -&gt; None:
+    plt.figure(figsize=figsize, dpi=dpi)
+    ax = plt.gca()
+
+    sb.lineplot(data=df, x=xname, y=yname, hue=hue, palette=palette, ax=ax)
+    ax.grid()
 
     if callback:
         callback(ax)
@@ -3834,6 +3923,9 @@ def my_scatter_by_class(
         fig, ax = plt.subplots(1, cols, figsize=figsize_, dpi=dpi)
         plt.suptitle(title, fontsize=16)
 
+        if cols &lt; 2:
+            ax = [ax]
+
         # ax[0] : histogram -------------------------
         if hist:
             sb.histplot(data=df_aux, x=&#34;prob&#34;, hue=&#34;class&#34;, bins=bins, ax=ax[fig_index])
@@ -3846,6 +3938,8 @@ def my_scatter_by_class(
         if roc:
             fpr, tpr, _ = roc_curve(df_aux[&#34;class&#34;], df_aux[&#34;prob&#34;])
             auc = roc_auc_score(df_aux[&#34;class&#34;], df_aux[&#34;prob&#34;])
+
+            auc_list.append(auc)
 
             sb.lineplot(
                 x=fpr,
@@ -3911,11 +4005,10 @@ def my_scatter_by_class(
         plt.show()
         plt.close()
 
-        auc_list.append(auc)
-
         # break
 
-    print(f&#34;mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}&#34;)</code></pre>
+    if auc_list:
+        print(f&#34;mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="hossam.plot.my_roc_curve_multiclass_ovr"><code class="name flex">
@@ -4020,8 +4113,11 @@ def my_scatter_by_class(
         # my_pretty_table(df_aux.head(10))
 
         # 시각화 시작
-        fig, ax = plt.subplots(1, 3, figsize=figsize_, dpi=dpi)
+        fig, ax = plt.subplots(1, cols, figsize=figsize_, dpi=dpi)
         plt.suptitle(title, fontsize=16)
+
+        if cols &lt; 2:
+            ax = [ax]
 
         # ax[0] : histogram -------------------------
         if hist:
@@ -4035,6 +4131,8 @@ def my_scatter_by_class(
         if roc:
             fpr, tpr, _ = roc_curve(df_aux[&#34;class&#34;], df_aux[&#34;prob&#34;])
             auc = roc_auc_score(df_aux[&#34;class&#34;], df_aux[&#34;prob&#34;])
+
+            auc_list.append(auc)
 
             sb.lineplot(
                 x=fpr,
@@ -4099,28 +4197,29 @@ def my_scatter_by_class(
         plt.show()
         plt.close()
 
-        auc_list.append(auc)
-
         # break
 
-    print(f&#34;mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}&#34;)</code></pre>
+    if auc_list:
+        print(f&#34;mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="hossam.plot.my_scatter_by_class"><code class="name flex">
-<span>def <span class="ident">my_scatter_by_class</span></span>(<span>data: pandas.core.frame.DataFrame, group: list = None, hue: str = None, palette: str = None, figsize: tuple = (10, 5), dpi: int = 100, callback: <built-in function any> = None) ‑> None</span>
+<span>def <span class="ident">my_scatter_by_class</span></span>(<span>data: pandas.core.frame.DataFrame, group: list = None, hue: str = None, palette: str = None, outline: bool = False, figsize: tuple = (10, 5), dpi: int = 100, callback: <built-in function any> = None) ‑> None</span>
 </code></dt>
 <dd>
-<div class="desc"><p>클래스별로 산점도를 출력한다.</p>
+<div class="desc"><p>클래스별로 독립변수의 산점도를 출력한다.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>data</code></strong> :&ensp;<code>DataFrame</code></dt>
 <dd>독립변수</dd>
-<dt><strong><code>xnames</code></strong> :&ensp;<code>list</code></dt>
-<dd>독립변수의 이름</dd>
-<dt><strong><code>yname</code></strong> :&ensp;<code>str</code></dt>
-<dd>종속변수의 이름</dd>
-<dt><strong><code>hue</code></strong> :&ensp;<code>str</code></dt>
-<dd>클래스별로 구분할 변수</dd>
+<dt><strong><code>group</code></strong> :&ensp;<code>list</code>, optional</dt>
+<dd>독립변수의 조합. Defaults to None.</dd>
+<dt><strong><code>hue</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>클래스별로 구분할 변수. Defaults to None.</dd>
+<dt><strong><code>palette</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>칼라맵. Defaults to None.</dd>
+<dt><strong><code>outline</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>테두리 여부. Defaults to False.</dd>
 <dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
 <dd>그래프의 크기. Defaults to (10, 5).</dd>
 <dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
@@ -4137,17 +4236,19 @@ def my_scatter_by_class(
     group: list = None,
     hue: str = None,
     palette: str = None,
+    outline: bool = False,
     figsize: tuple = (10, 5),
     dpi: int = 100,
     callback: any = None,
 ) -&gt; None:
-    &#34;&#34;&#34;클래스별로 산점도를 출력한다.
+    &#34;&#34;&#34;클래스별로 독립변수의 산점도를 출력한다.
 
     Args:
         data (DataFrame): 독립변수
-        xnames (list): 독립변수의 이름
-        yname (str): 종속변수의 이름
-        hue (str): 클래스별로 구분할 변수
+        group (list, optional): 독립변수의 조합. Defaults to None.
+        hue (str, optional): 클래스별로 구분할 변수. Defaults to None.
+        palette (str, optional): 칼라맵. Defaults to None.
+        outline (bool, optional): 테두리 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
@@ -4158,7 +4259,7 @@ def my_scatter_by_class(
         xnames = data.columns
 
         for i, v in enumerate(xnames):
-            if data[v].dtype not in [
+            if v == hue or data[v].dtype not in [
                 &#34;int&#34;,
                 &#34;int32&#34;,
                 &#34;int64&#34;,
@@ -4171,8 +4272,12 @@ def my_scatter_by_class(
             j = (i + 1) % len(xnames)
             group.append([v, xnames[j]])
 
-    for i, v in enumerate(group):
-        my_scatterplot(data, v[0], v[1], hue, palette, figsize, dpi, callback)</code></pre>
+    if outline:
+        for i, v in enumerate(group):
+            my_convex_hull(data, v[0], v[1], hue, palette, figsize, dpi, callback)
+    else:
+        for i, v in enumerate(group):
+            my_scatterplot(data, v[0], v[1], hue, palette, figsize, dpi, callback)</code></pre>
 </details>
 </dd>
 <dt id="hossam.plot.my_scatterplot"><code class="name flex">
@@ -4431,6 +4536,7 @@ def my_scatter_by_class(
 <li><code><a title="hossam.plot.my_kde_confidence_interval" href="#hossam.plot.my_kde_confidence_interval">my_kde_confidence_interval</a></code></li>
 <li><code><a title="hossam.plot.my_kdeplot" href="#hossam.plot.my_kdeplot">my_kdeplot</a></code></li>
 <li><code><a title="hossam.plot.my_learing_curve" href="#hossam.plot.my_learing_curve">my_learing_curve</a></code></li>
+<li><code><a title="hossam.plot.my_lineplot" href="#hossam.plot.my_lineplot">my_lineplot</a></code></li>
 <li><code><a title="hossam.plot.my_lmplot" href="#hossam.plot.my_lmplot">my_lmplot</a></code></li>
 <li><code><a title="hossam.plot.my_pairplot" href="#hossam.plot.my_pairplot">my_pairplot</a></code></li>
 <li><code><a title="hossam.plot.my_pointplot" href="#hossam.plot.my_pointplot">my_pointplot</a></code></li>

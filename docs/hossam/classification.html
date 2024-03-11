@@ -175,10 +175,7 @@ def my_logistic_classification(
     # ------------------------------------------------------
     # 보고서 출력
     if report:
-        if x_test is not None and y_test is not None:
-            my_classification_report(estimator, x=x_test, y=y_test)
-        else:
-            my_classification_report(estimator, x=x_train, y=y_train)
+        my_classification_report(estimator, x_train, y_train, x_test, y_test, sort)
 
     return estimator
 
@@ -436,11 +433,240 @@ def my_classification_result(
 
 def my_classification_report(
     estimator: any,
+    x_train: DataFrame = None,
+    y_train: Series = None,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    sort: str = None,
+) -&gt; None:
+    &#34;&#34;&#34;분류분석 결과를 이항분류와 다항분류로 구분하여 출력한다. 훈련데이터와 검증데이터가 함께 전달 될 경우 검증 데이터를 우선한다.
+
+    Args:
+        estimator (any): 분류분석 추정기 (모델 객체)
+        x_train (DataFrame, optional): 훈련 데이터의 독립변수. Defaults to None.
+        y_train (Series, optional): 훈련 데이터의 종속변수. Defaults to None.
+        x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
+        y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
+        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+    &#34;&#34;&#34;
+    is_binary = len(estimator.classes_) == 2
+
+    if is_binary:
+        if x_test is not None and y_test is not None:
+            my_classification_binary_report(estimator, x=x_test, y=y_test, sort=sort)
+        else:
+            my_classification_binary_report(estimator, x=x_train, y=y_train, sort=sort)
+    else:
+        if x_test is not None and y_test is not None:
+            my_classification_multiclass_report(
+                estimator, x=x_test, y=y_test, sort=sort
+            )
+        else:
+            my_classification_multiclass_report(
+                estimator, x=x_train, y=y_train, sort=sort
+            )
+
+
+def my_classification_binary_report(
+    estimator: any, x: DataFrame = None, y: Series = None, sort: str = None
+) -&gt; None:
+    &#34;&#34;&#34;이항로지스틱 회귀분석 결과를 출력한다.
+
+    Args:
+        estimator (any): 분류분석 추정기 (모델 객체)
+        x (DataFrame, optional): 독립변수. Defaults to None.
+        y (Series, optional): 종속변수. Defaults to None.
+        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+    &#34;&#34;&#34;
+    # 추정 확률
+    y_pred_proba = estimator.predict_proba(x)
+
+    # 추정확률의 길이(=샘플수)
+    n = len(y_pred_proba)
+
+    # 계수의 수 + 1(절편)
+    m = len(estimator.coef_[0]) + 1
+
+    # 절편과 계수를 하나의 배열로 결합
+    coefs = np.concatenate([estimator.intercept_, estimator.coef_[0]])
+
+    # 상수항 추가
+    x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
+
+    # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
+    ans = np.zeros((m, m))
+
+    # 표준오차
+    for i in range(n):
+        ans = (
+            ans
+            + np.dot(np.transpose(x_full[i, :]), x_full[i, :])
+            * y_pred_proba[i, 1]
+            * y_pred_proba[i, 0]
+        )
+
+    vcov = np.linalg.inv(np.matrix(ans))
+    se = np.sqrt(np.diag(vcov))
+
+    # t값
+    t = coefs / se
+
+    # p-value
+    p_values = (1 - norm.cdf(abs(t))) * 2
+
+    # VIF
+    if len(x.columns) &gt; 1:
+        vif = [
+            variance_inflation_factor(x, list(x.columns).index(v))
+            for i, v in enumerate(x.columns)
+        ]
+    else:
+        vif = 0
+
+    # 결과표 생성
+    xnames = estimator.feature_names_in_
+
+    result_df = DataFrame(
+        {
+            &#34;종속변수&#34;: [y.name] * len(xnames),
+            &#34;독립변수&#34;: xnames,
+            &#34;B(비표준화 계수)&#34;: np.round(estimator.coef_[0], 4),
+            &#34;표준오차&#34;: np.round(se[1:], 3),
+            &#34;t&#34;: np.round(t[1:], 4),
+            &#34;유의확률&#34;: np.round(p_values[1:], 3),
+            &#34;VIF&#34;: vif,
+            &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[0]), 4),
+        }
+    )
+
+    if sort:
+        if sort.upper() == &#34;V&#34;:
+            result_df.sort_values(&#34;VIF&#34;, inplace=True)
+        elif sort.upper() == &#34;P&#34;:
+            result_df.sort_values(&#34;유의확률&#34;, inplace=True)
+
+    my_pretty_table(result_df)
+
+
+def my_classification_multiclass_report(
+    estimator: any,
     x: DataFrame = None,
     y: Series = None,
     sort: str = None,
 ) -&gt; None:
-    &#34;&#34;&#34;로지스틱 회귀분석 결과를 출력한다.
+    &#34;&#34;&#34;다중로지스틱 회귀분석 결과를 출력한다.
+
+    Args:
+        estimator (any): 분류분석 추정기 (모델 객체)
+        x (DataFrame, optional): 독립변수. Defaults to None.
+        y (Series, optional): 종속변수. Defaults to None.
+        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+    &#34;&#34;&#34;
+    class_list = list(estimator.classes_)
+    class_size = len(class_list)
+
+    # 추정 확률
+    y_pred_proba = estimator.predict_proba(x)
+
+    # 추정확률의 길이(=샘플수)
+    n = len(y_pred_proba)
+
+    for i in range(0, class_size):
+        # 계수의 수 + 1(절편)
+        m = len(estimator.coef_[i]) + 1
+
+        # 절편과 계수를 하나의 배열로 결합
+        coefs = np.concatenate([[estimator.intercept_[i]], estimator.coef_[i]])
+
+        # 상수항 추가
+        x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
+
+        # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
+        ans = np.zeros((m, m))
+
+        # 표준오차
+        for j in range(n):
+            ans = (
+                ans
+                + np.dot(np.transpose(x_full[j, :]), x_full[j, :]) * y_pred_proba[j, i]
+            )
+
+        vcov = np.linalg.inv(np.matrix(ans))
+        se = np.sqrt(np.diag(vcov))
+
+        # t값
+        t = coefs / se
+
+        # p-value
+        p_values = (1 - norm.cdf(abs(t))) * 2
+
+        # VIF
+        if len(x.columns) &gt; 1:
+            vif = [
+                variance_inflation_factor(x, list(x.columns).index(v))
+                for i, v in enumerate(x.columns)
+            ]
+        else:
+            vif = 0
+
+        # 결과표 생성
+        xnames = estimator.feature_names_in_
+
+        result_df = DataFrame(
+            {
+                &#34;종속변수&#34;: [y.name] * len(xnames),
+                &#34;CLASS&#34;: [class_list[i]] * len(xnames),
+                &#34;독립변수&#34;: xnames,
+                &#34;B(계수)&#34;: np.round(estimator.coef_[i], 4),
+                &#34;표준오차&#34;: np.round(se[1:], 3),
+                &#34;t&#34;: np.round(t[1:], 4),
+                &#34;유의확률&#34;: np.round(p_values[1:], 3),
+                &#34;VIF&#34;: vif,
+                &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[i]), 4),
+            }
+        )
+
+        if sort:
+            if sort.upper() == &#34;V&#34;:
+                result_df.sort_values(&#34;VIF&#34;, inplace=True)
+            elif sort.upper() == &#34;P&#34;:
+                result_df.sort_values(&#34;유의확률&#34;, inplace=True)
+                pass
+
+        my_pretty_table(result_df)</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="hossam.classification.my_classification_binary_report"><code class="name flex">
+<span>def <span class="ident">my_classification_binary_report</span></span>(<span>estimator: <built-in function any>, x: pandas.core.frame.DataFrame = None, y: pandas.core.series.Series = None, sort: str = None) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"><p>이항로지스틱 회귀분석 결과를 출력한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>estimator</code></strong> :&ensp;<code>any</code></dt>
+<dd>분류분석 추정기 (모델 객체)</dd>
+<dt><strong><code>x</code></strong> :&ensp;<code>DataFrame</code>, optional</dt>
+<dd>독립변수. Defaults to None.</dd>
+<dt><strong><code>y</code></strong> :&ensp;<code>Series</code>, optional</dt>
+<dd>종속변수. Defaults to None.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_classification_binary_report(
+    estimator: any, x: DataFrame = None, y: Series = None, sort: str = None
+) -&gt; None:
+    &#34;&#34;&#34;이항로지스틱 회귀분석 결과를 출력한다.
 
     Args:
         estimator (any): 분류분석 추정기 (모델 객체)
@@ -517,19 +743,12 @@ def my_classification_report(
 
     my_pretty_table(result_df)</code></pre>
 </details>
-</section>
-<section>
-</section>
-<section>
-</section>
-<section>
-<h2 class="section-title" id="header-functions">Functions</h2>
-<dl>
-<dt id="hossam.classification.my_classification_report"><code class="name flex">
-<span>def <span class="ident">my_classification_report</span></span>(<span>estimator: <built-in function any>, x: pandas.core.frame.DataFrame = None, y: pandas.core.series.Series = None, sort: str = None) ‑> None</span>
+</dd>
+<dt id="hossam.classification.my_classification_multiclass_report"><code class="name flex">
+<span>def <span class="ident">my_classification_multiclass_report</span></span>(<span>estimator: <built-in function any>, x: pandas.core.frame.DataFrame = None, y: pandas.core.series.Series = None, sort: str = None) ‑> None</span>
 </code></dt>
 <dd>
-<div class="desc"><p>로지스틱 회귀분석 결과를 출력한다.</p>
+<div class="desc"><p>다중로지스틱 회귀분석 결과를 출력한다.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>estimator</code></strong> :&ensp;<code>any</code></dt>
@@ -545,13 +764,13 @@ def my_classification_report(
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_classification_report(
+<pre><code class="python">def my_classification_multiclass_report(
     estimator: any,
     x: DataFrame = None,
     y: Series = None,
     sort: str = None,
 ) -&gt; None:
-    &#34;&#34;&#34;로지스틱 회귀분석 결과를 출력한다.
+    &#34;&#34;&#34;다중로지스틱 회귀분석 결과를 출력한다.
 
     Args:
         estimator (any): 분류분석 추정기 (모델 객체)
@@ -559,74 +778,138 @@ def my_classification_report(
         y (Series, optional): 종속변수. Defaults to None.
         sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
     &#34;&#34;&#34;
+    class_list = list(estimator.classes_)
+    class_size = len(class_list)
+
     # 추정 확률
     y_pred_proba = estimator.predict_proba(x)
 
     # 추정확률의 길이(=샘플수)
     n = len(y_pred_proba)
 
-    # 계수의 수 + 1(절편)
-    m = len(estimator.coef_[0]) + 1
+    for i in range(0, class_size):
+        # 계수의 수 + 1(절편)
+        m = len(estimator.coef_[i]) + 1
 
-    # 절편과 계수를 하나의 배열로 결합
-    coefs = np.concatenate([estimator.intercept_, estimator.coef_[0]])
+        # 절편과 계수를 하나의 배열로 결합
+        coefs = np.concatenate([[estimator.intercept_[i]], estimator.coef_[i]])
 
-    # 상수항 추가
-    x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
+        # 상수항 추가
+        x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
 
-    # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
-    ans = np.zeros((m, m))
+        # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
+        ans = np.zeros((m, m))
 
-    # 표준오차
-    for i in range(n):
-        ans = (
-            ans
-            + np.dot(np.transpose(x_full[i, :]), x_full[i, :])
-            * y_pred_proba[i, 1]
-            * y_pred_proba[i, 0]
+        # 표준오차
+        for j in range(n):
+            ans = (
+                ans
+                + np.dot(np.transpose(x_full[j, :]), x_full[j, :]) * y_pred_proba[j, i]
+            )
+
+        vcov = np.linalg.inv(np.matrix(ans))
+        se = np.sqrt(np.diag(vcov))
+
+        # t값
+        t = coefs / se
+
+        # p-value
+        p_values = (1 - norm.cdf(abs(t))) * 2
+
+        # VIF
+        if len(x.columns) &gt; 1:
+            vif = [
+                variance_inflation_factor(x, list(x.columns).index(v))
+                for i, v in enumerate(x.columns)
+            ]
+        else:
+            vif = 0
+
+        # 결과표 생성
+        xnames = estimator.feature_names_in_
+
+        result_df = DataFrame(
+            {
+                &#34;종속변수&#34;: [y.name] * len(xnames),
+                &#34;CLASS&#34;: [class_list[i]] * len(xnames),
+                &#34;독립변수&#34;: xnames,
+                &#34;B(계수)&#34;: np.round(estimator.coef_[i], 4),
+                &#34;표준오차&#34;: np.round(se[1:], 3),
+                &#34;t&#34;: np.round(t[1:], 4),
+                &#34;유의확률&#34;: np.round(p_values[1:], 3),
+                &#34;VIF&#34;: vif,
+                &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[i]), 4),
+            }
         )
 
-    vcov = np.linalg.inv(np.matrix(ans))
-    se = np.sqrt(np.diag(vcov))
+        if sort:
+            if sort.upper() == &#34;V&#34;:
+                result_df.sort_values(&#34;VIF&#34;, inplace=True)
+            elif sort.upper() == &#34;P&#34;:
+                result_df.sort_values(&#34;유의확률&#34;, inplace=True)
+                pass
 
-    # t값
-    t = coefs / se
+        my_pretty_table(result_df)</code></pre>
+</details>
+</dd>
+<dt id="hossam.classification.my_classification_report"><code class="name flex">
+<span>def <span class="ident">my_classification_report</span></span>(<span>estimator: <built-in function any>, x_train: pandas.core.frame.DataFrame = None, y_train: pandas.core.series.Series = None, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, sort: str = None) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"><p>분류분석 결과를 이항분류와 다항분류로 구분하여 출력한다. 훈련데이터와 검증데이터가 함께 전달 될 경우 검증 데이터를 우선한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>estimator</code></strong> :&ensp;<code>any</code></dt>
+<dd>분류분석 추정기 (모델 객체)</dd>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code>, optional</dt>
+<dd>훈련 데이터의 독립변수. Defaults to None.</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code>, optional</dt>
+<dd>훈련 데이터의 종속변수. Defaults to None.</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code>, optional</dt>
+<dd>검증 데이터의 독립변수. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code>, optional</dt>
+<dd>검증 데이터의 종속변수. Defaults to None.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_classification_report(
+    estimator: any,
+    x_train: DataFrame = None,
+    y_train: Series = None,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    sort: str = None,
+) -&gt; None:
+    &#34;&#34;&#34;분류분석 결과를 이항분류와 다항분류로 구분하여 출력한다. 훈련데이터와 검증데이터가 함께 전달 될 경우 검증 데이터를 우선한다.
 
-    # p-value
-    p_values = (1 - norm.cdf(abs(t))) * 2
+    Args:
+        estimator (any): 분류분석 추정기 (모델 객체)
+        x_train (DataFrame, optional): 훈련 데이터의 독립변수. Defaults to None.
+        y_train (Series, optional): 훈련 데이터의 종속변수. Defaults to None.
+        x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
+        y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
+        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+    &#34;&#34;&#34;
+    is_binary = len(estimator.classes_) == 2
 
-    # VIF
-    if len(x.columns) &gt; 1:
-        vif = [
-            variance_inflation_factor(x, list(x.columns).index(v))
-            for i, v in enumerate(x.columns)
-        ]
+    if is_binary:
+        if x_test is not None and y_test is not None:
+            my_classification_binary_report(estimator, x=x_test, y=y_test, sort=sort)
+        else:
+            my_classification_binary_report(estimator, x=x_train, y=y_train, sort=sort)
     else:
-        vif = 0
-
-    # 결과표 생성
-    xnames = estimator.feature_names_in_
-
-    result_df = DataFrame(
-        {
-            &#34;종속변수&#34;: [y.name] * len(xnames),
-            &#34;독립변수&#34;: xnames,
-            &#34;B(비표준화 계수)&#34;: np.round(estimator.coef_[0], 4),
-            &#34;표준오차&#34;: np.round(se[1:], 3),
-            &#34;t&#34;: np.round(t[1:], 4),
-            &#34;유의확률&#34;: np.round(p_values[1:], 3),
-            &#34;VIF&#34;: vif,
-            &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[0]), 4),
-        }
-    )
-
-    if sort:
-        if sort.upper() == &#34;V&#34;:
-            result_df.sort_values(&#34;VIF&#34;, inplace=True)
-        elif sort.upper() == &#34;P&#34;:
-            result_df.sort_values(&#34;유의확률&#34;, inplace=True)
-
-    my_pretty_table(result_df)</code></pre>
+        if x_test is not None and y_test is not None:
+            my_classification_multiclass_report(
+                estimator, x=x_test, y=y_test, sort=sort
+            )
+        else:
+            my_classification_multiclass_report(
+                estimator, x=x_train, y=y_train, sort=sort
+            )</code></pre>
 </details>
 </dd>
 <dt id="hossam.classification.my_classification_result"><code class="name flex">
@@ -1093,10 +1376,7 @@ def my_classification_report(
     # ------------------------------------------------------
     # 보고서 출력
     if report:
-        if x_test is not None and y_test is not None:
-            my_classification_report(estimator, x=x_test, y=y_test)
-        else:
-            my_classification_report(estimator, x=x_train, y=y_train)
+        my_classification_report(estimator, x_train, y_train, x_test, y_test, sort)
 
     return estimator</code></pre>
 </details>
@@ -1119,6 +1399,8 @@ def my_classification_report(
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="hossam.classification.my_classification_binary_report" href="#hossam.classification.my_classification_binary_report">my_classification_binary_report</a></code></li>
+<li><code><a title="hossam.classification.my_classification_multiclass_report" href="#hossam.classification.my_classification_multiclass_report">my_classification_multiclass_report</a></code></li>
 <li><code><a title="hossam.classification.my_classification_report" href="#hossam.classification.my_classification_report">my_classification_report</a></code></li>
 <li><code><a title="hossam.classification.my_classification_result" href="#hossam.classification.my_classification_result">my_classification_result</a></code></li>
 <li><code><a title="hossam.classification.my_logistic_classification" href="#hossam.classification.my_logistic_classification">my_logistic_classification</a></code></li>

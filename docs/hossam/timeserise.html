@@ -30,16 +30,27 @@
 from statsmodels.tsa.stattools import adfuller
 
 from .util import my_pretty_table
+from .plot import my_lineplot
 
 
-def my_diff(data: DataFrame, yname: str, max_diff: int = None) -&gt; None:
+def my_diff(
+    data: DataFrame,
+    yname: str,
+    plot: bool = True,
+    max_diff: int = None,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+) -&gt; None:
     &#34;&#34;&#34;데이터의 정상성을 확인하고, 정상성을 충족하지 않을 경우 차분을 수행하여 정상성을 만족시킨다.
     반드시 데이터 프레임의 인덱스가 타임시리즈 데이터여야 한다.
 
     Args:
         data (DataFrame): 데이터 프레임
         yname (str): 차분을 수행할 데이터 컬럼명
+        plot (bool, optional): 차분 결과를 그래프로 표시할지 여부. Defaults to True.
         max_diff (int, optional): 최대 차분 횟수. 지정되지 않을 경우 최대 반복. Defaults to None.
+        figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프 해상도. Defaults to 100.
     &#34;&#34;&#34;
     df = data.copy()
 
@@ -55,6 +66,9 @@ def my_diff(data: DataFrame, yname: str, max_diff: int = None) -&gt; None:
             print(&#34;=========== 원본 데이터 ===========&#34;)
         else:
             print(&#34;=========== %d차 차분 데이터 ===========&#34; % count)
+
+        if plot:
+            my_lineplot(df=df, yname=yname, xname=df.index, figsize=figsize, dpi=dpi)
 
         # ADF Test
         ar = adfuller(df[yname])
@@ -74,6 +88,9 @@ def my_diff(data: DataFrame, yname: str, max_diff: int = None) -&gt; None:
 
         ardf = DataFrame(ardict, index=[&#34;ADF Test&#34;]).T
         my_pretty_table(ardf)
+
+        # 차분 수행
+        df = df.diff().dropna()
 
         # 반복회차 1 증가
         count += 1
@@ -91,7 +108,7 @@ def my_diff(data: DataFrame, yname: str, max_diff: int = None) -&gt; None:
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="hossam.timeserise.my_diff"><code class="name flex">
-<span>def <span class="ident">my_diff</span></span>(<span>data: pandas.core.frame.DataFrame, yname: str, max_diff: int = None) ‑> None</span>
+<span>def <span class="ident">my_diff</span></span>(<span>data: pandas.core.frame.DataFrame, yname: str, plot: bool = True, max_diff: int = None, figsize: tuple = (10, 5), dpi: int = 100) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>데이터의 정상성을 확인하고, 정상성을 충족하지 않을 경우 차분을 수행하여 정상성을 만족시킨다.
@@ -102,21 +119,37 @@ def my_diff(data: DataFrame, yname: str, max_diff: int = None) -&gt; None:
 <dd>데이터 프레임</dd>
 <dt><strong><code>yname</code></strong> :&ensp;<code>str</code></dt>
 <dd>차분을 수행할 데이터 컬럼명</dd>
+<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>차분 결과를 그래프로 표시할지 여부. Defaults to True.</dd>
 <dt><strong><code>max_diff</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>최대 차분 횟수. 지정되지 않을 경우 최대 반복. Defaults to None.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프 해상도. Defaults to 100.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_diff(data: DataFrame, yname: str, max_diff: int = None) -&gt; None:
+<pre><code class="python">def my_diff(
+    data: DataFrame,
+    yname: str,
+    plot: bool = True,
+    max_diff: int = None,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+) -&gt; None:
     &#34;&#34;&#34;데이터의 정상성을 확인하고, 정상성을 충족하지 않을 경우 차분을 수행하여 정상성을 만족시킨다.
     반드시 데이터 프레임의 인덱스가 타임시리즈 데이터여야 한다.
 
     Args:
         data (DataFrame): 데이터 프레임
         yname (str): 차분을 수행할 데이터 컬럼명
+        plot (bool, optional): 차분 결과를 그래프로 표시할지 여부. Defaults to True.
         max_diff (int, optional): 최대 차분 횟수. 지정되지 않을 경우 최대 반복. Defaults to None.
+        figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프 해상도. Defaults to 100.
     &#34;&#34;&#34;
     df = data.copy()
 
@@ -132,6 +165,9 @@ def my_diff(data: DataFrame, yname: str, max_diff: int = None) -&gt; None:
             print(&#34;=========== 원본 데이터 ===========&#34;)
         else:
             print(&#34;=========== %d차 차분 데이터 ===========&#34; % count)
+
+        if plot:
+            my_lineplot(df=df, yname=yname, xname=df.index, figsize=figsize, dpi=dpi)
 
         # ADF Test
         ar = adfuller(df[yname])
@@ -151,6 +187,9 @@ def my_diff(data: DataFrame, yname: str, max_diff: int = None) -&gt; None:
 
         ardf = DataFrame(ardict, index=[&#34;ADF Test&#34;]).T
         my_pretty_table(ardf)
+
+        # 차분 수행
+        df = df.diff().dropna()
 
         # 반복회차 1 증가
         count += 1

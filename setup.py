@@ -24,5 +24,6 @@ setup(
         "imblearn",
         "pdoc3",
         "pmdarima",
+        "prophet",
     ],
 )

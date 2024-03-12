@@ -200,6 +200,27 @@ def my_seasonal_decompose(
     return sd_df
 
 
+def my_timeseries_split(data: DataFrame, test_size: float = 0.2) -> tuple:
+    """시계열 데이터를 학습 데이터와 테스트 데이터로 분할한다.
+
+    Args:
+        data (DataFrame): 시계열 데이터
+        test_size (float, optional): 테스트 데이터 비율. Defaults to 0.2.
+
+    Returns:
+        tuple: (학습 데이터, 테스트 데이터)
+    """
+    train_size = 1 - test_size
+
+    # 처음부터 70% 위치 전까지 분할
+    train = data[: int(train_size * len(data))]
+
+    # 70% 위치부터 끝까지 분할
+    test = data[int(train_size * len(data)) :]
+
+    return (train, test)
+
+
 def my_acf_plot(
     data: Series, figsize: tuple = (10, 5), dpi: int = 100, callback: any = None
 ):

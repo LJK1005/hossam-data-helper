@@ -1,5 +1,6 @@
 from pandas import DataFrame, Series
 from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.seasonal import seasonal_decompose
 from matplotlib import pyplot as plt
 from .util import my_pretty_table
 from .plot import my_lineplot
@@ -82,7 +83,7 @@ def my_rolling(
     figsize: tuple = (10, 5),
     dpi: int = 100,
 ) -> Series:
-    """이동평균을 계산한다.
+    """이동평균을 계산한다. 반드시 index가 datetime 형식이어야 한다.
 
     Args:
         data (Series): 시리즈 데이터
@@ -95,14 +96,10 @@ def my_rolling(
         Series: 이동평균 데이터
     """
     rolling = data.rolling(window=window).mean()
-    df = DataFrame(
-        {
-            rolling.name: rolling,
-        },
-        index=rolling.index,
-    )
 
     if plot:
+        df = DataFrame({rolling.name: rolling}, index=rolling.index)
+
         my_lineplot(
             df=df,
             yname=rolling.name,
@@ -132,20 +129,16 @@ def my_ewm(
     """
     ewm = data.ewm(span=span).mean()
 
-    df = DataFrame(
-        {
-            ewm.name: ewm,
-        },
-        index=ewm.index,
-    )
-
     if plot:
+        df = DataFrame({ewm.name: ewm}, index=ewm.index)
+
         my_lineplot(
             df=df,
             yname=ewm.name,
             xname=df.index,
             figsize=figsize,
             dpi=dpi,
+            callback=lambda ax: ax.set_title(f"Ewm (span={span})"),
         )
 
     return ewm
@@ -167,7 +160,8 @@ def my_seasonal_decompose(
         figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프 해상도. Defaults to 100.
     """
-    from statsmodels.tsa.seasonal import seasonal_decompose
+    if model not in ["additive", "multiplicative"]:
+        raise ValueError("model은 'additive' 또는 'multiplicative'이어야 합니다.")
 
     sd = seasonal_decompose(data, model=model)
 

@@ -1,6 +1,6 @@
 import numpy as np
 from tabulate import tabulate
-from pandas import DataFrame, Series, read_excel, get_dummies
+from pandas import DataFrame, Series, read_excel, get_dummies, DatetimeIndex
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 from sklearn.impute import SimpleImputer
@@ -8,6 +8,7 @@ from scipy.stats import normaltest
 
 from imblearn.over_sampling import SMOTE, RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
+
 
 def my_normalize_data(
     mean: float, std: float, size: int = 100, round: int = 2
@@ -64,13 +65,18 @@ def my_pretty_table(data: DataFrame, headers: str = "keys") -> None:
 
 
 def my_read_excel(
-    path: str, index_col: str = None, info: bool = True, categories: list = None
+    path: str,
+    index_col: str = None,
+    timeindex: bool = False,
+    info: bool = True,
+    categories: list = None,
 ) -> DataFrame:
     """엑셀 파일을 데이터프레임으로 로드하고 정보를 출력한다.
 
     Args:
         path (str): 엑셀 파일의 경로(혹은 URL)
         index_col (str, optional): 인덱스 필드의 이름. Defaults to None.
+        timeindex (bool, optional): True일 경우 인덱스를 시계열로 설정. Defaults to False.
         info (bool, optional): True일 경우 정보 출력. Defaults to True.
         categories (list, optional): 카테고리로 지정할 필드 목록. Defaults to None.
 
@@ -85,6 +91,9 @@ def my_read_excel(
             data: DataFrame = read_excel(path)
     except Exception as e:
         raise Exception(f"\x1b[31m데이터를 로드하는데 실패했습니다. ({e})\x1b[0m")
+
+    if timeindex:
+        data.index = DatetimeIndex(data.index)
 
     if categories:
         data = my_category(data, *categories)
@@ -524,7 +533,7 @@ def my_labelling(data: DataFrame, *fields: str) -> DataFrame:
     return df
 
 
-def my_balance(xdata: DataFrame, ydata: Series, method: str = 'smote') -> DataFrame:
+def my_balance(xdata: DataFrame, ydata: Series, method: str = "smote") -> DataFrame:
     """불균형 데이터를 균형 데이터로 변환한다.
 
     Args:
@@ -535,17 +544,19 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = 'smote') -> DataFr
     Returns:
         DataFrame: _description_
     """
-    
-    if method == 'smote':
+
+    if method == "smote":
         smote = SMOTE(random_state=0)
         xdata, ydata = smote.fit_resample(xdata, ydata)
-    elif method == 'over':
+    elif method == "over":
         ros = RandomOverSampler(random_state=0)
         xdata, ydata = ros.fit_resample(xdata, ydata)
-    elif method == 'under':
+    elif method == "under":
         rus = RandomUnderSampler(random_state=0)
         xdata, ydata = rus.fit_resample(xdata, ydata)
     else:
-        raise Exception(f"\x1b[31m지원하지 않는 방법입니다.(smote, over, under중 하나를 지정해야 합니다.) ({method})\x1b[0m")
-    
+        raise Exception(
+            f"\x1b[31m지원하지 않는 방법입니다.(smote, over, under중 하나를 지정해야 합니다.) ({method})\x1b[0m"
+        )
+
     return xdata, ydata

@@ -1,7 +1,13 @@
+import seaborn as sb
 from pandas import DataFrame, Series
+from matplotlib import pyplot as plt
+
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.seasonal import seasonal_decompose
-from matplotlib import pyplot as plt
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.tsa.arima.model import ARIMA
+from pmdarima.arima import auto_arima
+
 from .util import my_pretty_table
 from .plot import my_lineplot
 
@@ -192,3 +198,182 @@ def my_seasonal_decompose(
         plt.close()
 
     return sd_df
+
+
+def my_acf_plot(
+    data: Series, figsize: tuple = (10, 5), dpi: int = 100, callback: any = None
+):
+    """ACF 그래프를 그린다.
+
+    Args:
+        data (Series): 시리즈 데이터
+        figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프 해상도. Defaults to 100.
+        callback (any, optional): 그래프에 추가할 콜백 함수. Defaults to None.
+    """
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    ax = fig.gca()
+
+    plot_acf(data, ax=ax)
+    ax.grid()
+
+    if callback:
+        callback(ax)
+
+    plt.show()
+    plt.close()
+
+
+def my_pacf_plot(
+    data: Series, figsize: tuple = (10, 5), dpi: int = 100, callback: any = None
+):
+    """PACF 그래프를 그린다.
+
+    Args:
+        data (Series): 시리즈 데이터
+        figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프 해상도. Defaults to 100.
+        callback (any, optional): 그래프에 추가할 콜백 함수. Defaults to None.
+    """
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    ax = fig.gca()
+
+    plot_pacf(data, ax=ax)
+    ax.grid()
+
+    if callback:
+        callback(ax)
+
+    plt.show()
+    plt.close()
+
+
+def my_acf_pacf_plot(
+    data: Series, figsize: tuple = (10, 5), dpi: int = 100, callback: any = None
+):
+    """ACF 그래프와 PACF 그래프를 그린다.
+
+    Args:
+        data (Series): 시리즈 데이터
+        figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프 해상도. Defaults to 100.
+        callback (any, optional): 그래프에 추가할 콜백 함수. Defaults to None.
+    """
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(figsize[0], figsize[1] * 2), dpi=dpi)
+
+    plot_acf(data, ax=ax1)
+    ax1.grid()
+
+    plot_pacf(data, ax=ax2)
+    ax2.grid()
+
+    if callback:
+        callback(ax1, ax2)
+
+    plt.show()
+    plt.close()
+
+
+def my_arima(
+    train: Series,
+    test: Series,
+    auto: bool = False,
+    p: int = 3,
+    d: int = 3,
+    q: int = 3,
+    s: int = None,
+    periods: int = 0,
+    figsize: tuple = (15, 5),
+    dpi: int = 100,
+) -> ARIMA:
+    """ARIMA 모델을 생성한다.
+
+    Args:
+        train (Series): 학습 데이터
+        test (Series): 테스트 데이터
+        auto (bool, optional): 최적의 ARIMA 모델을 찾을지 여부. Defaults to False.
+        p (int, optional): AR 차수. Defaults to 0.
+        d (int, optional): 차분 차수. Defaults to 0.
+        q (int, optional): MA 차수. Defaults to 0.
+        s (int, optional): 계절성 주기. Defaults to None.
+        periods (int, optional): 예측 기간. Defaults to 0.
+        figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프 해상도. Defaults to 100.
+
+    Returns:
+        ARIMA: ARIMA 모델
+    """
+    model = None
+
+    if not auto:
+        if s:
+            model = ARIMA(train, order=(p, d, q), seasonal_order=(p, d, q, s))
+        else:
+            model = ARIMA(train, order=(p, d, q))
+
+        fit = model.fit()
+        print(fit.summary())
+
+        start_index = 0
+        end_index = len(train)
+        test_pred = fit.predict(start=start_index, end=end_index)
+        pred = fit.forecast(len(test) + periods)
+    else:
+        # 최적의 ARIMA 모델을 찾는다.
+        if s:
+            model = auto_arima(
+                y=train,  # 모델링하려는 시계열 데이터 또는 배열
+                start_p=0,  # p의 시작점
+                max_p=p,  # p의 최대값
+                d=d,  # 차분 횟수
+                start_q=0,  # q의 시작점
+                max_q=q,  # q의 최대값
+                seasonal=True,  # 계절성 사용 여부
+                m=s,  # 계절성 주기
+                start_P=0,  # P의 시작점
+                max_P=p,  # P의 최대값
+                D=d,  # 계절성 차분 횟수
+                start_Q=0,  # Q의 시작점
+                max_Q=q,  # Q의 최대값
+                trace=True,  # 학습 과정 표시 여부
+            )
+        else:
+            model = auto_arima(
+                y=train,  # 모델링하려는 시계열 데이터 또는 배열
+                start_p=0,  # p의 시작점
+                max_p=p,  # p의 최대값
+                d=d,  # 차분 횟수
+                start_q=0,  # q의 시작점
+                max_q=q,  # q의 최대값
+                seasonal=False,  # 계절성 사용 여부
+                trace=True,  # 학습 과정 표시 여부
+            )
+
+        print(model.summary())
+        pred = model.predict(n_periods=int(len(test)) + periods)
+        pd = None
+
+    # 예측 결과 그래프
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    ax = fig.gca()
+
+    sb.lineplot(data=train, x=train.index, y=train.columns[0], label="Train", ax=ax)
+    sb.lineplot(data=test, x=test.index, y=test.columns[0], label="Test", ax=ax)
+
+    if auto:
+        sb.lineplot(
+            x=pred.index, y=pred.values, label="Prediction", linestyle="--", ax=ax
+        )
+    else:
+        sb.lineplot(
+            x=test_pred.index, y=test_pred, label="Prediction", linestyle="--", ax=ax
+        )
+        sb.lineplot(x=pred.index, y=pred, label="Forecast", linestyle="--", ax=ax)
+
+    ax.grid()
+    ax.legend()
+
+    plt.show()
+    plt.close()
+
+    return model

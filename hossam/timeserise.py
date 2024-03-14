@@ -434,7 +434,7 @@ def __prophet_execute(
     forecast = model.predict(future)
 
     if test is not None:
-        pred = forecast[["ds", "yhat"]][-len(test) :]
+        pred = forecast[["ds", "yhat"]][-size:]
         score = np.sqrt(mean_squared_error(test["y"].values, pred["yhat"].values))
     else:
         pred = forecast[["ds", "yhat"]]

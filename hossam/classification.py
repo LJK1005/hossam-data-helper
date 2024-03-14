@@ -205,7 +205,9 @@ def my_classification_result(
         y_train_pred_proba_1 = y_train_pred_proba[:, 1]
 
         # 의사결정계수 --> 다항로지스틱에서는 사용 X
-        if is_binary:
+        y_train_pseudo_r2 = 0
+
+        if is_binary and estimator.__class__.__name__ == "LogisticRegression":
             y_train_log_loss_test = -log_loss(
                 y_train, y_train_pred_proba, normalize=False
             )
@@ -262,7 +264,8 @@ def my_classification_result(
         y_test_pred_proba_1 = y_test_pred_proba[:, 1]
 
         # 의사결정계수
-        if is_binary:
+        y_test_pseudo_r2 = 0
+        if is_binary and estimator.__class__.__name__ == "LogisticRegression":
             y_test_log_loss_test = -log_loss(y_test, y_test_pred_proba, normalize=False)
             y_test_null = np.ones_like(y_test) * y_test.mean()
             y_test_log_loss_null = -log_loss(y_test, y_test_null, normalize=False)
@@ -340,6 +343,11 @@ def my_classification_result(
 
     print("[분류분석 성능평가]")
     result_df = DataFrame(scores, index=score_names)
+
+    if estimator.__class__.__name__ != "LogisticRegression":
+        if "의사결정계수(Pseudo R2)" in result_df.columns:
+            result_df.drop(columns=["의사결정계수(Pseudo R2)"], inplace=True)
+
     my_pretty_table(result_df.T)
 
     # ------------------------------------------------------
@@ -649,7 +657,16 @@ def my_knn_classification(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {"n_neighbors": [3, 5, 7]}
+            params = {
+                # 이웃의 수
+                "n_neighbors": [3, 5, 7],
+                # uniform: 가중치 없음, distance: 가중치 적용
+                "weights": ["uniform", "distance"],
+                # 1: 맨하튼거리, 2: 유클리디안거리
+                "p": [1, 2],
+                # 사용되는 알고리즘 (적용하지 않을 경우 auto가 기본값임)
+                "algorithm": ["ball_tree", "kd_tree", "brute"],
+            }
 
         prototype_estimator = KNeighborsClassifier(n_jobs=-1)
         grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv, n_jobs=-1)

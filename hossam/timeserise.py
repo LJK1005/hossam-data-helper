@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import seaborn as sb
 from pandas import DataFrame, Series
@@ -413,6 +414,7 @@ def __prophet_execute(
     test: DataFrame = None,
     periods: int = 0,
     freq: str = "D",
+    callback: any = None,
     **params,
 ):
     """Prophet 모델을 생성한다.
@@ -422,11 +424,17 @@ def __prophet_execute(
         test (DataFrame, optional): 검증데이터. Defaults to None.
         periods (int, optional): 예측기간. Defaults to 0.
         freq (str, optional): 예측주기(D,M,Y). Defaults to "D".
+        callback (any, optional): 콜백함수. Defaults to None.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
         _type_: _description_
     """
     model = Prophet(**params)
+
+    if callback:
+        callback(model)
+
     model.fit(train)
 
     size = 0 if test is None else len(test)
@@ -450,9 +458,10 @@ def my_prophet(
     periods: int = 0,
     freq: str = "D",
     report: bool = True,
-    figsize=(10, 5),
-    dpi: int = 100,
-    sort: str = None,
+    print_forecast: bool = False,
+    figsize=(20, 8),
+    dpi: int = 200,
+    callback: any = None,
     **params,
 ) -> DataFrame:
     """Prophet 모델을 생성한다.
@@ -465,11 +474,17 @@ def my_prophet(
         report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
-        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        callback (any, optional): 콜백함수. Defaults to None.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
         tuple: best_model, best_params, best_score
     """
+
+    logger = logging.getLogger("cmdstanpy")
+    logger.addHandler(logging.NullHandler())
+    logger.propagate = False
+    logger.setLevel(logging.CRITICAL)
+
     # ------------------------------------------------------
     # 분석모델 생성
 
@@ -482,7 +497,15 @@ def my_prophet(
 
             for p in params:
                 processes.append(
-                    executor.submit(__prophet_execute, train, test, periods, freq, **p)
+                    executor.submit(
+                        __prophet_execute,
+                        train=train,
+                        test=test,
+                        periods=periods,
+                        freq=freq,
+                        callback=callback,
+                        **p,
+                    )
                 )
 
             for p in futures.as_completed(processes):
@@ -498,7 +521,9 @@ def my_prophet(
                 )
 
     else:
-        m, score, params, forecast, pred = __prophet_execute(train, test, periods, freq)
+        m, score, params, forecast, pred = __prophet_execute(
+            train=train, test=test, periods=periods, freq=freq, callback=callback, **p
+        )
         result.append(
             {
                 "model": m,
@@ -525,7 +550,9 @@ def my_prophet(
     )
 
     if report:
-        my_prophet_report(best_model, best_forecast, best_pred, test, figsize, dpi)
+        my_prophet_report(
+            best_model, best_forecast, best_pred, test, print_forecast, figsize, dpi
+        )
 
     return best_model, best_params, best_score, best_forecast, best_pred
 
@@ -535,6 +562,7 @@ def my_prophet_report(
     forecast: DataFrame,
     pred: DataFrame,
     test: DataFrame = None,
+    print_forecast: bool = False,
     figsize: tuple = (20, 8),
     dpi: int = 100,
 ) -> DataFrame:
@@ -545,6 +573,7 @@ def my_prophet_report(
         forecast (DataFrame): 예측 결과
         pred (DataFrame): 예측 결과
         test (DataFrame, optional): 검증 데이터. Defaults to None.
+        print_forecast (bool, optional): 예측 결과를 출력할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
@@ -561,27 +590,31 @@ def my_prophet_report(
     add_changepoints_to_plot(ax, model, forecast)
 
     if test is not None:
-        sb.lineplot(
+        sb.scatterplot(
             data=test,
             x="ds",
             y="y",
-            color="#ff7f0e",
-            linestyle="--",
-            label="test",
+            size=1,
+            color="#ff0000",
+            marker="o",
             ax=ax,
         )
 
+    plt.legend()
     plt.show()
     plt.close()
 
-    fig = model.plot_components(forecast)
+    height = figsize[1] * (len(model.seasonalities) + 1)
+
+    fig = model.plot_components(forecast, figsize=(figsize[0], height))
     fig.set_dpi(dpi)
     ax = fig.gca()
     plt.show()
     plt.close()
 
     # 예측 결과 테이블
-    my_pretty_table(forecast)
+    if print_forecast:
+        my_pretty_table(forecast)
 
     if test is not None:
         yhat = forecast["yhat"].values[-len(test) :]

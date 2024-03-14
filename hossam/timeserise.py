@@ -430,7 +430,6 @@ def __prophet_execute(
     model.fit(train)
 
     size = 0 if test is None else len(test)
-    print("size:", size)
 
     future = model.make_future_dataframe(periods=size + periods, freq=freq)
     forecast = model.predict(future)

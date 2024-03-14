@@ -432,7 +432,7 @@ def __prophet_execute(
     size = 0 if test is None else len(test)
     print("size:", size)
 
-    future = model.make_future_dataframe(periods=size + periods, freq="D")
+    future = model.make_future_dataframe(periods=size + periods, freq=freq)
     forecast = model.predict(future)
 
     if test is not None:
@@ -565,13 +565,19 @@ def my_prophet_report(
 
     if test is not None:
         sb.lineplot(
-            data=test, x="ds", y="y", color="black", linestyle="--", label="test", ax=ax
+            data=test,
+            x="ds",
+            y="y",
+            color="#ff7f0e",
+            linestyle="--",
+            label="test",
+            ax=ax,
         )
 
     plt.show()
     plt.close()
 
-    fig = model.plot_components(forecast, figsize=figsize)
+    fig = model.plot_components(forecast)
     fig.set_dpi(dpi)
     ax = fig.gca()
     plt.show()

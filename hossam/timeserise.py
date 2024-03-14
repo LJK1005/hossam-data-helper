@@ -9,6 +9,7 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.arima.model import ARIMA
 from pmdarima.arima import auto_arima
 from prophet import Prophet
+from prophet.plot import add_changepoints_to_plot
 
 from sklearn.model_selection import ParameterGrid
 from sklearn.metrics import mean_squared_error
@@ -429,6 +430,7 @@ def __prophet_execute(
     model.fit(train)
 
     size = 0 if test is None else len(test)
+    print("size:", size)
 
     future = model.make_future_dataframe(periods=size + periods, freq="D")
     forecast = model.predict(future)
@@ -481,7 +483,7 @@ def my_prophet(
 
             for p in params:
                 processes.append(
-                    executor.submit(__prophet_execute, train, periods, freq, **p)
+                    executor.submit(__prophet_execute, train, test, periods, freq, **p)
                 )
 
             for p in futures.as_completed(processes):
@@ -524,8 +526,53 @@ def my_prophet(
     )
 
     if report:
-        # ------------------------------------------------------
-        # 결과 시각화
-        pass
+        my_prophet_report(best_model, best_forecast, best_pred, test, figsize, dpi)
 
     return best_model, best_params, best_score, best_forecast, best_pred
+
+
+def my_prophet_report(
+    model: Prophet,
+    forecast: DataFrame,
+    pred: DataFrame,
+    test: DataFrame = None,
+    figsize: tuple = (20, 8),
+    dpi: int = 100,
+) -> DataFrame:
+    """Prophet 모델 결과를 시각화한다.
+
+    Args:
+        model (Prophet): Prophet 모델
+        forecast (DataFrame): 예측 결과
+        pred (DataFrame): 예측 결과
+        test (DataFrame, optional): 검증 데이터. Defaults to None.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+
+    Returns:
+        DataFrame: 독립변수 결과 보고
+    """
+
+    my_pretty_table(forecast)
+
+    # ------------------------------------------------------
+    # 결과 시각화
+    fig = model.plot(forecast, figsize=figsize, xlabel="Date", ylabel="Value")
+    fig.set_dpi(dpi)
+    ax = fig.gca()
+    add_changepoints_to_plot(ax, model, forecast)
+
+    if test is not None:
+        sb.lineplot(
+            data=test, x="ds", y="y", color="black", linestyle="--", label="test", ax=ax
+        )
+
+    plt.show()
+    plt.close()
+
+    fig = model.plot_components(forecast, figsize=figsize)
+    fig.set_dpi(dpi)
+    ax = fig.gca()
+    plt.show()
+    plt.close()

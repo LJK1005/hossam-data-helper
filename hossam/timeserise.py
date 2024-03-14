@@ -439,8 +439,9 @@ def __prophet_execute(
     model.fit(train)
 
     size = 0 if test is None else len(test)
+    size = size + periods
 
-    future = model.make_future_dataframe(periods=size + periods, freq=freq)
+    future = model.make_future_dataframe(periods=size, freq=freq)
     forecast = model.predict(future)
 
     if test is not None:
@@ -649,7 +650,7 @@ def get_weekend_df(start: any, end: any = None) -> DataFrame:
     """주말 데이터 프레임을 생성한다.
 
     Args:
-        start (any): 시작일
+        start (any): 시작일 (datetime, str) 형식 가능 (ex. "2021-01-01")
         end (any, optional): 종료일. Defaults to None.
 
     Returns:

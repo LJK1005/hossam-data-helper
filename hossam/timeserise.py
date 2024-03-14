@@ -12,7 +12,7 @@ from prophet import Prophet
 from prophet.plot import add_changepoints_to_plot
 
 from sklearn.model_selection import ParameterGrid
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 import concurrent.futures as futures
 
@@ -582,3 +582,15 @@ def my_prophet_report(
     ax = fig.gca()
     plt.show()
     plt.close()
+
+    if test is not None:
+        yhat = forecast["yhat"].values[-len(test) :]
+        y = test["y"].values
+
+        result = {
+            "평균절대오차(MAE)": mean_absolute_error(y, yhat),
+            "평균제곱오차(MSE)": mean_squared_error(y, yhat),
+            "평균오차(RMSE)": np.sqrt(mean_squared_error(y, yhat)),
+        }
+
+        my_pretty_table(DataFrame(result, index=["Prophet"]).T)

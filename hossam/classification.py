@@ -13,6 +13,7 @@ from sklearn.metrics import (
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+from sklearn.neighbors import KNeighborsClassifier
 
 from scipy.stats import norm
 
@@ -29,7 +30,7 @@ def my_logistic_classification(
     hist: bool = True,
     roc: bool = True,
     pr: bool = True,
-    multiclass: str = None,
+    multiclass: str = "ovo",
     learning_curve=True,
     report: bool = True,
     figsize=(10, 5),
@@ -606,3 +607,123 @@ def my_classification_multiclass_report(
                 pass
 
         my_pretty_table(result_df)
+
+
+def my_knn_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = "ovo",
+    learning_curve=True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    **params
+) -> KNeighborsClassifier:
+    """KNN 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
+        roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
+        pr (bool, optional): PR Curve를 출력할지 여부. Defaults to True.
+        multiclass (str, optional): 다항분류일 경우, 다항분류 방법(ovo, ovr). Defaults to "ovo".
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        KNeighborsClassifier: 회귀분석 모델
+    """
+    # ------------------------------------------------------
+    # 분석모델 생성
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {"n_neighbors": [3, 5, 7]}
+
+        prototype_estimator = KNeighborsClassifier(n_jobs=-1)
+        grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv, n_jobs=-1)
+        grid.fit(x_train, y_train)
+
+        result_df = DataFrame(grid.cv_results_["params"])
+        result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
+
+        print("[교차검증]")
+        my_pretty_table(
+            result_df.dropna(subset=["mean_test_score"]).sort_values(
+                by="mean_test_score", ascending=False
+            )
+        )
+        print("")
+
+        estimator = grid.best_estimator_
+        estimator.best_params = grid.best_params_
+    else:
+        estimator = KNeighborsClassifier(n_jobs=-1)
+        estimator.fit(x_train, y_train)
+
+    # ------------------------------------------------------
+    # 결과값 생성
+
+    # 훈련 데이터에 대한 추정치 생성
+    y_pred = (
+        estimator.predict(x_test) if x_test is not None else estimator.predict(x_train)
+    )
+    y_pred_prob = (
+        estimator.predict_proba(x_test)
+        if x_test is not None
+        else estimator.predict_proba(x_train)
+    )
+
+    # 도출된 결과를 모델 객체에 포함시킴
+    estimator.x = x_test if x_test is not None else x_train
+    estimator.y = y_test if y_test is not None else y_train
+    estimator.y_pred = y_pred if y_test is not None else estimator.predict(x_train)
+    estimator.y_pred_proba = (
+        y_pred_prob if y_test is not None else estimator.predict_proba(x_train)
+    )
+
+    # ------------------------------------------------------
+    # 성능평가
+    if x_test is not None and y_test is not None:
+        my_classification_result(
+            estimator,
+            x_train=x_train,
+            y_train=y_train,
+            x_test=x_test,
+            y_test=y_test,
+            hist=hist,
+            roc=roc,
+            pr=pr,
+            multiclass=multiclass,
+            learning_curve=learning_curve,
+            cv=cv,
+            figsize=figsize,
+            dpi=dpi,
+        )
+    else:
+        my_classification_result(
+            estimator,
+            x_train=x_train,
+            y_train=y_train,
+            hist=hist,
+            roc=roc,
+            pr=pr,
+            multiclass=multiclass,
+            learning_curve=learning_curve,
+            cv=cv,
+            figsize=figsize,
+            dpi=dpi,
+        )
+
+    return estimator

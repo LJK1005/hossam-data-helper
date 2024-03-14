@@ -553,8 +553,6 @@ def my_prophet_report(
         DataFrame: 독립변수 결과 보고
     """
 
-    my_pretty_table(forecast)
-
     # ------------------------------------------------------
     # 결과 시각화
     fig = model.plot(forecast, figsize=figsize, xlabel="Date", ylabel="Value")
@@ -581,6 +579,9 @@ def my_prophet_report(
     ax = fig.gca()
     plt.show()
     plt.close()
+
+    # 예측 결과 테이블
+    my_pretty_table(forecast)
 
     if test is not None:
         yhat = forecast["yhat"].values[-len(test) :]

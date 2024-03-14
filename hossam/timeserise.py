@@ -1,5 +1,8 @@
+import logging
+import numpy as np
 import seaborn as sb
-from pandas import DataFrame, Series
+import datetime as dt
+from pandas import DataFrame, Series, date_range
 from matplotlib import pyplot as plt
 
 from statsmodels.tsa.stattools import adfuller
@@ -7,6 +10,13 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.arima.model import ARIMA
 from pmdarima.arima import auto_arima
+from prophet import Prophet
+from prophet.plot import add_changepoints_to_plot
+
+from sklearn.model_selection import ParameterGrid
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+import concurrent.futures as futures
 
 from .util import my_pretty_table
 from .plot import my_lineplot
@@ -398,3 +408,268 @@ def my_arima(
     plt.close()
 
     return model
+
+
+def __prophet_execute(
+    train: DataFrame,
+    test: DataFrame = None,
+    periods: int = 0,
+    freq: str = "D",
+    callback: any = None,
+    **params,
+):
+    """Prophet 모델을 생성한다.
+
+    Args:
+        train (DataFrame): 훈련데이터
+        test (DataFrame, optional): 검증데이터. Defaults to None.
+        periods (int, optional): 예측기간. Defaults to 0.
+        freq (str, optional): 예측주기(D,M,Y). Defaults to "D".
+        callback (any, optional): 콜백함수. Defaults to None.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    """
+    model = Prophet(**params)
+
+    if callback:
+        callback(model)
+
+    model.fit(train)
+
+    size = 0 if test is None else len(test)
+    size = size + periods
+
+    future = model.make_future_dataframe(periods=size, freq=freq)
+    forecast = model.predict(future)
+
+    if test is not None:
+        pred = forecast[["ds", "yhat"]][-size:]
+        score = np.sqrt(mean_squared_error(test["y"].values, pred["yhat"].values))
+    else:
+        pred = forecast[["ds", "yhat"]]
+        score = np.sqrt(mean_squared_error(train["y"].values, pred["yhat"].values))
+
+    return model, score, dict(params), forecast, pred
+
+
+def my_prophet(
+    train: DataFrame,
+    test: DataFrame = None,
+    periods: int = 0,
+    freq: str = "D",
+    report: bool = True,
+    print_forecast: bool = False,
+    figsize=(20, 8),
+    dpi: int = 200,
+    callback: any = None,
+    **params,
+) -> DataFrame:
+    """Prophet 모델을 생성한다.
+
+    Args:
+        train (DataFrame): 훈련 데이터
+        test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        periods (int, optional): 예측기간. Defaults to 0.
+        freq (str, optional): 예측주기(D,M,Y). Defaults to "D".
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        callback (any, optional): 콜백함수. Defaults to None.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        tuple: best_model, best_params, best_score
+    """
+
+    logger = logging.getLogger("cmdstanpy")
+    logger.addHandler(logging.NullHandler())
+    logger.propagate = False
+    logger.setLevel(logging.CRITICAL)
+
+    # ------------------------------------------------------
+    # 분석모델 생성
+
+    result = []
+    processes = []
+
+    if params:
+        with futures.ThreadPoolExecutor() as executor:
+            params = ParameterGrid(params)
+
+            for p in params:
+                processes.append(
+                    executor.submit(
+                        __prophet_execute,
+                        train=train,
+                        test=test,
+                        periods=periods,
+                        freq=freq,
+                        callback=callback,
+                        **p,
+                    )
+                )
+
+            for p in futures.as_completed(processes):
+                m, score, params, forecast, pred = p.result()
+                result.append(
+                    {
+                        "model": m,
+                        "params": params,
+                        "score": score,
+                        "forecast": forecast,
+                        "pred": pred,
+                    }
+                )
+
+    else:
+        m, score, params, forecast, pred = __prophet_execute(
+            train=train, test=test, periods=periods, freq=freq, callback=callback, **p
+        )
+        result.append(
+            {
+                "model": m,
+                "params": params,
+                "score": score,
+                "forecast": forecast,
+                "pred": pred,
+            }
+        )
+
+    result_df = DataFrame(result).sort_values("score").reset_index(drop=True)
+    best_model, best_params, best_score, best_forecast, best_pred = result_df.iloc[0]
+
+    # print_result = []
+    # for i, v in enumerate(result):
+    #     item = v["params"]
+    #     item["score"] = v["score"]
+    #     print_result.append(item)
+
+    # my_pretty_table(
+    #     DataFrame(print_result)
+    #     .sort_values("score", ascending=True)
+    #     .reset_index(drop=True)
+    # )
+
+    if report:
+        my_prophet_report(
+            best_model, best_forecast, best_pred, test, print_forecast, figsize, dpi
+        )
+
+    return best_model, best_params, best_score, best_forecast, best_pred
+
+
+def my_prophet_report(
+    model: Prophet,
+    forecast: DataFrame,
+    pred: DataFrame,
+    test: DataFrame = None,
+    print_forecast: bool = False,
+    figsize: tuple = (20, 8),
+    dpi: int = 100,
+) -> DataFrame:
+    """Prophet 모델 결과를 시각화한다.
+
+    Args:
+        model (Prophet): Prophet 모델
+        forecast (DataFrame): 예측 결과
+        pred (DataFrame): 예측 결과
+        test (DataFrame, optional): 검증 데이터. Defaults to None.
+        print_forecast (bool, optional): 예측 결과를 출력할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+
+    Returns:
+        DataFrame: 독립변수 결과 보고
+    """
+
+    # ------------------------------------------------------
+    # 결과 시각화
+    fig = model.plot(forecast, figsize=figsize, xlabel="Date", ylabel="Value")
+    fig.set_dpi(dpi)
+    ax = fig.gca()
+    add_changepoints_to_plot(ax, model, forecast)
+
+    if test is not None:
+        sb.scatterplot(
+            data=test,
+            x="ds",
+            y="y",
+            size=1,
+            color="#ff0000",
+            marker="o",
+            ax=ax,
+        )
+
+        sb.lineplot(
+            data=test,
+            x="ds",
+            y="y",
+            color="#ff6600",
+            ax=ax,
+            label="Test",
+            alpha=0.7,
+            linewidth=0.7,
+            linestyle="--",
+        )
+
+    ax.set_ylim([forecast["yhat"].min() * 0.95, forecast["yhat"].max() * 1.05])
+
+    plt.legend()
+    plt.show()
+    plt.close()
+
+    height = figsize[1] * (len(model.seasonalities) + 1)
+
+    fig = model.plot_components(forecast, figsize=(figsize[0], height))
+    fig.set_dpi(dpi)
+    ax = fig.gca()
+
+    plt.show()
+    plt.close()
+
+    # 예측 결과 테이블
+    if print_forecast:
+        my_pretty_table(forecast)
+
+    if test is not None:
+        yhat = forecast["yhat"].values[-len(test) :]
+        y = test["y"].values
+
+        result = {
+            "평균절대오차(MAE)": mean_absolute_error(y, yhat),
+            "평균제곱오차(MSE)": mean_squared_error(y, yhat),
+            "평균오차(RMSE)": np.sqrt(mean_squared_error(y, yhat)),
+        }
+
+        my_pretty_table(DataFrame(result, index=["Prophet"]).T)
+
+
+def get_weekend_df(start: any, end: any = None) -> DataFrame:
+    """주말 데이터 프레임을 생성한다.
+
+    Args:
+        start (any): 시작일 (datetime, str) 형식 가능 (ex. "2021-01-01")
+        end (any, optional): 종료일. Defaults to None.
+
+    Returns:
+        DataFrame: 주말 데이터 프레임
+    """
+    if end is None:
+        end = dt.datetime.now()
+
+    date = date_range(start, end)
+    df = DataFrame({"date": date, "weekend": date.day_name()}).set_index("date")
+
+    df["weekend"] = df["weekend"].apply(
+        lambda x: 1 if x in ["Saturday", "Sunday"] else 0
+    )
+
+    df2 = df[df["weekend"] == 1]
+    df2["holiday"] = "holiday"
+    df2.drop("weekend", axis=1, inplace=True)
+    df2.reset_index(drop=False, inplace=True)
+    df2.rename(columns={"date": "ds"}, inplace=True)
+
+    return df2

@@ -204,7 +204,9 @@ def my_classification_result(
         y_train_pred_proba_1 = y_train_pred_proba[:, 1]
 
         # 의사결정계수 --> 다항로지스틱에서는 사용 X
-        if is_binary:
+        y_train_pseudo_r2 = 0
+
+        if is_binary and estimator.__class__.__name__ == "LogisticRegression":
             y_train_log_loss_test = -log_loss(
                 y_train, y_train_pred_proba, normalize=False
             )
@@ -261,7 +263,9 @@ def my_classification_result(
         y_test_pred_proba_1 = y_test_pred_proba[:, 1]
 
         # 의사결정계수
-        if is_binary:
+        y_test_pseudo_r2 = 0
+
+        if is_binary and estimator.__class__.__name__ == "LogisticRegression":
             y_test_log_loss_test = -log_loss(y_test, y_test_pred_proba, normalize=False)
             y_test_null = np.ones_like(y_test) * y_test.mean()
             y_test_log_loss_null = -log_loss(y_test, y_test_null, normalize=False)
@@ -339,6 +343,11 @@ def my_classification_result(
 
     print("[분류분석 성능평가]")
     result_df = DataFrame(scores, index=score_names)
+
+    if estimator.__class__.__name__ != "LogisticRegression":
+        if "의사결정계수(Pseudo R2)" in result_df.columns:
+            result_df.drop(columns=["의사결정계수(Pseudo R2)"], inplace=True)
+
     my_pretty_table(result_df.T)
 
     # ------------------------------------------------------

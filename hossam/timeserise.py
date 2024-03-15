@@ -2,6 +2,8 @@ import logging
 import numpy as np
 import seaborn as sb
 import datetime as dt
+import concurrent.futures as futures
+
 from pandas import DataFrame, Series, date_range
 from matplotlib import pyplot as plt
 
@@ -15,8 +17,6 @@ from prophet.plot import add_changepoints_to_plot
 
 from sklearn.model_selection import ParameterGrid
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-
-import concurrent.futures as futures
 
 from .util import my_pretty_table
 from .plot import my_lineplot

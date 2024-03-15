@@ -1,4 +1,6 @@
+import logging
 import numpy as np
+import concurrent.futures as futures
 
 from pandas import DataFrame, Series, concat
 from sklearn.metrics import (
@@ -21,7 +23,7 @@ from .util import my_pretty_table
 from .plot import my_learing_curve, my_confusion_matrix, my_roc_curve
 
 
-def my_classification(
+def __my_classification(
     classname: any,
     x_train: DataFrame,
     y_train: Series,
@@ -37,6 +39,7 @@ def my_classification(
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
+    is_print: bool = True,
     **params
 ) -> any:
     """분류분석을 수행하고 결과를 출력한다.
@@ -76,13 +79,14 @@ def my_classification(
         result_df = DataFrame(grid.cv_results_["params"])
         result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
 
-        print("[교차검증]")
-        my_pretty_table(
-            result_df.dropna(subset=["mean_test_score"]).sort_values(
-                by="mean_test_score", ascending=False
+        if is_print:
+            print("[교차검증]")
+            my_pretty_table(
+                result_df.dropna(subset=["mean_test_score"]).sort_values(
+                    by="mean_test_score", ascending=False
+                )
             )
-        )
-        print("")
+            print("")
 
         estimator = grid.best_estimator_
         estimator.best_params = grid.best_params_
@@ -128,6 +132,7 @@ def my_classification(
             cv=cv,
             figsize=figsize,
             dpi=dpi,
+            is_print=is_print,
         )
     else:
         my_classification_result(
@@ -142,11 +147,12 @@ def my_classification(
             cv=cv,
             figsize=figsize,
             dpi=dpi,
+            is_print=is_print,
         )
 
     # ------------------------------------------------------
     # 보고서 출력
-    if report:
+    if report and is_print:
         my_classification_report(estimator, x_train, y_train, x_test, y_test, sort)
 
     return estimator
@@ -167,6 +173,7 @@ def my_classification_result(
     cv: int = 10,
     figsize: tuple = (12, 5),
     dpi: int = 100,
+    is_print: bool = True,
 ) -> None:
     """회귀분석 결과를 출력한다.
 
@@ -341,18 +348,22 @@ def my_classification_result(
     scores.append(result)
     score_names.append("설명")
 
-    print("[분류분석 성능평가]")
-    result_df = DataFrame(scores, index=score_names)
+    if is_print:
+        print("[분류분석 성능평가]")
+        result_df = DataFrame(scores, index=score_names)
 
-    if estimator.__class__.__name__ != "LogisticRegression":
-        if "의사결정계수(Pseudo R2)" in result_df.columns:
-            result_df.drop(columns=["의사결정계수(Pseudo R2)"], inplace=True)
+        if estimator.__class__.__name__ != "LogisticRegression":
+            if "의사결정계수(Pseudo R2)" in result_df.columns:
+                result_df.drop(columns=["의사결정계수(Pseudo R2)"], inplace=True)
 
-    my_pretty_table(result_df.T)
+        my_pretty_table(result_df.T)
+
+    # 결과값을 모델 객체에 포함시킴
+    estimator.scores = scores[-2]
 
     # ------------------------------------------------------
     # 혼동행렬
-    if conf_matrix:
+    if conf_matrix and is_print:
         print("\n[혼동행렬]")
 
         if x_test is not None and y_test is not None:
@@ -362,54 +373,55 @@ def my_classification_result(
 
     # ------------------------------------------------------
     # curve
-    print("\n[Roc Curve]")
+    if is_print:
+        print("\n[Roc Curve]")
 
-    if x_test is None or y_test is None:
-        my_roc_curve(
-            estimator,
-            x_train,
-            y_train,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            dpi=dpi,
-        )
-    else:
-        my_roc_curve(
-            estimator,
-            x_test,
-            y_test,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            dpi=dpi,
-        )
-
-    # 학습곡선
-    if learning_curve:
-        print("\n[학습곡선]")
-        yname = y_train.name
-
-        if x_test is not None and y_test is not None:
-            y_df = concat([y_train, y_test])
-            x_df = concat([x_train, x_test])
-        else:
-            y_df = y_train.copy()
-            x_df = x_train.copy()
-
-        x_df[yname] = y_df
-        x_df.sort_index(inplace=True)
-
-        if cv > 0:
-            my_learing_curve(
-                estimator, data=x_df, yname=yname, cv=cv, figsize=figsize, dpi=dpi
+        if x_test is None or y_test is None:
+            my_roc_curve(
+                estimator,
+                x_train,
+                y_train,
+                hist=hist,
+                roc=roc,
+                pr=pr,
+                multiclass=multiclass,
+                dpi=dpi,
             )
         else:
-            my_learing_curve(
-                estimator, data=x_df, yname=yname, figsize=figsize, dpi=dpi
+            my_roc_curve(
+                estimator,
+                x_test,
+                y_test,
+                hist=hist,
+                roc=roc,
+                pr=pr,
+                multiclass=multiclass,
+                dpi=dpi,
             )
+
+        # 학습곡선
+        if learning_curve:
+            print("\n[학습곡선]")
+            yname = y_train.name
+
+            if x_test is not None and y_test is not None:
+                y_df = concat([y_train, y_test])
+                x_df = concat([x_train, x_test])
+            else:
+                y_df = y_train.copy()
+                x_df = x_train.copy()
+
+            x_df[yname] = y_df
+            x_df.sort_index(inplace=True)
+
+            if cv > 0:
+                my_learing_curve(
+                    estimator, data=x_df, yname=yname, cv=cv, figsize=figsize, dpi=dpi
+                )
+            else:
+                my_learing_curve(
+                    estimator, data=x_df, yname=yname, figsize=figsize, dpi=dpi
+                )
 
 
 def my_classification_report(
@@ -632,6 +644,7 @@ def my_logistic_classification(
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
+    is_print: bool = True,
     **params
 ) -> LogisticRegression:
     """로지스틱 회귀분석을 수행하고 결과를 출력한다.
@@ -651,6 +664,7 @@ def my_logistic_classification(
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
         LogisticRegression: 회귀분석 모델
@@ -665,7 +679,7 @@ def my_logistic_classification(
                 "max_iter": [500],
             }
 
-    return my_classification(
+    return __my_classification(
         classname=LogisticRegression,
         x_train=x_train,
         y_train=y_train,
@@ -681,7 +695,8 @@ def my_logistic_classification(
         figsize=figsize,
         dpi=dpi,
         sort=sort,
-        **params
+        is_print=is_print,
+        **params,
     )
 
 
@@ -698,6 +713,7 @@ def my_knn_classification(
     learning_curve=True,
     figsize=(10, 5),
     dpi: int = 100,
+    is_print: bool = True,
     **params
 ) -> KNeighborsClassifier:
     """KNN 분류분석을 수행하고 결과를 출력한다.
@@ -715,6 +731,7 @@ def my_knn_classification(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
         LogisticRegression: 회귀분석 모델
@@ -729,7 +746,7 @@ def my_knn_classification(
                 "metric": ["euclidean", "manhattan"],
             }
 
-    return my_classification(
+    return __my_classification(
         classname=KNeighborsClassifier,
         x_train=x_train,
         y_train=y_train,
@@ -743,5 +760,81 @@ def my_knn_classification(
         learning_curve=learning_curve,
         figsize=figsize,
         dpi=dpi,
-        **params
+        is_print=is_print,
+        **params,
     )
+
+
+def my_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    **params
+) -> DataFrame:
+
+    results = []
+    processes = []
+    estimators = []
+
+    with futures.ThreadPoolExecutor() as executor:
+        processes.append(
+            executor.submit(
+                my_logistic_classification,
+                x_train=x_train,
+                y_train=y_train,
+                x_test=x_test,
+                y_test=y_test,
+                cv=cv,
+                hist=hist,
+                roc=roc,
+                pr=pr,
+                multiclass=multiclass,
+                learning_curve=learning_curve,
+                report=report,
+                figsize=figsize,
+                dpi=dpi,
+                sort=sort,
+                is_print=False,
+                **params,
+            )
+        )
+
+        processes.append(
+            executor.submit(
+                my_knn_classification,
+                x_train=x_train,
+                y_train=y_train,
+                x_test=x_test,
+                y_test=y_test,
+                cv=cv,
+                hist=hist,
+                roc=roc,
+                pr=pr,
+                multiclass=multiclass,
+                learning_curve=learning_curve,
+                figsize=figsize,
+                dpi=dpi,
+                is_print=False,
+                **params,
+            )
+        )
+
+        for p in futures.as_completed(processes):
+            estimator = p.result()
+            scores = estimator.scores
+            estimators.append(estimator.__class__.__name__)
+            results.append(scores)
+
+        result_df = DataFrame(results, index=estimators)
+        my_pretty_table(result_df)

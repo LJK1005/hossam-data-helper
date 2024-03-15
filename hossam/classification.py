@@ -690,8 +690,8 @@ def my_knn_classification(
     figsize=(10, 5),
     dpi: int = 100,
     **params
-) -> LogisticRegression:
-    """로지스틱 회귀분석을 수행하고 결과를 출력한다.
+) -> KNeighborsClassifier:
+    """KNN 분류분석을 수행하고 결과를 출력한다.
 
     Args:
         x_train (DataFrame): 독립변수에 대한 훈련 데이터

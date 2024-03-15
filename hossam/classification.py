@@ -152,74 +152,6 @@ def my_classification(
     return estimator
 
 
-def my_logistic_classification(
-    x_train: DataFrame,
-    y_train: Series,
-    x_test: DataFrame = None,
-    y_test: Series = None,
-    cv: int = 5,
-    hist: bool = True,
-    roc: bool = True,
-    pr: bool = True,
-    multiclass: str = None,
-    learning_curve=True,
-    report: bool = True,
-    figsize=(10, 5),
-    dpi: int = 100,
-    sort: str = None,
-    **params
-) -> LogisticRegression:
-    """로지스틱 회귀분석을 수행하고 결과를 출력한다.
-
-    Args:
-        x_train (DataFrame): 독립변수에 대한 훈련 데이터
-        y_train (Series): 종속변수에 대한 훈련 데이터
-        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
-        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
-        cv (int, optional): 교차검증 횟수. Defaults to 5.
-        hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
-        roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
-        pr (bool, optional): PR Curve를 출력할지 여부. Defaults to True.
-        multiclass (str, optional): 다항분류일 경우, 다항분류 방법. Defaults to None.
-        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
-        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
-        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
-        dpi (int, optional): 그래프의 해상도. Defaults to 100.
-        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-        **params (dict, optional): 하이퍼파라미터. Defaults to None.
-    Returns:
-        LogisticRegression: 회귀분석 모델
-    """
-
-    # 교차검증 설정
-    if cv > 0:
-        if not params:
-            params = {
-                "penalty": ["l1", "l2", "elasticnet"],
-                "C": [0.001, 0.01, 0.1, 1, 10, 100],
-                "max_iter": [500],
-            }
-
-    return my_classification(
-        classname=LogisticRegression,
-        x_train=x_train,
-        y_train=y_train,
-        x_test=x_test,
-        y_test=y_test,
-        cv=cv,
-        hist=hist,
-        roc=roc,
-        pr=pr,
-        multiclass=multiclass,
-        learning_curve=learning_curve,
-        report=report,
-        figsize=figsize,
-        dpi=dpi,
-        sort=sort,
-        **params
-    )
-
-
 def my_classification_result(
     estimator: any,
     x_train: DataFrame = None,
@@ -674,6 +606,74 @@ def my_classification_multiclass_report(
                 pass
 
         my_pretty_table(result_df)
+
+
+def my_logistic_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    **params
+) -> LogisticRegression:
+    """로지스틱 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
+        roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
+        pr (bool, optional): PR Curve를 출력할지 여부. Defaults to True.
+        multiclass (str, optional): 다항분류일 경우, 다항분류 방법. Defaults to None.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        LogisticRegression: 회귀분석 모델
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {
+                "penalty": ["l1", "l2", "elasticnet"],
+                "C": [0.001, 0.01, 0.1, 1, 10, 100],
+                "max_iter": [500],
+            }
+
+    return my_classification(
+        classname=LogisticRegression,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        **params
+    )
 
 
 def my_knn_classification(

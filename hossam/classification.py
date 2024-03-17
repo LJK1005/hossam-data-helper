@@ -207,8 +207,10 @@ def my_classification_result(
     if x_train is not None and y_train is not None:
         # 추정치
         y_train_pred = estimator.predict(x_train)
-        y_train_pred_proba = estimator.predict_proba(x_train)
-        y_train_pred_proba_1 = y_train_pred_proba[:, 1]
+
+        if hasattr(estimator, "predict_proba"):
+            y_train_pred_proba = estimator.predict_proba(x_train)
+            y_train_pred_proba_1 = y_train_pred_proba[:, 1]
 
         # 의사결정계수 --> 다항로지스틱에서는 사용 X
         y_train_pseudo_r2 = 0
@@ -238,8 +240,10 @@ def my_classification_result(
                 "위양성율(Fallout)": FP / (TN + FP),
                 "특이성(TNR)": 1 - (FP / (TN + FP)),
                 "F1 Score": f1_score(y_train, y_train_pred),
-                "AUC": roc_auc_score(y_train, y_train_pred_proba_1),
             }
+
+            if hasattr(estimator, "predict_proba"):
+                result["AUC"] = roc_auc_score(y_train, y_train_pred_proba_1)
         else:
             result = {
                 "정확도(Accuracy)": accuracy_score(y_train, y_train_pred),
@@ -250,15 +254,16 @@ def my_classification_result(
                 "F1 Score": f1_score(y_train, y_train_pred, average="macro"),
             }
 
-            if multiclass == "ovo" or multiclass == None:
-                result["AUC(ovo)"] = roc_auc_score(
-                    y_train, y_train_pred_proba, average="macro", multi_class="ovo"
-                )
+            if hasattr(estimator, "predict_proba"):
+                if multiclass == "ovo" or multiclass == None:
+                    result["AUC(ovo)"] = roc_auc_score(
+                        y_train, y_train_pred_proba, average="macro", multi_class="ovo"
+                    )
 
-            if multiclass == "ovr" or multiclass == None:
-                result["AUC(ovr)"] = roc_auc_score(
-                    y_train, y_train_pred_proba, average="macro", multi_class="ovr"
-                )
+                if multiclass == "ovr" or multiclass == None:
+                    result["AUC(ovr)"] = roc_auc_score(
+                        y_train, y_train_pred_proba, average="macro", multi_class="ovr"
+                    )
 
         scores.append(result)
         score_names.append("훈련데이터")
@@ -266,8 +271,10 @@ def my_classification_result(
     if x_test is not None and y_test is not None:
         # 추정치
         y_test_pred = estimator.predict(x_test)
-        y_test_pred_proba = estimator.predict_proba(x_test)
-        y_test_pred_proba_1 = y_test_pred_proba[:, 1]
+
+        if hasattr(estimator, "predict_proba"):
+            y_test_pred_proba = estimator.predict_proba(x_test)
+            y_test_pred_proba_1 = y_test_pred_proba[:, 1]
 
         # 의사결정계수
         y_test_pseudo_r2 = 0
@@ -294,8 +301,10 @@ def my_classification_result(
                 "위양성율(Fallout)": FP / (TN + FP),
                 "특이성(TNR)": 1 - (FP / (TN + FP)),
                 "F1 Score": f1_score(y_test, y_test_pred),
-                "AUC": roc_auc_score(y_test, y_test_pred_proba_1),
             }
+
+            if hasattr(estimator, "predict_proba"):
+                result["AUC"] = roc_auc_score(y_test, y_test_pred_proba_1)
         else:
             result = {
                 "정확도(Accuracy)": accuracy_score(y_test, y_test_pred),
@@ -306,15 +315,16 @@ def my_classification_result(
                 "F1 Score": f1_score(y_test, y_test_pred, average="macro"),
             }
 
-            if multiclass == "ovo" or multiclass == None:
-                result["AUC(ovo)"] = roc_auc_score(
-                    y_test, y_test_pred_proba, average="macro", multi_class="ovo"
-                )
+            if hasattr(estimator, "predict_proba"):
+                if multiclass == "ovo" or multiclass == None:
+                    result["AUC(ovo)"] = roc_auc_score(
+                        y_test, y_test_pred_proba, average="macro", multi_class="ovo"
+                    )
 
-            if multiclass == "ovr" or multiclass == None:
-                result["AUC(ovr)"] = roc_auc_score(
-                    y_test, y_test_pred_proba, average="macro", multi_class="ovr"
-                )
+                if multiclass == "ovr" or multiclass == None:
+                    result["AUC(ovr)"] = roc_auc_score(
+                        y_test, y_test_pred_proba, average="macro", multi_class="ovr"
+                    )
 
         scores.append(result)
         score_names.append("검증데이터")
@@ -329,8 +339,10 @@ def my_classification_result(
             "위양성율(Fallout)": "실제 음성(FP,TN) 중 양성(FP)으로 잘못 예측한 비율",
             "특이성(TNR)": "실제 음성(FP,TN) 중 음성(TN)으로 정확히 예측한 비율",
             "F1 Score": "정밀도와 재현율의 조화평균",
-            "AUC": "ROC Curve의 밑면적으로, 1에 가까울수록 좋은 모델",
         }
+
+        if hasattr(estimator, "predict_proba"):
+            result["AUC"] = "ROC Curve의 면적으로, 1에 가까울수록 좋은 모델"
     else:
         result = {
             "정확도(Accuracy)": "예측 결과(TN,FP,TP,TN)가 실제 결과(TP,TN)와 일치하는 정도",
@@ -339,11 +351,14 @@ def my_classification_result(
             "F1 Score": "정밀도와 재현율의 조화평균",
         }
 
-        if multiclass == "ovo" or multiclass == None:
-            result["AUC(ovo)"] = "One vs One에 대한 AUC로, 1에 가까울수록 좋은 모델"
+        if hasattr(estimator, "predict_proba"):
+            if multiclass == "ovo" or multiclass == None:
+                result["AUC(ovo)"] = "One vs One에 대한 AUC로, 1에 가까울수록 좋은 모델"
 
-        if multiclass == "ovr" or multiclass == None:
-            result["AUC(ovr)"] = "One vs Rest에 대한 AUC로, 1에 가까울수록 좋은 모델"
+            if multiclass == "ovr" or multiclass == None:
+                result["AUC(ovr)"] = (
+                    "One vs Rest에 대한 AUC로, 1에 가까울수록 좋은 모델"
+                )
 
     scores.append(result)
     score_names.append("설명")
@@ -374,30 +389,31 @@ def my_classification_result(
     # ------------------------------------------------------
     # curve
     if is_print:
-        print("\n[Roc Curve]")
+        if hasattr(estimator, "predict_proba"):
+            print("\n[Roc Curve]")
 
-        if x_test is None or y_test is None:
-            my_roc_curve(
-                estimator,
-                x_train,
-                y_train,
-                hist=hist,
-                roc=roc,
-                pr=pr,
-                multiclass=multiclass,
-                dpi=dpi,
-            )
-        else:
-            my_roc_curve(
-                estimator,
-                x_test,
-                y_test,
-                hist=hist,
-                roc=roc,
-                pr=pr,
-                multiclass=multiclass,
-                dpi=dpi,
-            )
+            if x_test is None or y_test is None:
+                my_roc_curve(
+                    estimator,
+                    x_train,
+                    y_train,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    dpi=dpi,
+                )
+            else:
+                my_roc_curve(
+                    estimator,
+                    x_test,
+                    y_test,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    dpi=dpi,
+                )
 
         # 학습곡선
         if learning_curve:
@@ -640,7 +656,7 @@ def my_logistic_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
-    report: bool = True,
+    report: bool = False,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
@@ -776,7 +792,7 @@ def my_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
-    report: bool = True,
+    report: bool = False,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,

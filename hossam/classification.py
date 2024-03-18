@@ -1,4 +1,6 @@
-import logging
+import inspect
+
+# import logging
 import numpy as np
 import concurrent.futures as futures
 
@@ -73,7 +75,8 @@ def __my_classification(
         if not params:
             params = {}
 
-        if hasattr(classname, "n_jobs"):
+        # if hasattr(classname, "n_jobs"):
+        if "n_jobs" in dict(inspect.signature(classname.__init__).parameters):
             prototype_estimator = classname(n_jobs=-1)
             # grid = GridSearchCV(
             #     prototype_estimator, param_grid=params, cv=cv, n_jobs=-1
@@ -87,7 +90,7 @@ def __my_classification(
                 verbose=1,
             )
         else:
-            print("n_jobs를 허용하지 않음")
+            print("%s는 n_jobs를 허용하지 않음" % classname)
             prototype_estimator = classname()
             # grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv)
             grid = RandomizedSearchCV(
@@ -908,8 +911,8 @@ def my_svc_classification(
         if not params:
             params = {
                 "C": [0.1, 1, 10],
-                "kernel": ["rbf", "linear", "poly", "sigmoid"],
-                # "kernel": ["rbf", "poly"],
+                # "kernel": ["rbf", "linear", "poly", "sigmoid"],
+                "kernel": ["rbf", "poly", "sigmoid"],
                 "degree": [2, 3, 4, 5],
                 # "gamma": ["scale", "auto"],
                 # "coef0": [0.01, 0.1, 1, 10],
@@ -1002,21 +1005,21 @@ def my_classification(
             )
         )
 
-        processes.append(
-            executor.submit(
-                my_linear_svc_classification,
-                x_train=x_train,
-                y_train=y_train,
-                x_test=x_test,
-                y_test=y_test,
-                cv=cv,
-                learning_curve=learning_curve,
-                figsize=figsize,
-                dpi=dpi,
-                is_print=False,
-                **params,
-            )
-        )
+        # processes.append(
+        #     executor.submit(
+        #         my_linear_svc_classification,
+        #         x_train=x_train,
+        #         y_train=y_train,
+        #         x_test=x_test,
+        #         y_test=y_test,
+        #         cv=cv,
+        #         learning_curve=learning_curve,
+        #         figsize=figsize,
+        #         dpi=dpi,
+        #         is_print=False,
+        #         **params,
+        #     )
+        # )
 
         processes.append(
             executor.submit(

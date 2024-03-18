@@ -1,4 +1,4 @@
-import logging
+# import logging
 import numpy as np
 import seaborn as sb
 import datetime as dt
@@ -482,10 +482,10 @@ def my_prophet(
         tuple: best_model, best_params, best_score
     """
 
-    logger = logging.getLogger("cmdstanpy")
-    logger.addHandler(logging.NullHandler())
-    logger.propagate = False
-    logger.setLevel(logging.CRITICAL)
+    # logger = logging.getLogger("cmdstanpy")
+    # logger.addHandler(logging.NullHandler())
+    # logger.propagate = False
+    # logger.setLevel(logging.CRITICAL)
 
     # ------------------------------------------------------
     # 분석모델 생성

@@ -17,6 +17,7 @@ from sklearn.metrics import (
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC, SVC
+from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
@@ -87,18 +88,13 @@ def __my_classification(
                 cv=cv,
                 n_jobs=-1,
                 n_iter=500,
-                verbose=1,
             )
         else:
             print("%s는 n_jobs를 허용하지 않음" % classname)
             prototype_estimator = classname()
             # grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv)
             grid = RandomizedSearchCV(
-                prototype_estimator,
-                param_distributions=params,
-                cv=cv,
-                n_iter=500,
-                verbose=1,
+                prototype_estimator, param_distributions=params, cv=cv, n_iter=500
             )
 
         grid.fit(x_train, y_train)
@@ -939,6 +935,66 @@ def my_svc_classification(
     )
 
 
+def my_gnb_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params
+) -> GaussianNB:
+    """가우시안 나이브베이즈 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        SVC
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {
+                # "priors" : None,
+                "var_smoothing": [1e-9, 1e-8, 1e-7, 1e-6, 1e-5]
+            }
+
+    return __my_classification(
+        classname=GaussianNB,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+        **params,
+    )
+
+
 def my_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1032,6 +1088,28 @@ def my_classification(
                 learning_curve=learning_curve,
                 figsize=figsize,
                 dpi=dpi,
+                is_print=False,
+                **params,
+            )
+        )
+
+        processes.append(
+            executor.submit(
+                my_gnb_classification,
+                x_train=x_train,
+                y_train=y_train,
+                x_test=x_test,
+                y_test=y_test,
+                cv=cv,
+                hist=hist,
+                roc=roc,
+                pr=pr,
+                multiclass=multiclass,
+                learning_curve=learning_curve,
+                report=report,
+                figsize=figsize,
+                dpi=dpi,
+                sort=sort,
                 is_print=False,
                 **params,
             )

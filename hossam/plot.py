@@ -1005,17 +1005,23 @@ def my_learing_curve(
 
     # 평가지표가 없는 경우
     if scoring == None:
-        train_sizes, train_scores, test_scores = learning_curve(
-            estimator,
-            x,
-            y,
-            cv=cv,
-            n_jobs=-1,
-            train_sizes=train_sizes,
-            random_state=random_state,
-        )
+        try:
+            train_sizes, train_scores, test_scores = learning_curve(
+                estimator,
+                x,
+                y,
+                cv=cv,
+                n_jobs=-1,
+                train_sizes=train_sizes,
+                random_state=random_state,
+            )
 
-        ylabel = "Score"
+            ylabel = "Score"
+        except Exception as e:
+            print(
+                f"\x1b[31m이 데이터는 학습곡선을 도출하는데 적합하지 않습니다.\x1b[0m"
+            )
+            print(f"\x1b[31m{e}\x1b[0m")
 
     # 평가지표가 있는 경우
     else:
@@ -1072,16 +1078,22 @@ def my_learing_curve(
 
         ylabel = scoring.upper()
 
-        train_sizes, train_scores, test_scores = learning_curve(
-            estimator,
-            x,
-            y,
-            cv=cv,
-            n_jobs=-1,
-            train_sizes=train_sizes,
-            scoring=scoring,
-            random_state=random_state,
-        )
+        try:
+            train_sizes, train_scores, test_scores = learning_curve(
+                estimator,
+                x,
+                y,
+                cv=cv,
+                n_jobs=-1,
+                train_sizes=train_sizes,
+                scoring=scoring,
+                random_state=random_state,
+            )
+        except Exception as e:
+            print(
+                f"\x1b[31m이 데이터는 학습곡선을 도출하는데 적합하지 않습니다.\x1b[0m"
+            )
+            print(f"\x1b[31m{e}\x1b[0m")
 
     train_mean = w * np.mean(train_scores, axis=1)
     train_std = w * np.std(train_scores, axis=1)

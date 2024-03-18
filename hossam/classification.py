@@ -908,11 +908,12 @@ def my_svc_classification(
         if not params:
             params = {
                 "C": [0.1, 1, 10],
-                "kernel": ["rbf", "linear", "poly", "sigmoid"],
+                # "kernel": ["rbf", "linear", "poly", "sigmoid"],
+                "kernel": ["rbf", "poly"],
                 "degree": [2, 3, 4, 5],
-                "gamma": ["scale", "auto"],
-                "coef0": [0.01, 0.1, 1, 10],
-                "shrinking": [True, False],
+                # "gamma": ["scale", "auto"],
+                # "coef0": [0.01, 0.1, 1, 10],
+                # "shrinking": [True, False],
                 # "probability": [True],  # AUC 값 확인을 위해서는 True로 설정
             }
 

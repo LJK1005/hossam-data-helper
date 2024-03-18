@@ -14,7 +14,8 @@ from sklearn.metrics import (
 )
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import GridSearchCV
+from sklearn.svm import LinearSVC, SVC
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 from scipy.stats import norm
@@ -72,26 +73,53 @@ def __my_classification(
         if not params:
             params = {}
 
-        prototype_estimator = classname(n_jobs=-1)
-        grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv, n_jobs=-1)
+        if hasattr(classname, "n_jobs"):
+            prototype_estimator = classname(n_jobs=-1)
+            # grid = GridSearchCV(
+            #     prototype_estimator, param_grid=params, cv=cv, n_jobs=-1
+            # )
+            grid = RandomizedSearchCV(
+                prototype_estimator,
+                param_distributions=params,
+                cv=cv,
+                n_jobs=-1,
+                n_iter=500,
+                verbose=1,
+            )
+        else:
+            print("n_jobs를 허용하지 않음")
+            prototype_estimator = classname()
+            # grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv)
+            grid = RandomizedSearchCV(
+                prototype_estimator,
+                param_distributions=params,
+                cv=cv,
+                n_iter=500,
+                verbose=1,
+            )
+
         grid.fit(x_train, y_train)
 
         result_df = DataFrame(grid.cv_results_["params"])
         result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
 
         if is_print:
-            print("[교차검증]")
+            print("[교차검증 TOP5]")
             my_pretty_table(
-                result_df.dropna(subset=["mean_test_score"]).sort_values(
-                    by="mean_test_score", ascending=False
-                )
+                result_df.dropna(subset=["mean_test_score"])
+                .sort_values(by="mean_test_score", ascending=False)
+                .head()
             )
             print("")
 
         estimator = grid.best_estimator_
         estimator.best_params = grid.best_params_
     else:
-        estimator = classname(n_jobs=-1, **params)
+        if hasattr(classname, "n_jobs"):
+            estimator = classname(n_jobs=-1, **params)
+        else:
+            estimator = classname(**params)
+
         estimator.fit(x_train, y_train)
 
     # ------------------------------------------------------
@@ -101,19 +129,23 @@ def __my_classification(
     y_pred = (
         estimator.predict(x_test) if x_test is not None else estimator.predict(x_train)
     )
-    y_pred_prob = (
-        estimator.predict_proba(x_test)
-        if x_test is not None
-        else estimator.predict_proba(x_train)
-    )
+
+    if hasattr(estimator, "predict_proba"):
+        y_pred_prob = (
+            estimator.predict_proba(x_test)
+            if x_test is not None
+            else estimator.predict_proba(x_train)
+        )
 
     # 도출된 결과를 모델 객체에 포함시킴
     estimator.x = x_test if x_test is not None else x_train
     estimator.y = y_test if y_test is not None else y_train
     estimator.y_pred = y_pred if y_test is not None else estimator.predict(x_train)
-    estimator.y_pred_proba = (
-        y_pred_prob if y_test is not None else estimator.predict_proba(x_train)
-    )
+
+    if hasattr(estimator, "predict_proba"):
+        estimator.y_pred_proba = (
+            y_pred_prob if y_test is not None else estimator.predict_proba(x_train)
+        )
 
     # ------------------------------------------------------
     # 성능평가
@@ -751,7 +783,7 @@ def my_knn_classification(
         is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
-        KNeighborsClassifier: 회귀분석 모델
+        KNeighborsClassifier
     """
 
     # 교차검증 설정
@@ -774,6 +806,127 @@ def my_knn_classification(
         roc=roc,
         pr=pr,
         multiclass=multiclass,
+        learning_curve=learning_curve,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_linear_svc_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve=True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params
+) -> LinearSVC:
+    """선형 SVM 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        LinearSVC
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {
+                "penalty": ["l1", "l2"],
+                "loss": ["squared_hinge", "hinge"],
+                "C": [0.01, 0.1, 1, 10],
+                "max_iter": [1000],
+                "dual": [True, False],
+                "random_state": [1234],
+            }
+
+    return __my_classification(
+        classname=LinearSVC,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_svc_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    # hist: bool = True,
+    # roc: bool = True,
+    # pr: bool = True,
+    # multiclass: str = None,
+    learning_curve=True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params
+) -> SVC:
+    """SVC 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        SVC
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {
+                "C": [0.1, 1, 10],
+                "kernel": ["rbf", "linear", "poly", "sigmoid"],
+                "degree": [2, 3, 4, 5],
+                "gamma": ["scale", "auto"],
+                "coef0": [0.01, 0.1, 1, 10],
+                "shrinking": [True, False],
+                # "probability": [True],  # AUC 값 확인을 위해서는 True로 설정
+            }
+
+    return __my_classification(
+        classname=SVC,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        # hist=hist,
+        # roc=roc,
+        # pr=pr,
+        # multiclass=multiclass,
         learning_curve=learning_curve,
         figsize=figsize,
         dpi=dpi,
@@ -840,6 +993,38 @@ def my_classification(
                 roc=roc,
                 pr=pr,
                 multiclass=multiclass,
+                learning_curve=learning_curve,
+                figsize=figsize,
+                dpi=dpi,
+                is_print=False,
+                **params,
+            )
+        )
+
+        processes.append(
+            executor.submit(
+                my_linear_svc_classification,
+                x_train=x_train,
+                y_train=y_train,
+                x_test=x_test,
+                y_test=y_test,
+                cv=cv,
+                learning_curve=learning_curve,
+                figsize=figsize,
+                dpi=dpi,
+                is_print=False,
+                **params,
+            )
+        )
+
+        processes.append(
+            executor.submit(
+                my_svc_classification,
+                x_train=x_train,
+                y_train=y_train,
+                x_test=x_test,
+                y_test=y_test,
+                cv=cv,
                 learning_curve=learning_curve,
                 figsize=figsize,
                 dpi=dpi,

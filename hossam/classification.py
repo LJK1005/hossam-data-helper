@@ -192,6 +192,7 @@ def my_classification_result(
         cv (int, optional): 교차검증 횟수. Defaults to 10.
         figsize (tuple, optional): 그래프의 크기. Defaults to (12, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
     """
 
     # ------------------------------------------------------
@@ -750,7 +751,7 @@ def my_knn_classification(
         is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
-        LogisticRegression: 회귀분석 모델
+        KNeighborsClassifier: 회귀분석 모델
     """
 
     # 교차검증 설정
@@ -799,10 +800,11 @@ def my_classification(
     **params
 ) -> DataFrame:
 
-    results = []
-    processes = []
-    estimators = []
+    results = []  # 결과값을 저장할 리스트
+    processes = []  # 병렬처리를 위한 프로세스 리스트
+    estimators = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
 
+    # 병렬처리를 위한 프로세스 생성 -> 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
         processes.append(
             executor.submit(
@@ -846,11 +848,17 @@ def my_classification(
             )
         )
 
+        # 병렬처리 결과를 기다린다.
         for p in futures.as_completed(processes):
+            # 각 분류 함수의 결과값(분류모형 객체)을 저장한다.
             estimator = p.result()
+            # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
             scores = estimator.scores
+            # 분류모형의 이름을 저장한다.
             estimators.append(estimator.__class__.__name__)
+            # 성능평가 지표 딕셔너리를 리스트에 저장
             results.append(scores)
 
+        # 결과값을 데이터프레임으로 변환
         result_df = DataFrame(results, index=estimators)
         my_pretty_table(result_df)

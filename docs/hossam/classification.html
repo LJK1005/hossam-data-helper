@@ -26,7 +26,9 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import numpy as np
+<pre><code class="python">import logging
+import numpy as np
+import concurrent.futures as futures
 
 from pandas import DataFrame, Series, concat
 from sklearn.metrics import (
@@ -39,6 +41,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import GridSearchCV
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
@@ -48,7 +51,8 @@ from .util import my_pretty_table
 from .plot import my_learing_curve, my_confusion_matrix, my_roc_curve
 
 
-def my_logistic_classification(
+def __my_classification(
+    classname: any,
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
@@ -59,15 +63,17 @@ def my_logistic_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
-    report: bool = True,
+    report: bool = False,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
+    is_print: bool = True,
     **params
-) -&gt; LogisticRegression:
-    &#34;&#34;&#34;로지스틱 회귀분석을 수행하고 결과를 출력한다.
+) -&gt; any:
+    &#34;&#34;&#34;분류분석을 수행하고 결과를 출력한다.
 
     Args:
+        classname (any): 분류분석 추정기 (모델 객체)
         x_train (DataFrame): 독립변수에 대한 훈련 데이터
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
@@ -84,7 +90,7 @@ def my_logistic_classification(
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
-        LogisticRegression: 회귀분석 모델
+        any: 분류분석 모델
     &#34;&#34;&#34;
     # ------------------------------------------------------
     # 분석모델 생성
@@ -92,30 +98,28 @@ def my_logistic_classification(
     # 교차검증 설정
     if cv &gt; 0:
         if not params:
-            params = {
-                &#34;penalty&#34;: [&#34;l1&#34;, &#34;l2&#34;, &#34;elasticnet&#34;],
-                &#34;C&#34;: [0.001, 0.01, 0.1, 1, 10, 100],
-            }
+            params = {}
 
-        prototype_estimator = LogisticRegression(max_iter=500, n_jobs=-1)
+        prototype_estimator = classname(n_jobs=-1)
         grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv, n_jobs=-1)
         grid.fit(x_train, y_train)
 
         result_df = DataFrame(grid.cv_results_[&#34;params&#34;])
         result_df[&#34;mean_test_score&#34;] = grid.cv_results_[&#34;mean_test_score&#34;]
 
-        print(&#34;[교차검증]&#34;)
-        my_pretty_table(
-            result_df.dropna(subset=[&#34;mean_test_score&#34;]).sort_values(
-                by=&#34;mean_test_score&#34;, ascending=False
+        if is_print:
+            print(&#34;[교차검증]&#34;)
+            my_pretty_table(
+                result_df.dropna(subset=[&#34;mean_test_score&#34;]).sort_values(
+                    by=&#34;mean_test_score&#34;, ascending=False
+                )
             )
-        )
-        print(&#34;&#34;)
+            print(&#34;&#34;)
 
         estimator = grid.best_estimator_
         estimator.best_params = grid.best_params_
     else:
-        estimator = LogisticRegression(max_iter=500, n_jobs=-1)
+        estimator = classname(n_jobs=-1, **params)
         estimator.fit(x_train, y_train)
 
     # ------------------------------------------------------
@@ -156,6 +160,7 @@ def my_logistic_classification(
             cv=cv,
             figsize=figsize,
             dpi=dpi,
+            is_print=is_print,
         )
     else:
         my_classification_result(
@@ -170,11 +175,12 @@ def my_logistic_classification(
             cv=cv,
             figsize=figsize,
             dpi=dpi,
+            is_print=is_print,
         )
 
     # ------------------------------------------------------
     # 보고서 출력
-    if report:
+    if report and is_print:
         my_classification_report(estimator, x_train, y_train, x_test, y_test, sort)
 
     return estimator
@@ -195,6 +201,7 @@ def my_classification_result(
     cv: int = 10,
     figsize: tuple = (12, 5),
     dpi: int = 100,
+    is_print: bool = True,
 ) -&gt; None:
     &#34;&#34;&#34;회귀분석 결과를 출력한다.
 
@@ -213,6 +220,7 @@ def my_classification_result(
         cv (int, optional): 교차검증 횟수. Defaults to 10.
         figsize (tuple, optional): 그래프의 크기. Defaults to (12, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
     &#34;&#34;&#34;
 
     # ------------------------------------------------------
@@ -228,11 +236,15 @@ def my_classification_result(
     if x_train is not None and y_train is not None:
         # 추정치
         y_train_pred = estimator.predict(x_train)
-        y_train_pred_proba = estimator.predict_proba(x_train)
-        y_train_pred_proba_1 = y_train_pred_proba[:, 1]
+
+        if hasattr(estimator, &#34;predict_proba&#34;):
+            y_train_pred_proba = estimator.predict_proba(x_train)
+            y_train_pred_proba_1 = y_train_pred_proba[:, 1]
 
         # 의사결정계수 --&gt; 다항로지스틱에서는 사용 X
-        if is_binary:
+        y_train_pseudo_r2 = 0
+
+        if is_binary and estimator.__class__.__name__ == &#34;LogisticRegression&#34;:
             y_train_log_loss_test = -log_loss(
                 y_train, y_train_pred_proba, normalize=False
             )
@@ -257,8 +269,10 @@ def my_classification_result(
                 &#34;위양성율(Fallout)&#34;: FP / (TN + FP),
                 &#34;특이성(TNR)&#34;: 1 - (FP / (TN + FP)),
                 &#34;F1 Score&#34;: f1_score(y_train, y_train_pred),
-                &#34;AUC&#34;: roc_auc_score(y_train, y_train_pred_proba_1),
             }
+
+            if hasattr(estimator, &#34;predict_proba&#34;):
+                result[&#34;AUC&#34;] = roc_auc_score(y_train, y_train_pred_proba_1)
         else:
             result = {
                 &#34;정확도(Accuracy)&#34;: accuracy_score(y_train, y_train_pred),
@@ -269,15 +283,16 @@ def my_classification_result(
                 &#34;F1 Score&#34;: f1_score(y_train, y_train_pred, average=&#34;macro&#34;),
             }
 
-            if multiclass == &#34;ovo&#34; or multiclass == None:
-                result[&#34;AUC(ovo)&#34;] = roc_auc_score(
-                    y_train, y_train_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovo&#34;
-                )
+            if hasattr(estimator, &#34;predict_proba&#34;):
+                if multiclass == &#34;ovo&#34; or multiclass == None:
+                    result[&#34;AUC(ovo)&#34;] = roc_auc_score(
+                        y_train, y_train_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovo&#34;
+                    )
 
-            if multiclass == &#34;ovr&#34; or multiclass == None:
-                result[&#34;AUC(ovr)&#34;] = roc_auc_score(
-                    y_train, y_train_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovr&#34;
-                )
+                if multiclass == &#34;ovr&#34; or multiclass == None:
+                    result[&#34;AUC(ovr)&#34;] = roc_auc_score(
+                        y_train, y_train_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovr&#34;
+                    )
 
         scores.append(result)
         score_names.append(&#34;훈련데이터&#34;)
@@ -285,11 +300,15 @@ def my_classification_result(
     if x_test is not None and y_test is not None:
         # 추정치
         y_test_pred = estimator.predict(x_test)
-        y_test_pred_proba = estimator.predict_proba(x_test)
-        y_test_pred_proba_1 = y_test_pred_proba[:, 1]
+
+        if hasattr(estimator, &#34;predict_proba&#34;):
+            y_test_pred_proba = estimator.predict_proba(x_test)
+            y_test_pred_proba_1 = y_test_pred_proba[:, 1]
 
         # 의사결정계수
-        if is_binary:
+        y_test_pseudo_r2 = 0
+
+        if is_binary and estimator.__class__.__name__ == &#34;LogisticRegression&#34;:
             y_test_log_loss_test = -log_loss(y_test, y_test_pred_proba, normalize=False)
             y_test_null = np.ones_like(y_test) * y_test.mean()
             y_test_log_loss_null = -log_loss(y_test, y_test_null, normalize=False)
@@ -311,8 +330,10 @@ def my_classification_result(
                 &#34;위양성율(Fallout)&#34;: FP / (TN + FP),
                 &#34;특이성(TNR)&#34;: 1 - (FP / (TN + FP)),
                 &#34;F1 Score&#34;: f1_score(y_test, y_test_pred),
-                &#34;AUC&#34;: roc_auc_score(y_test, y_test_pred_proba_1),
             }
+
+            if hasattr(estimator, &#34;predict_proba&#34;):
+                result[&#34;AUC&#34;] = roc_auc_score(y_test, y_test_pred_proba_1)
         else:
             result = {
                 &#34;정확도(Accuracy)&#34;: accuracy_score(y_test, y_test_pred),
@@ -323,15 +344,16 @@ def my_classification_result(
                 &#34;F1 Score&#34;: f1_score(y_test, y_test_pred, average=&#34;macro&#34;),
             }
 
-            if multiclass == &#34;ovo&#34; or multiclass == None:
-                result[&#34;AUC(ovo)&#34;] = roc_auc_score(
-                    y_test, y_test_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovo&#34;
-                )
+            if hasattr(estimator, &#34;predict_proba&#34;):
+                if multiclass == &#34;ovo&#34; or multiclass == None:
+                    result[&#34;AUC(ovo)&#34;] = roc_auc_score(
+                        y_test, y_test_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovo&#34;
+                    )
 
-            if multiclass == &#34;ovr&#34; or multiclass == None:
-                result[&#34;AUC(ovr)&#34;] = roc_auc_score(
-                    y_test, y_test_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovr&#34;
-                )
+                if multiclass == &#34;ovr&#34; or multiclass == None:
+                    result[&#34;AUC(ovr)&#34;] = roc_auc_score(
+                        y_test, y_test_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovr&#34;
+                    )
 
         scores.append(result)
         score_names.append(&#34;검증데이터&#34;)
@@ -346,8 +368,10 @@ def my_classification_result(
             &#34;위양성율(Fallout)&#34;: &#34;실제 음성(FP,TN) 중 양성(FP)으로 잘못 예측한 비율&#34;,
             &#34;특이성(TNR)&#34;: &#34;실제 음성(FP,TN) 중 음성(TN)으로 정확히 예측한 비율&#34;,
             &#34;F1 Score&#34;: &#34;정밀도와 재현율의 조화평균&#34;,
-            &#34;AUC&#34;: &#34;ROC Curve의 밑면적으로, 1에 가까울수록 좋은 모델&#34;,
         }
+
+        if hasattr(estimator, &#34;predict_proba&#34;):
+            result[&#34;AUC&#34;] = &#34;ROC Curve의 면적으로, 1에 가까울수록 좋은 모델&#34;
     else:
         result = {
             &#34;정확도(Accuracy)&#34;: &#34;예측 결과(TN,FP,TP,TN)가 실제 결과(TP,TN)와 일치하는 정도&#34;,
@@ -356,22 +380,34 @@ def my_classification_result(
             &#34;F1 Score&#34;: &#34;정밀도와 재현율의 조화평균&#34;,
         }
 
-        if multiclass == &#34;ovo&#34; or multiclass == None:
-            result[&#34;AUC(ovo)&#34;] = &#34;One vs One에 대한 AUC로, 1에 가까울수록 좋은 모델&#34;
+        if hasattr(estimator, &#34;predict_proba&#34;):
+            if multiclass == &#34;ovo&#34; or multiclass == None:
+                result[&#34;AUC(ovo)&#34;] = &#34;One vs One에 대한 AUC로, 1에 가까울수록 좋은 모델&#34;
 
-        if multiclass == &#34;ovr&#34; or multiclass == None:
-            result[&#34;AUC(ovr)&#34;] = &#34;One vs Rest에 대한 AUC로, 1에 가까울수록 좋은 모델&#34;
+            if multiclass == &#34;ovr&#34; or multiclass == None:
+                result[&#34;AUC(ovr)&#34;] = (
+                    &#34;One vs Rest에 대한 AUC로, 1에 가까울수록 좋은 모델&#34;
+                )
 
     scores.append(result)
     score_names.append(&#34;설명&#34;)
 
-    print(&#34;[분류분석 성능평가]&#34;)
-    result_df = DataFrame(scores, index=score_names)
-    my_pretty_table(result_df.T)
+    if is_print:
+        print(&#34;[분류분석 성능평가]&#34;)
+        result_df = DataFrame(scores, index=score_names)
+
+        if estimator.__class__.__name__ != &#34;LogisticRegression&#34;:
+            if &#34;의사결정계수(Pseudo R2)&#34; in result_df.columns:
+                result_df.drop(columns=[&#34;의사결정계수(Pseudo R2)&#34;], inplace=True)
+
+        my_pretty_table(result_df.T)
+
+    # 결과값을 모델 객체에 포함시킴
+    estimator.scores = scores[-2]
 
     # ------------------------------------------------------
     # 혼동행렬
-    if conf_matrix:
+    if conf_matrix and is_print:
         print(&#34;\n[혼동행렬]&#34;)
 
         if x_test is not None and y_test is not None:
@@ -381,54 +417,56 @@ def my_classification_result(
 
     # ------------------------------------------------------
     # curve
-    print(&#34;\n[Roc Curve]&#34;)
+    if is_print:
+        if hasattr(estimator, &#34;predict_proba&#34;):
+            print(&#34;\n[Roc Curve]&#34;)
 
-    if x_test is None or y_test is None:
-        my_roc_curve(
-            estimator,
-            x_train,
-            y_train,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            dpi=dpi,
-        )
-    else:
-        my_roc_curve(
-            estimator,
-            x_test,
-            y_test,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            dpi=dpi,
-        )
+            if x_test is None or y_test is None:
+                my_roc_curve(
+                    estimator,
+                    x_train,
+                    y_train,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    dpi=dpi,
+                )
+            else:
+                my_roc_curve(
+                    estimator,
+                    x_test,
+                    y_test,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    dpi=dpi,
+                )
 
-    # 학습곡선
-    if learning_curve:
-        print(&#34;\n[학습곡선]&#34;)
-        yname = y_train.name
+        # 학습곡선
+        if learning_curve:
+            print(&#34;\n[학습곡선]&#34;)
+            yname = y_train.name
 
-        if x_test is not None and y_test is not None:
-            y_df = concat([y_train, y_test])
-            x_df = concat([x_train, x_test])
-        else:
-            y_df = y_train.copy()
-            x_df = x_train.copy()
+            if x_test is not None and y_test is not None:
+                y_df = concat([y_train, y_test])
+                x_df = concat([x_train, x_test])
+            else:
+                y_df = y_train.copy()
+                x_df = x_train.copy()
 
-        x_df[yname] = y_df
-        x_df.sort_index(inplace=True)
+            x_df[yname] = y_df
+            x_df.sort_index(inplace=True)
 
-        if cv &gt; 0:
-            my_learing_curve(
-                estimator, data=x_df, yname=yname, cv=cv, figsize=figsize, dpi=dpi
-            )
-        else:
-            my_learing_curve(
-                estimator, data=x_df, yname=yname, figsize=figsize, dpi=dpi
-            )
+            if cv &gt; 0:
+                my_learing_curve(
+                    estimator, data=x_df, yname=yname, cv=cv, figsize=figsize, dpi=dpi
+                )
+            else:
+                my_learing_curve(
+                    estimator, data=x_df, yname=yname, figsize=figsize, dpi=dpi
+                )
 
 
 def my_classification_report(
@@ -633,6 +671,224 @@ def my_classification_multiclass_report(
                 result_df.sort_values(&#34;유의확률&#34;, inplace=True)
                 pass
 
+        my_pretty_table(result_df)
+
+
+def my_logistic_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params
+) -&gt; LogisticRegression:
+    &#34;&#34;&#34;로지스틱 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
+        roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
+        pr (bool, optional): PR Curve를 출력할지 여부. Defaults to True.
+        multiclass (str, optional): 다항분류일 경우, 다항분류 방법. Defaults to None.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        LogisticRegression: 회귀분석 모델
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;penalty&#34;: [&#34;l1&#34;, &#34;l2&#34;, &#34;elasticnet&#34;],
+                &#34;C&#34;: [0.001, 0.01, 0.1, 1, 10, 100],
+                &#34;max_iter&#34;: [500],
+            }
+
+    return __my_classification(
+        classname=LogisticRegression,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_knn_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params
+) -&gt; KNeighborsClassifier:
+    &#34;&#34;&#34;KNN 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
+        roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
+        pr (bool, optional): PR Curve를 출력할지 여부. Defaults to True.
+        multiclass (str, optional): 다항분류일 경우, 다항분류 방법. Defaults to None.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        KNeighborsClassifier: 회귀분석 모델
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;n_neighbors&#34;: [3, 5, 7],
+                &#34;weights&#34;: [&#34;uniform&#34;, &#34;distance&#34;],
+                &#34;metric&#34;: [&#34;euclidean&#34;, &#34;manhattan&#34;],
+            }
+
+    return __my_classification(
+        classname=KNeighborsClassifier,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    **params
+) -&gt; DataFrame:
+
+    results = []  # 결과값을 저장할 리스트
+    processes = []  # 병렬처리를 위한 프로세스 리스트
+    estimators = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
+
+    # 병렬처리를 위한 프로세스 생성 -&gt; 분류 모델을 생성하는 함수를 각각 호출한다.
+    with futures.ThreadPoolExecutor() as executor:
+        processes.append(
+            executor.submit(
+                my_logistic_classification,
+                x_train=x_train,
+                y_train=y_train,
+                x_test=x_test,
+                y_test=y_test,
+                cv=cv,
+                hist=hist,
+                roc=roc,
+                pr=pr,
+                multiclass=multiclass,
+                learning_curve=learning_curve,
+                report=report,
+                figsize=figsize,
+                dpi=dpi,
+                sort=sort,
+                is_print=False,
+                **params,
+            )
+        )
+
+        processes.append(
+            executor.submit(
+                my_knn_classification,
+                x_train=x_train,
+                y_train=y_train,
+                x_test=x_test,
+                y_test=y_test,
+                cv=cv,
+                hist=hist,
+                roc=roc,
+                pr=pr,
+                multiclass=multiclass,
+                learning_curve=learning_curve,
+                figsize=figsize,
+                dpi=dpi,
+                is_print=False,
+                **params,
+            )
+        )
+
+        # 병렬처리 결과를 기다린다.
+        for p in futures.as_completed(processes):
+            # 각 분류 함수의 결과값(분류모형 객체)을 저장한다.
+            estimator = p.result()
+            # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
+            scores = estimator.scores
+            # 분류모형의 이름을 저장한다.
+            estimators.append(estimator.__class__.__name__)
+            # 성능평가 지표 딕셔너리를 리스트에 저장
+            results.append(scores)
+
+        # 결과값을 데이터프레임으로 변환
+        result_df = DataFrame(results, index=estimators)
         my_pretty_table(result_df)</code></pre>
 </details>
 </section>
@@ -643,6 +899,97 @@ def my_classification_multiclass_report(
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="hossam.classification.my_classification"><code class="name flex">
+<span>def <span class="ident">my_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, report: bool = False, figsize=(10, 5), dpi: int = 100, sort: str = None, **params) ‑> pandas.core.frame.DataFrame</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    **params
+) -&gt; DataFrame:
+
+    results = []  # 결과값을 저장할 리스트
+    processes = []  # 병렬처리를 위한 프로세스 리스트
+    estimators = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
+
+    # 병렬처리를 위한 프로세스 생성 -&gt; 분류 모델을 생성하는 함수를 각각 호출한다.
+    with futures.ThreadPoolExecutor() as executor:
+        processes.append(
+            executor.submit(
+                my_logistic_classification,
+                x_train=x_train,
+                y_train=y_train,
+                x_test=x_test,
+                y_test=y_test,
+                cv=cv,
+                hist=hist,
+                roc=roc,
+                pr=pr,
+                multiclass=multiclass,
+                learning_curve=learning_curve,
+                report=report,
+                figsize=figsize,
+                dpi=dpi,
+                sort=sort,
+                is_print=False,
+                **params,
+            )
+        )
+
+        processes.append(
+            executor.submit(
+                my_knn_classification,
+                x_train=x_train,
+                y_train=y_train,
+                x_test=x_test,
+                y_test=y_test,
+                cv=cv,
+                hist=hist,
+                roc=roc,
+                pr=pr,
+                multiclass=multiclass,
+                learning_curve=learning_curve,
+                figsize=figsize,
+                dpi=dpi,
+                is_print=False,
+                **params,
+            )
+        )
+
+        # 병렬처리 결과를 기다린다.
+        for p in futures.as_completed(processes):
+            # 각 분류 함수의 결과값(분류모형 객체)을 저장한다.
+            estimator = p.result()
+            # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
+            scores = estimator.scores
+            # 분류모형의 이름을 저장한다.
+            estimators.append(estimator.__class__.__name__)
+            # 성능평가 지표 딕셔너리를 리스트에 저장
+            results.append(scores)
+
+        # 결과값을 데이터프레임으로 변환
+        result_df = DataFrame(results, index=estimators)
+        my_pretty_table(result_df)</code></pre>
+</details>
+</dd>
 <dt id="hossam.classification.my_classification_binary_report"><code class="name flex">
 <span>def <span class="ident">my_classification_binary_report</span></span>(<span>estimator: <built-in function any>, x: pandas.core.frame.DataFrame = None, y: pandas.core.series.Series = None, sort: str = None) ‑> None</span>
 </code></dt>
@@ -913,7 +1260,7 @@ def my_classification_multiclass_report(
 </details>
 </dd>
 <dt id="hossam.classification.my_classification_result"><code class="name flex">
-<span>def <span class="ident">my_classification_result</span></span>(<span>estimator: <built-in function any>, x_train: pandas.core.frame.DataFrame = None, y_train: pandas.core.series.Series = None, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve: bool = True, cv: int = 10, figsize: tuple = (12, 5), dpi: int = 100) ‑> None</span>
+<span>def <span class="ident">my_classification_result</span></span>(<span>estimator: <built-in function any>, x_train: pandas.core.frame.DataFrame = None, y_train: pandas.core.series.Series = None, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve: bool = True, cv: int = 10, figsize: tuple = (12, 5), dpi: int = 100, is_print: bool = True) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>회귀분석 결과를 출력한다.</p>
@@ -947,6 +1294,8 @@ def my_classification_multiclass_report(
 <dd>그래프의 크기. Defaults to (12, 5).</dd>
 <dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>출력 여부. Defaults to True.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -967,6 +1316,7 @@ def my_classification_multiclass_report(
     cv: int = 10,
     figsize: tuple = (12, 5),
     dpi: int = 100,
+    is_print: bool = True,
 ) -&gt; None:
     &#34;&#34;&#34;회귀분석 결과를 출력한다.
 
@@ -985,6 +1335,7 @@ def my_classification_multiclass_report(
         cv (int, optional): 교차검증 횟수. Defaults to 10.
         figsize (tuple, optional): 그래프의 크기. Defaults to (12, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
     &#34;&#34;&#34;
 
     # ------------------------------------------------------
@@ -1000,11 +1351,15 @@ def my_classification_multiclass_report(
     if x_train is not None and y_train is not None:
         # 추정치
         y_train_pred = estimator.predict(x_train)
-        y_train_pred_proba = estimator.predict_proba(x_train)
-        y_train_pred_proba_1 = y_train_pred_proba[:, 1]
+
+        if hasattr(estimator, &#34;predict_proba&#34;):
+            y_train_pred_proba = estimator.predict_proba(x_train)
+            y_train_pred_proba_1 = y_train_pred_proba[:, 1]
 
         # 의사결정계수 --&gt; 다항로지스틱에서는 사용 X
-        if is_binary:
+        y_train_pseudo_r2 = 0
+
+        if is_binary and estimator.__class__.__name__ == &#34;LogisticRegression&#34;:
             y_train_log_loss_test = -log_loss(
                 y_train, y_train_pred_proba, normalize=False
             )
@@ -1029,8 +1384,10 @@ def my_classification_multiclass_report(
                 &#34;위양성율(Fallout)&#34;: FP / (TN + FP),
                 &#34;특이성(TNR)&#34;: 1 - (FP / (TN + FP)),
                 &#34;F1 Score&#34;: f1_score(y_train, y_train_pred),
-                &#34;AUC&#34;: roc_auc_score(y_train, y_train_pred_proba_1),
             }
+
+            if hasattr(estimator, &#34;predict_proba&#34;):
+                result[&#34;AUC&#34;] = roc_auc_score(y_train, y_train_pred_proba_1)
         else:
             result = {
                 &#34;정확도(Accuracy)&#34;: accuracy_score(y_train, y_train_pred),
@@ -1041,15 +1398,16 @@ def my_classification_multiclass_report(
                 &#34;F1 Score&#34;: f1_score(y_train, y_train_pred, average=&#34;macro&#34;),
             }
 
-            if multiclass == &#34;ovo&#34; or multiclass == None:
-                result[&#34;AUC(ovo)&#34;] = roc_auc_score(
-                    y_train, y_train_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovo&#34;
-                )
+            if hasattr(estimator, &#34;predict_proba&#34;):
+                if multiclass == &#34;ovo&#34; or multiclass == None:
+                    result[&#34;AUC(ovo)&#34;] = roc_auc_score(
+                        y_train, y_train_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovo&#34;
+                    )
 
-            if multiclass == &#34;ovr&#34; or multiclass == None:
-                result[&#34;AUC(ovr)&#34;] = roc_auc_score(
-                    y_train, y_train_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovr&#34;
-                )
+                if multiclass == &#34;ovr&#34; or multiclass == None:
+                    result[&#34;AUC(ovr)&#34;] = roc_auc_score(
+                        y_train, y_train_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovr&#34;
+                    )
 
         scores.append(result)
         score_names.append(&#34;훈련데이터&#34;)
@@ -1057,11 +1415,15 @@ def my_classification_multiclass_report(
     if x_test is not None and y_test is not None:
         # 추정치
         y_test_pred = estimator.predict(x_test)
-        y_test_pred_proba = estimator.predict_proba(x_test)
-        y_test_pred_proba_1 = y_test_pred_proba[:, 1]
+
+        if hasattr(estimator, &#34;predict_proba&#34;):
+            y_test_pred_proba = estimator.predict_proba(x_test)
+            y_test_pred_proba_1 = y_test_pred_proba[:, 1]
 
         # 의사결정계수
-        if is_binary:
+        y_test_pseudo_r2 = 0
+
+        if is_binary and estimator.__class__.__name__ == &#34;LogisticRegression&#34;:
             y_test_log_loss_test = -log_loss(y_test, y_test_pred_proba, normalize=False)
             y_test_null = np.ones_like(y_test) * y_test.mean()
             y_test_log_loss_null = -log_loss(y_test, y_test_null, normalize=False)
@@ -1083,8 +1445,10 @@ def my_classification_multiclass_report(
                 &#34;위양성율(Fallout)&#34;: FP / (TN + FP),
                 &#34;특이성(TNR)&#34;: 1 - (FP / (TN + FP)),
                 &#34;F1 Score&#34;: f1_score(y_test, y_test_pred),
-                &#34;AUC&#34;: roc_auc_score(y_test, y_test_pred_proba_1),
             }
+
+            if hasattr(estimator, &#34;predict_proba&#34;):
+                result[&#34;AUC&#34;] = roc_auc_score(y_test, y_test_pred_proba_1)
         else:
             result = {
                 &#34;정확도(Accuracy)&#34;: accuracy_score(y_test, y_test_pred),
@@ -1095,15 +1459,16 @@ def my_classification_multiclass_report(
                 &#34;F1 Score&#34;: f1_score(y_test, y_test_pred, average=&#34;macro&#34;),
             }
 
-            if multiclass == &#34;ovo&#34; or multiclass == None:
-                result[&#34;AUC(ovo)&#34;] = roc_auc_score(
-                    y_test, y_test_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovo&#34;
-                )
+            if hasattr(estimator, &#34;predict_proba&#34;):
+                if multiclass == &#34;ovo&#34; or multiclass == None:
+                    result[&#34;AUC(ovo)&#34;] = roc_auc_score(
+                        y_test, y_test_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovo&#34;
+                    )
 
-            if multiclass == &#34;ovr&#34; or multiclass == None:
-                result[&#34;AUC(ovr)&#34;] = roc_auc_score(
-                    y_test, y_test_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovr&#34;
-                )
+                if multiclass == &#34;ovr&#34; or multiclass == None:
+                    result[&#34;AUC(ovr)&#34;] = roc_auc_score(
+                        y_test, y_test_pred_proba, average=&#34;macro&#34;, multi_class=&#34;ovr&#34;
+                    )
 
         scores.append(result)
         score_names.append(&#34;검증데이터&#34;)
@@ -1118,8 +1483,10 @@ def my_classification_multiclass_report(
             &#34;위양성율(Fallout)&#34;: &#34;실제 음성(FP,TN) 중 양성(FP)으로 잘못 예측한 비율&#34;,
             &#34;특이성(TNR)&#34;: &#34;실제 음성(FP,TN) 중 음성(TN)으로 정확히 예측한 비율&#34;,
             &#34;F1 Score&#34;: &#34;정밀도와 재현율의 조화평균&#34;,
-            &#34;AUC&#34;: &#34;ROC Curve의 밑면적으로, 1에 가까울수록 좋은 모델&#34;,
         }
+
+        if hasattr(estimator, &#34;predict_proba&#34;):
+            result[&#34;AUC&#34;] = &#34;ROC Curve의 면적으로, 1에 가까울수록 좋은 모델&#34;
     else:
         result = {
             &#34;정확도(Accuracy)&#34;: &#34;예측 결과(TN,FP,TP,TN)가 실제 결과(TP,TN)와 일치하는 정도&#34;,
@@ -1128,22 +1495,34 @@ def my_classification_multiclass_report(
             &#34;F1 Score&#34;: &#34;정밀도와 재현율의 조화평균&#34;,
         }
 
-        if multiclass == &#34;ovo&#34; or multiclass == None:
-            result[&#34;AUC(ovo)&#34;] = &#34;One vs One에 대한 AUC로, 1에 가까울수록 좋은 모델&#34;
+        if hasattr(estimator, &#34;predict_proba&#34;):
+            if multiclass == &#34;ovo&#34; or multiclass == None:
+                result[&#34;AUC(ovo)&#34;] = &#34;One vs One에 대한 AUC로, 1에 가까울수록 좋은 모델&#34;
 
-        if multiclass == &#34;ovr&#34; or multiclass == None:
-            result[&#34;AUC(ovr)&#34;] = &#34;One vs Rest에 대한 AUC로, 1에 가까울수록 좋은 모델&#34;
+            if multiclass == &#34;ovr&#34; or multiclass == None:
+                result[&#34;AUC(ovr)&#34;] = (
+                    &#34;One vs Rest에 대한 AUC로, 1에 가까울수록 좋은 모델&#34;
+                )
 
     scores.append(result)
     score_names.append(&#34;설명&#34;)
 
-    print(&#34;[분류분석 성능평가]&#34;)
-    result_df = DataFrame(scores, index=score_names)
-    my_pretty_table(result_df.T)
+    if is_print:
+        print(&#34;[분류분석 성능평가]&#34;)
+        result_df = DataFrame(scores, index=score_names)
+
+        if estimator.__class__.__name__ != &#34;LogisticRegression&#34;:
+            if &#34;의사결정계수(Pseudo R2)&#34; in result_df.columns:
+                result_df.drop(columns=[&#34;의사결정계수(Pseudo R2)&#34;], inplace=True)
+
+        my_pretty_table(result_df.T)
+
+    # 결과값을 모델 객체에 포함시킴
+    estimator.scores = scores[-2]
 
     # ------------------------------------------------------
     # 혼동행렬
-    if conf_matrix:
+    if conf_matrix and is_print:
         print(&#34;\n[혼동행렬]&#34;)
 
         if x_test is not None and y_test is not None:
@@ -1153,58 +1532,170 @@ def my_classification_multiclass_report(
 
     # ------------------------------------------------------
     # curve
-    print(&#34;\n[Roc Curve]&#34;)
+    if is_print:
+        if hasattr(estimator, &#34;predict_proba&#34;):
+            print(&#34;\n[Roc Curve]&#34;)
 
-    if x_test is None or y_test is None:
-        my_roc_curve(
-            estimator,
-            x_train,
-            y_train,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            dpi=dpi,
-        )
-    else:
-        my_roc_curve(
-            estimator,
-            x_test,
-            y_test,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            dpi=dpi,
-        )
+            if x_test is None or y_test is None:
+                my_roc_curve(
+                    estimator,
+                    x_train,
+                    y_train,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    dpi=dpi,
+                )
+            else:
+                my_roc_curve(
+                    estimator,
+                    x_test,
+                    y_test,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    dpi=dpi,
+                )
 
-    # 학습곡선
-    if learning_curve:
-        print(&#34;\n[학습곡선]&#34;)
-        yname = y_train.name
+        # 학습곡선
+        if learning_curve:
+            print(&#34;\n[학습곡선]&#34;)
+            yname = y_train.name
 
-        if x_test is not None and y_test is not None:
-            y_df = concat([y_train, y_test])
-            x_df = concat([x_train, x_test])
-        else:
-            y_df = y_train.copy()
-            x_df = x_train.copy()
+            if x_test is not None and y_test is not None:
+                y_df = concat([y_train, y_test])
+                x_df = concat([x_train, x_test])
+            else:
+                y_df = y_train.copy()
+                x_df = x_train.copy()
 
-        x_df[yname] = y_df
-        x_df.sort_index(inplace=True)
+            x_df[yname] = y_df
+            x_df.sort_index(inplace=True)
 
-        if cv &gt; 0:
-            my_learing_curve(
-                estimator, data=x_df, yname=yname, cv=cv, figsize=figsize, dpi=dpi
-            )
-        else:
-            my_learing_curve(
-                estimator, data=x_df, yname=yname, figsize=figsize, dpi=dpi
-            )</code></pre>
+            if cv &gt; 0:
+                my_learing_curve(
+                    estimator, data=x_df, yname=yname, cv=cv, figsize=figsize, dpi=dpi
+                )
+            else:
+                my_learing_curve(
+                    estimator, data=x_df, yname=yname, figsize=figsize, dpi=dpi
+                )</code></pre>
+</details>
+</dd>
+<dt id="hossam.classification.my_knn_classification"><code class="name flex">
+<span>def <span class="ident">my_knn_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, figsize=(10, 5), dpi: int = 100, is_print: bool = True, **params) ‑> sklearn.neighbors._classification.KNeighborsClassifier</span>
+</code></dt>
+<dd>
+<div class="desc"><p>KNN 분류분석을 수행하고 결과를 출력한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 훈련 데이터</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 훈련 데이터</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>교차검증 횟수. Defaults to 5.</dd>
+<dt><strong><code>hist</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>히스토그램을 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>roc</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>ROC Curve를 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>pr</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>PR Curve를 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>multiclass</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>다항분류일 경우, 다항분류 방법. Defaults to None.</dd>
+<dt><strong><code>learning_curve</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>학습곡선을 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>출력 여부. Defaults to True.</dd>
+<dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>하이퍼파라미터. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>KNeighborsClassifier</code></dt>
+<dd>회귀분석 모델</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_knn_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params
+) -&gt; KNeighborsClassifier:
+    &#34;&#34;&#34;KNN 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
+        roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
+        pr (bool, optional): PR Curve를 출력할지 여부. Defaults to True.
+        multiclass (str, optional): 다항분류일 경우, 다항분류 방법. Defaults to None.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        KNeighborsClassifier: 회귀분석 모델
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;n_neighbors&#34;: [3, 5, 7],
+                &#34;weights&#34;: [&#34;uniform&#34;, &#34;distance&#34;],
+                &#34;metric&#34;: [&#34;euclidean&#34;, &#34;manhattan&#34;],
+            }
+
+    return __my_classification(
+        classname=KNeighborsClassifier,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+        **params,
+    )</code></pre>
 </details>
 </dd>
 <dt id="hossam.classification.my_logistic_classification"><code class="name flex">
-<span>def <span class="ident">my_logistic_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, report: bool = True, figsize=(10, 5), dpi: int = 100, sort: str = None, **params) ‑> sklearn.linear_model._logistic.LogisticRegression</span>
+<span>def <span class="ident">my_logistic_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, report: bool = False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.linear_model._logistic.LogisticRegression</span>
 </code></dt>
 <dd>
 <div class="desc"><p>로지스틱 회귀분석을 수행하고 결과를 출력한다.</p>
@@ -1237,6 +1728,8 @@ def my_classification_multiclass_report(
 <dd>그래프의 해상도. Defaults to 100.</dd>
 <dt><strong><code>sort</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
+<dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>출력 여부. Defaults to True.</dd>
 <dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>하이퍼파라미터. Defaults to None.</dd>
 </dl>
@@ -1260,10 +1753,11 @@ def my_classification_multiclass_report(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
-    report: bool = True,
+    report: bool = False,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
+    is_print: bool = True,
     **params
 ) -&gt; LogisticRegression:
     &#34;&#34;&#34;로지스틱 회귀분석을 수행하고 결과를 출력한다.
@@ -1283,12 +1777,11 @@ def my_classification_multiclass_report(
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
         LogisticRegression: 회귀분석 모델
     &#34;&#34;&#34;
-    # ------------------------------------------------------
-    # 분석모델 생성
 
     # 교차검증 설정
     if cv &gt; 0:
@@ -1296,89 +1789,28 @@ def my_classification_multiclass_report(
             params = {
                 &#34;penalty&#34;: [&#34;l1&#34;, &#34;l2&#34;, &#34;elasticnet&#34;],
                 &#34;C&#34;: [0.001, 0.01, 0.1, 1, 10, 100],
+                &#34;max_iter&#34;: [500],
             }
 
-        prototype_estimator = LogisticRegression(max_iter=500, n_jobs=-1)
-        grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv, n_jobs=-1)
-        grid.fit(x_train, y_train)
-
-        result_df = DataFrame(grid.cv_results_[&#34;params&#34;])
-        result_df[&#34;mean_test_score&#34;] = grid.cv_results_[&#34;mean_test_score&#34;]
-
-        print(&#34;[교차검증]&#34;)
-        my_pretty_table(
-            result_df.dropna(subset=[&#34;mean_test_score&#34;]).sort_values(
-                by=&#34;mean_test_score&#34;, ascending=False
-            )
-        )
-        print(&#34;&#34;)
-
-        estimator = grid.best_estimator_
-        estimator.best_params = grid.best_params_
-    else:
-        estimator = LogisticRegression(max_iter=500, n_jobs=-1)
-        estimator.fit(x_train, y_train)
-
-    # ------------------------------------------------------
-    # 결과값 생성
-
-    # 훈련 데이터에 대한 추정치 생성
-    y_pred = (
-        estimator.predict(x_test) if x_test is not None else estimator.predict(x_train)
-    )
-    y_pred_prob = (
-        estimator.predict_proba(x_test)
-        if x_test is not None
-        else estimator.predict_proba(x_train)
-    )
-
-    # 도출된 결과를 모델 객체에 포함시킴
-    estimator.x = x_test if x_test is not None else x_train
-    estimator.y = y_test if y_test is not None else y_train
-    estimator.y_pred = y_pred if y_test is not None else estimator.predict(x_train)
-    estimator.y_pred_proba = (
-        y_pred_prob if y_test is not None else estimator.predict_proba(x_train)
-    )
-
-    # ------------------------------------------------------
-    # 성능평가
-    if x_test is not None and y_test is not None:
-        my_classification_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            x_test=x_test,
-            y_test=y_test,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-        )
-    else:
-        my_classification_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-        )
-
-    # ------------------------------------------------------
-    # 보고서 출력
-    if report:
-        my_classification_report(estimator, x_train, y_train, x_test, y_test, sort)
-
-    return estimator</code></pre>
+    return __my_classification(
+        classname=LogisticRegression,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )</code></pre>
 </details>
 </dd>
 </dl>
@@ -1399,10 +1831,12 @@ def my_classification_multiclass_report(
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="hossam.classification.my_classification" href="#hossam.classification.my_classification">my_classification</a></code></li>
 <li><code><a title="hossam.classification.my_classification_binary_report" href="#hossam.classification.my_classification_binary_report">my_classification_binary_report</a></code></li>
 <li><code><a title="hossam.classification.my_classification_multiclass_report" href="#hossam.classification.my_classification_multiclass_report">my_classification_multiclass_report</a></code></li>
 <li><code><a title="hossam.classification.my_classification_report" href="#hossam.classification.my_classification_report">my_classification_report</a></code></li>
 <li><code><a title="hossam.classification.my_classification_result" href="#hossam.classification.my_classification_result">my_classification_result</a></code></li>
+<li><code><a title="hossam.classification.my_knn_classification" href="#hossam.classification.my_knn_classification">my_knn_classification</a></code></li>
 <li><code><a title="hossam.classification.my_logistic_classification" href="#hossam.classification.my_logistic_classification">my_logistic_classification</a></code></li>
 </ul>
 </li>

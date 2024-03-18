@@ -26,8 +26,13 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import seaborn as sb
-from pandas import DataFrame, Series
+<pre><code class="python">import logging
+import numpy as np
+import seaborn as sb
+import datetime as dt
+import concurrent.futures as futures
+
+from pandas import DataFrame, Series, date_range
 from matplotlib import pyplot as plt
 
 from statsmodels.tsa.stattools import adfuller
@@ -35,6 +40,11 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.arima.model import ARIMA
 from pmdarima.arima import auto_arima
+from prophet import Prophet
+from prophet.plot import add_changepoints_to_plot
+
+from sklearn.model_selection import ParameterGrid
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from .util import my_pretty_table
 from .plot import my_lineplot
@@ -228,6 +238,27 @@ def my_seasonal_decompose(
     return sd_df
 
 
+def my_timeseries_split(data: DataFrame, test_size: float = 0.2) -&gt; tuple:
+    &#34;&#34;&#34;시계열 데이터를 학습 데이터와 테스트 데이터로 분할한다.
+
+    Args:
+        data (DataFrame): 시계열 데이터
+        test_size (float, optional): 테스트 데이터 비율. Defaults to 0.2.
+
+    Returns:
+        tuple: (학습 데이터, 테스트 데이터)
+    &#34;&#34;&#34;
+    train_size = 1 - test_size
+
+    # 처음부터 70% 위치 전까지 분할
+    train = data[: int(train_size * len(data))]
+
+    # 70% 위치부터 끝까지 분할
+    test = data[int(train_size * len(data)) :]
+
+    return (train, test)
+
+
 def my_acf_plot(
     data: Series, figsize: tuple = (10, 5), dpi: int = 100, callback: any = None
 ):
@@ -289,7 +320,7 @@ def my_acf_pacf_plot(
     &#34;&#34;&#34;
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(figsize[0], figsize[1] * 2), dpi=dpi)
 
-    plot_pacf(data, ax=ax1)
+    plot_acf(data, ax=ax1)
     ax1.grid()
 
     plot_pacf(data, ax=ax2)
@@ -306,10 +337,12 @@ def my_arima(
     train: Series,
     test: Series,
     auto: bool = False,
-    order: tuple = (0, 0, 0),
-    seasonal_order: tuple = None,
+    p: int = 3,
+    d: int = 3,
+    q: int = 3,
+    s: int = None,
     periods: int = 0,
-    figsize: tuple = (10, 5),
+    figsize: tuple = (15, 5),
     dpi: int = 100,
 ) -&gt; ARIMA:
     &#34;&#34;&#34;ARIMA 모델을 생성한다.
@@ -318,8 +351,10 @@ def my_arima(
         train (Series): 학습 데이터
         test (Series): 테스트 데이터
         auto (bool, optional): 최적의 ARIMA 모델을 찾을지 여부. Defaults to False.
-        order (tuple): ARIMA(p, d, q)의 p, d, q 값
-        seasonal_order (tuple, optional): ARIMA(p, d, q)(P, D, Q, s)의 P, D, Q, s 값. Defaults to None.
+        p (int, optional): AR 차수. Defaults to 0.
+        d (int, optional): 차분 차수. Defaults to 0.
+        q (int, optional): MA 차수. Defaults to 0.
+        s (int, optional): 계절성 주기. Defaults to None.
         periods (int, optional): 예측 기간. Defaults to 0.
         figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프 해상도. Defaults to 100.
@@ -330,62 +365,342 @@ def my_arima(
     model = None
 
     if not auto:
-        if seasonal_order:
-            model = ARIMA(train, order=order, seasonal_order=seasonal_order)
+        if s:
+            model = ARIMA(train, order=(p, d, q), seasonal_order=(p, d, q, s))
         else:
-            model = ARIMA(train, order=order)
+            model = ARIMA(train, order=(p, d, q))
+
+        fit = model.fit()
+        print(fit.summary())
+
+        start_index = 0
+        end_index = len(train)
+        test_pred = fit.predict(start=start_index, end=end_index)
+        pred = fit.forecast(len(test) + periods)
     else:
         # 최적의 ARIMA 모델을 찾는다.
-        if seasonal_order:
+        if s:
             model = auto_arima(
                 y=train,  # 모델링하려는 시계열 데이터 또는 배열
                 start_p=0,  # p의 시작점
-                max_p=order[0],  # p의 최대값
-                d=order[1],  # 차분 횟수
+                max_p=p,  # p의 최대값
+                d=d,  # 차분 횟수
                 start_q=0,  # q의 시작점
-                max_q=order[2],  # q의 최대값
+                max_q=q,  # q의 최대값
                 seasonal=True,  # 계절성 사용 여부
-                m=seasonal_order[3],  # 계절성 주기
+                m=s,  # 계절성 주기
                 start_P=0,  # P의 시작점
-                max_P=seasonal_order[0],  # P의 최대값
-                D=seasonal_order[1],  # 계절성 차분 횟수
+                max_P=p,  # P의 최대값
+                D=d,  # 계절성 차분 횟수
                 start_Q=0,  # Q의 시작점
-                max_Q=seasonal_order[2],  # Q의 최대값
+                max_Q=q,  # Q의 최대값
                 trace=True,  # 학습 과정 표시 여부
             )
         else:
             model = auto_arima(
                 y=train,  # 모델링하려는 시계열 데이터 또는 배열
                 start_p=0,  # p의 시작점
-                max_p=order[0],  # p의 최대값
-                d=order[1],  # 차분 횟수
+                max_p=p,  # p의 최대값
+                d=d,  # 차분 횟수
                 start_q=0,  # q의 시작점
-                max_q=order[2],  # q의 최대값
+                max_q=q,  # q의 최대값
                 seasonal=False,  # 계절성 사용 여부
                 trace=True,  # 학습 과정 표시 여부
             )
-            pass
 
-    fit = model.fit()
-    print(fit.summary())
-
-    # 훈련데이터 이후 `n_periods`개의 예측치를 생성한다.
-    pred = model.predict(n_periods=int(len(test)) + periods)
-    model.pred = pred
+        print(model.summary())
+        pred = model.predict(n_periods=int(len(test)) + periods)
+        pd = None
 
     # 예측 결과 그래프
     fig = plt.figure(figsize=figsize, dpi=dpi)
     ax = fig.gca()
 
-    sb.lineplot(data=train, x=train.index, label=&#34;Train&#34;, ax=ax)
-    sb.lineplot(data=test, x=test.index, label=&#34;Test&#34;, ax=ax)
-    sb.lineplot(data=pred, x=pred.index, label=&#34;Prediction&#34;, linestyle=&#34;--&#34;, ax=ax)
+    sb.lineplot(data=train, x=train.index, y=train.columns[0], label=&#34;Train&#34;, ax=ax)
+    sb.lineplot(data=test, x=test.index, y=test.columns[0], label=&#34;Test&#34;, ax=ax)
+
+    if auto:
+        sb.lineplot(
+            x=pred.index, y=pred.values, label=&#34;Prediction&#34;, linestyle=&#34;--&#34;, ax=ax
+        )
+    else:
+        sb.lineplot(
+            x=test_pred.index, y=test_pred, label=&#34;Prediction&#34;, linestyle=&#34;--&#34;, ax=ax
+        )
+        sb.lineplot(x=pred.index, y=pred, label=&#34;Forecast&#34;, linestyle=&#34;--&#34;, ax=ax)
 
     ax.grid()
     ax.legend()
 
     plt.show()
-    plt.close()</code></pre>
+    plt.close()
+
+    return model
+
+
+def __prophet_execute(
+    train: DataFrame,
+    test: DataFrame = None,
+    periods: int = 0,
+    freq: str = &#34;D&#34;,
+    callback: any = None,
+    **params,
+):
+    &#34;&#34;&#34;Prophet 모델을 생성한다.
+
+    Args:
+        train (DataFrame): 훈련데이터
+        test (DataFrame, optional): 검증데이터. Defaults to None.
+        periods (int, optional): 예측기간. Defaults to 0.
+        freq (str, optional): 예측주기(D,M,Y). Defaults to &#34;D&#34;.
+        callback (any, optional): 콜백함수. Defaults to None.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    &#34;&#34;&#34;
+    model = Prophet(**params)
+
+    if callback:
+        callback(model)
+
+    model.fit(train)
+
+    size = 0 if test is None else len(test)
+    size = size + periods
+
+    future = model.make_future_dataframe(periods=size, freq=freq)
+    forecast = model.predict(future)
+
+    if test is not None:
+        pred = forecast[[&#34;ds&#34;, &#34;yhat&#34;]][-size:]
+        score = np.sqrt(mean_squared_error(test[&#34;y&#34;].values, pred[&#34;yhat&#34;].values))
+    else:
+        pred = forecast[[&#34;ds&#34;, &#34;yhat&#34;]]
+        score = np.sqrt(mean_squared_error(train[&#34;y&#34;].values, pred[&#34;yhat&#34;].values))
+
+    return model, score, dict(params), forecast, pred
+
+
+def my_prophet(
+    train: DataFrame,
+    test: DataFrame = None,
+    periods: int = 0,
+    freq: str = &#34;D&#34;,
+    report: bool = True,
+    print_forecast: bool = False,
+    figsize=(20, 8),
+    dpi: int = 200,
+    callback: any = None,
+    **params,
+) -&gt; DataFrame:
+    &#34;&#34;&#34;Prophet 모델을 생성한다.
+
+    Args:
+        train (DataFrame): 훈련 데이터
+        test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        periods (int, optional): 예측기간. Defaults to 0.
+        freq (str, optional): 예측주기(D,M,Y). Defaults to &#34;D&#34;.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        callback (any, optional): 콜백함수. Defaults to None.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        tuple: best_model, best_params, best_score
+    &#34;&#34;&#34;
+
+    logger = logging.getLogger(&#34;cmdstanpy&#34;)
+    logger.addHandler(logging.NullHandler())
+    logger.propagate = False
+    logger.setLevel(logging.CRITICAL)
+
+    # ------------------------------------------------------
+    # 분석모델 생성
+
+    result = []
+    processes = []
+
+    if params:
+        with futures.ThreadPoolExecutor() as executor:
+            params = ParameterGrid(params)
+
+            for p in params:
+                processes.append(
+                    executor.submit(
+                        __prophet_execute,
+                        train=train,
+                        test=test,
+                        periods=periods,
+                        freq=freq,
+                        callback=callback,
+                        **p,
+                    )
+                )
+
+            for p in futures.as_completed(processes):
+                m, score, params, forecast, pred = p.result()
+                result.append(
+                    {
+                        &#34;model&#34;: m,
+                        &#34;params&#34;: params,
+                        &#34;score&#34;: score,
+                        &#34;forecast&#34;: forecast,
+                        &#34;pred&#34;: pred,
+                    }
+                )
+
+    else:
+        m, score, params, forecast, pred = __prophet_execute(
+            train=train, test=test, periods=periods, freq=freq, callback=callback, **p
+        )
+        result.append(
+            {
+                &#34;model&#34;: m,
+                &#34;params&#34;: params,
+                &#34;score&#34;: score,
+                &#34;forecast&#34;: forecast,
+                &#34;pred&#34;: pred,
+            }
+        )
+
+    result_df = DataFrame(result).sort_values(&#34;score&#34;).reset_index(drop=True)
+    best_model, best_params, best_score, best_forecast, best_pred = result_df.iloc[0]
+
+    # print_result = []
+    # for i, v in enumerate(result):
+    #     item = v[&#34;params&#34;]
+    #     item[&#34;score&#34;] = v[&#34;score&#34;]
+    #     print_result.append(item)
+
+    # my_pretty_table(
+    #     DataFrame(print_result)
+    #     .sort_values(&#34;score&#34;, ascending=True)
+    #     .reset_index(drop=True)
+    # )
+
+    if report:
+        my_prophet_report(
+            best_model, best_forecast, best_pred, test, print_forecast, figsize, dpi
+        )
+
+    return best_model, best_params, best_score, best_forecast, best_pred
+
+
+def my_prophet_report(
+    model: Prophet,
+    forecast: DataFrame,
+    pred: DataFrame,
+    test: DataFrame = None,
+    print_forecast: bool = False,
+    figsize: tuple = (20, 8),
+    dpi: int = 100,
+) -&gt; DataFrame:
+    &#34;&#34;&#34;Prophet 모델 결과를 시각화한다.
+
+    Args:
+        model (Prophet): Prophet 모델
+        forecast (DataFrame): 예측 결과
+        pred (DataFrame): 예측 결과
+        test (DataFrame, optional): 검증 데이터. Defaults to None.
+        print_forecast (bool, optional): 예측 결과를 출력할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+
+    Returns:
+        DataFrame: 독립변수 결과 보고
+    &#34;&#34;&#34;
+
+    # ------------------------------------------------------
+    # 결과 시각화
+    fig = model.plot(forecast, figsize=figsize, xlabel=&#34;Date&#34;, ylabel=&#34;Value&#34;)
+    fig.set_dpi(dpi)
+    ax = fig.gca()
+    add_changepoints_to_plot(ax, model, forecast)
+
+    if test is not None:
+        sb.scatterplot(
+            data=test,
+            x=&#34;ds&#34;,
+            y=&#34;y&#34;,
+            size=1,
+            color=&#34;#ff0000&#34;,
+            marker=&#34;o&#34;,
+            ax=ax,
+        )
+
+        sb.lineplot(
+            data=test,
+            x=&#34;ds&#34;,
+            y=&#34;y&#34;,
+            color=&#34;#ff6600&#34;,
+            ax=ax,
+            label=&#34;Test&#34;,
+            alpha=0.7,
+            linewidth=0.7,
+            linestyle=&#34;--&#34;,
+        )
+
+    ax.set_ylim([forecast[&#34;yhat&#34;].min() * 0.95, forecast[&#34;yhat&#34;].max() * 1.05])
+
+    plt.legend()
+    plt.show()
+    plt.close()
+
+    height = figsize[1] * (len(model.seasonalities) + 1)
+
+    fig = model.plot_components(forecast, figsize=(figsize[0], height))
+    fig.set_dpi(dpi)
+    ax = fig.gca()
+
+    plt.show()
+    plt.close()
+
+    # 예측 결과 테이블
+    if print_forecast:
+        my_pretty_table(forecast)
+
+    if test is not None:
+        yhat = forecast[&#34;yhat&#34;].values[-len(test) :]
+        y = test[&#34;y&#34;].values
+
+        result = {
+            &#34;평균절대오차(MAE)&#34;: mean_absolute_error(y, yhat),
+            &#34;평균제곱오차(MSE)&#34;: mean_squared_error(y, yhat),
+            &#34;평균오차(RMSE)&#34;: np.sqrt(mean_squared_error(y, yhat)),
+        }
+
+        my_pretty_table(DataFrame(result, index=[&#34;Prophet&#34;]).T)
+
+
+def get_weekend_df(start: any, end: any = None) -&gt; DataFrame:
+    &#34;&#34;&#34;주말 데이터 프레임을 생성한다.
+
+    Args:
+        start (any): 시작일 (datetime, str) 형식 가능 (ex. &#34;2021-01-01&#34;)
+        end (any, optional): 종료일. Defaults to None.
+
+    Returns:
+        DataFrame: 주말 데이터 프레임
+    &#34;&#34;&#34;
+    if end is None:
+        end = dt.datetime.now()
+
+    date = date_range(start, end)
+    df = DataFrame({&#34;date&#34;: date, &#34;weekend&#34;: date.day_name()}).set_index(&#34;date&#34;)
+
+    df[&#34;weekend&#34;] = df[&#34;weekend&#34;].apply(
+        lambda x: 1 if x in [&#34;Saturday&#34;, &#34;Sunday&#34;] else 0
+    )
+
+    df2 = df[df[&#34;weekend&#34;] == 1]
+    df2[&#34;holiday&#34;] = &#34;holiday&#34;
+    df2.drop(&#34;weekend&#34;, axis=1, inplace=True)
+    df2.reset_index(drop=False, inplace=True)
+    df2.rename(columns={&#34;date&#34;: &#34;ds&#34;}, inplace=True)
+
+    return df2</code></pre>
 </details>
 </section>
 <section>
@@ -395,6 +710,56 @@ def my_arima(
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="hossam.timeserise.get_weekend_df"><code class="name flex">
+<span>def <span class="ident">get_weekend_df</span></span>(<span>start: <built-in function any>, end: <built-in function any> = None) ‑> pandas.core.frame.DataFrame</span>
+</code></dt>
+<dd>
+<div class="desc"><p>주말 데이터 프레임을 생성한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>start</code></strong> :&ensp;<code>any</code></dt>
+<dd>시작일 (datetime, str) 형식 가능 (ex. "2021-01-01")</dd>
+<dt><strong><code>end</code></strong> :&ensp;<code>any</code>, optional</dt>
+<dd>종료일. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>DataFrame</code></dt>
+<dd>주말 데이터 프레임</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_weekend_df(start: any, end: any = None) -&gt; DataFrame:
+    &#34;&#34;&#34;주말 데이터 프레임을 생성한다.
+
+    Args:
+        start (any): 시작일 (datetime, str) 형식 가능 (ex. &#34;2021-01-01&#34;)
+        end (any, optional): 종료일. Defaults to None.
+
+    Returns:
+        DataFrame: 주말 데이터 프레임
+    &#34;&#34;&#34;
+    if end is None:
+        end = dt.datetime.now()
+
+    date = date_range(start, end)
+    df = DataFrame({&#34;date&#34;: date, &#34;weekend&#34;: date.day_name()}).set_index(&#34;date&#34;)
+
+    df[&#34;weekend&#34;] = df[&#34;weekend&#34;].apply(
+        lambda x: 1 if x in [&#34;Saturday&#34;, &#34;Sunday&#34;] else 0
+    )
+
+    df2 = df[df[&#34;weekend&#34;] == 1]
+    df2[&#34;holiday&#34;] = &#34;holiday&#34;
+    df2.drop(&#34;weekend&#34;, axis=1, inplace=True)
+    df2.reset_index(drop=False, inplace=True)
+    df2.rename(columns={&#34;date&#34;: &#34;ds&#34;}, inplace=True)
+
+    return df2</code></pre>
+</details>
+</dd>
 <dt id="hossam.timeserise.my_acf_pacf_plot"><code class="name flex">
 <span>def <span class="ident">my_acf_pacf_plot</span></span>(<span>data: pandas.core.series.Series, figsize: tuple = (10, 5), dpi: int = 100, callback: <built-in function any> = None)</span>
 </code></dt>
@@ -428,7 +793,7 @@ def my_arima(
     &#34;&#34;&#34;
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(figsize[0], figsize[1] * 2), dpi=dpi)
 
-    plot_pacf(data, ax=ax1)
+    plot_acf(data, ax=ax1)
     ax1.grid()
 
     plot_pacf(data, ax=ax2)
@@ -486,7 +851,7 @@ def my_arima(
 </details>
 </dd>
 <dt id="hossam.timeserise.my_arima"><code class="name flex">
-<span>def <span class="ident">my_arima</span></span>(<span>train: pandas.core.series.Series, test: pandas.core.series.Series, auto: bool = False, order: tuple = (0, 0, 0), seasonal_order: tuple = None, periods: int = 0, figsize: tuple = (10, 5), dpi: int = 100) ‑> statsmodels.tsa.arima.model.ARIMA</span>
+<span>def <span class="ident">my_arima</span></span>(<span>train: pandas.core.series.Series, test: pandas.core.series.Series, auto: bool = False, p: int = 3, d: int = 3, q: int = 3, s: int = None, periods: int = 0, figsize: tuple = (15, 5), dpi: int = 100) ‑> statsmodels.tsa.arima.model.ARIMA</span>
 </code></dt>
 <dd>
 <div class="desc"><p>ARIMA 모델을 생성한다.</p>
@@ -498,10 +863,14 @@ def my_arima(
 <dd>테스트 데이터</dd>
 <dt><strong><code>auto</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>최적의 ARIMA 모델을 찾을지 여부. Defaults to False.</dd>
-<dt><strong><code>order</code></strong> :&ensp;<code>tuple</code></dt>
-<dd>ARIMA(p, d, q)의 p, d, q 값</dd>
-<dt><strong><code>seasonal_order</code></strong> :&ensp;<code>tuple</code>, optional</dt>
-<dd>ARIMA(p, d, q)(P, D, Q, s)의 P, D, Q, s 값. Defaults to None.</dd>
+<dt><strong><code>p</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>AR 차수. Defaults to 0.</dd>
+<dt><strong><code>d</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>차분 차수. Defaults to 0.</dd>
+<dt><strong><code>q</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>MA 차수. Defaults to 0.</dd>
+<dt><strong><code>s</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>계절성 주기. Defaults to None.</dd>
 <dt><strong><code>periods</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>예측 기간. Defaults to 0.</dd>
 <dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
@@ -522,10 +891,12 @@ def my_arima(
     train: Series,
     test: Series,
     auto: bool = False,
-    order: tuple = (0, 0, 0),
-    seasonal_order: tuple = None,
+    p: int = 3,
+    d: int = 3,
+    q: int = 3,
+    s: int = None,
     periods: int = 0,
-    figsize: tuple = (10, 5),
+    figsize: tuple = (15, 5),
     dpi: int = 100,
 ) -&gt; ARIMA:
     &#34;&#34;&#34;ARIMA 모델을 생성한다.
@@ -534,8 +905,10 @@ def my_arima(
         train (Series): 학습 데이터
         test (Series): 테스트 데이터
         auto (bool, optional): 최적의 ARIMA 모델을 찾을지 여부. Defaults to False.
-        order (tuple): ARIMA(p, d, q)의 p, d, q 값
-        seasonal_order (tuple, optional): ARIMA(p, d, q)(P, D, Q, s)의 P, D, Q, s 값. Defaults to None.
+        p (int, optional): AR 차수. Defaults to 0.
+        d (int, optional): 차분 차수. Defaults to 0.
+        q (int, optional): MA 차수. Defaults to 0.
+        s (int, optional): 계절성 주기. Defaults to None.
         periods (int, optional): 예측 기간. Defaults to 0.
         figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프 해상도. Defaults to 100.
@@ -546,62 +919,77 @@ def my_arima(
     model = None
 
     if not auto:
-        if seasonal_order:
-            model = ARIMA(train, order=order, seasonal_order=seasonal_order)
+        if s:
+            model = ARIMA(train, order=(p, d, q), seasonal_order=(p, d, q, s))
         else:
-            model = ARIMA(train, order=order)
+            model = ARIMA(train, order=(p, d, q))
+
+        fit = model.fit()
+        print(fit.summary())
+
+        start_index = 0
+        end_index = len(train)
+        test_pred = fit.predict(start=start_index, end=end_index)
+        pred = fit.forecast(len(test) + periods)
     else:
         # 최적의 ARIMA 모델을 찾는다.
-        if seasonal_order:
+        if s:
             model = auto_arima(
                 y=train,  # 모델링하려는 시계열 데이터 또는 배열
                 start_p=0,  # p의 시작점
-                max_p=order[0],  # p의 최대값
-                d=order[1],  # 차분 횟수
+                max_p=p,  # p의 최대값
+                d=d,  # 차분 횟수
                 start_q=0,  # q의 시작점
-                max_q=order[2],  # q의 최대값
+                max_q=q,  # q의 최대값
                 seasonal=True,  # 계절성 사용 여부
-                m=seasonal_order[3],  # 계절성 주기
+                m=s,  # 계절성 주기
                 start_P=0,  # P의 시작점
-                max_P=seasonal_order[0],  # P의 최대값
-                D=seasonal_order[1],  # 계절성 차분 횟수
+                max_P=p,  # P의 최대값
+                D=d,  # 계절성 차분 횟수
                 start_Q=0,  # Q의 시작점
-                max_Q=seasonal_order[2],  # Q의 최대값
+                max_Q=q,  # Q의 최대값
                 trace=True,  # 학습 과정 표시 여부
             )
         else:
             model = auto_arima(
                 y=train,  # 모델링하려는 시계열 데이터 또는 배열
                 start_p=0,  # p의 시작점
-                max_p=order[0],  # p의 최대값
-                d=order[1],  # 차분 횟수
+                max_p=p,  # p의 최대값
+                d=d,  # 차분 횟수
                 start_q=0,  # q의 시작점
-                max_q=order[2],  # q의 최대값
+                max_q=q,  # q의 최대값
                 seasonal=False,  # 계절성 사용 여부
                 trace=True,  # 학습 과정 표시 여부
             )
-            pass
 
-    fit = model.fit()
-    print(fit.summary())
-
-    # 훈련데이터 이후 `n_periods`개의 예측치를 생성한다.
-    pred = model.predict(n_periods=int(len(test)) + periods)
-    model.pred = pred
+        print(model.summary())
+        pred = model.predict(n_periods=int(len(test)) + periods)
+        pd = None
 
     # 예측 결과 그래프
     fig = plt.figure(figsize=figsize, dpi=dpi)
     ax = fig.gca()
 
-    sb.lineplot(data=train, x=train.index, label=&#34;Train&#34;, ax=ax)
-    sb.lineplot(data=test, x=test.index, label=&#34;Test&#34;, ax=ax)
-    sb.lineplot(data=pred, x=pred.index, label=&#34;Prediction&#34;, linestyle=&#34;--&#34;, ax=ax)
+    sb.lineplot(data=train, x=train.index, y=train.columns[0], label=&#34;Train&#34;, ax=ax)
+    sb.lineplot(data=test, x=test.index, y=test.columns[0], label=&#34;Test&#34;, ax=ax)
+
+    if auto:
+        sb.lineplot(
+            x=pred.index, y=pred.values, label=&#34;Prediction&#34;, linestyle=&#34;--&#34;, ax=ax
+        )
+    else:
+        sb.lineplot(
+            x=test_pred.index, y=test_pred, label=&#34;Prediction&#34;, linestyle=&#34;--&#34;, ax=ax
+        )
+        sb.lineplot(x=pred.index, y=pred, label=&#34;Forecast&#34;, linestyle=&#34;--&#34;, ax=ax)
 
     ax.grid()
     ax.legend()
 
     plt.show()
-    plt.close()</code></pre>
+    plt.close()
+
+    return model</code></pre>
 </details>
 </dd>
 <dt id="hossam.timeserise.my_diff"><code class="name flex">
@@ -802,6 +1190,265 @@ def my_arima(
     plt.close()</code></pre>
 </details>
 </dd>
+<dt id="hossam.timeserise.my_prophet"><code class="name flex">
+<span>def <span class="ident">my_prophet</span></span>(<span>train: pandas.core.frame.DataFrame, test: pandas.core.frame.DataFrame = None, periods: int = 0, freq: str = 'D', report: bool = True, print_forecast: bool = False, figsize=(20, 8), dpi: int = 200, callback: <built-in function any> = None, **params) ‑> pandas.core.frame.DataFrame</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Prophet 모델을 생성한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>train</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>훈련 데이터</dd>
+<dt><strong><code>test</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>periods</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>예측기간. Defaults to 0.</dd>
+<dt><strong><code>freq</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>예측주기(D,M,Y). Defaults to "D".</dd>
+<dt>report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.</dt>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>callback</code></strong> :&ensp;<code>any</code>, optional</dt>
+<dd>콜백함수. Defaults to None.</dd>
+<dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>하이퍼파라미터. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>tuple</code></dt>
+<dd>best_model, best_params, best_score</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_prophet(
+    train: DataFrame,
+    test: DataFrame = None,
+    periods: int = 0,
+    freq: str = &#34;D&#34;,
+    report: bool = True,
+    print_forecast: bool = False,
+    figsize=(20, 8),
+    dpi: int = 200,
+    callback: any = None,
+    **params,
+) -&gt; DataFrame:
+    &#34;&#34;&#34;Prophet 모델을 생성한다.
+
+    Args:
+        train (DataFrame): 훈련 데이터
+        test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        periods (int, optional): 예측기간. Defaults to 0.
+        freq (str, optional): 예측주기(D,M,Y). Defaults to &#34;D&#34;.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        callback (any, optional): 콜백함수. Defaults to None.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        tuple: best_model, best_params, best_score
+    &#34;&#34;&#34;
+
+    logger = logging.getLogger(&#34;cmdstanpy&#34;)
+    logger.addHandler(logging.NullHandler())
+    logger.propagate = False
+    logger.setLevel(logging.CRITICAL)
+
+    # ------------------------------------------------------
+    # 분석모델 생성
+
+    result = []
+    processes = []
+
+    if params:
+        with futures.ThreadPoolExecutor() as executor:
+            params = ParameterGrid(params)
+
+            for p in params:
+                processes.append(
+                    executor.submit(
+                        __prophet_execute,
+                        train=train,
+                        test=test,
+                        periods=periods,
+                        freq=freq,
+                        callback=callback,
+                        **p,
+                    )
+                )
+
+            for p in futures.as_completed(processes):
+                m, score, params, forecast, pred = p.result()
+                result.append(
+                    {
+                        &#34;model&#34;: m,
+                        &#34;params&#34;: params,
+                        &#34;score&#34;: score,
+                        &#34;forecast&#34;: forecast,
+                        &#34;pred&#34;: pred,
+                    }
+                )
+
+    else:
+        m, score, params, forecast, pred = __prophet_execute(
+            train=train, test=test, periods=periods, freq=freq, callback=callback, **p
+        )
+        result.append(
+            {
+                &#34;model&#34;: m,
+                &#34;params&#34;: params,
+                &#34;score&#34;: score,
+                &#34;forecast&#34;: forecast,
+                &#34;pred&#34;: pred,
+            }
+        )
+
+    result_df = DataFrame(result).sort_values(&#34;score&#34;).reset_index(drop=True)
+    best_model, best_params, best_score, best_forecast, best_pred = result_df.iloc[0]
+
+    # print_result = []
+    # for i, v in enumerate(result):
+    #     item = v[&#34;params&#34;]
+    #     item[&#34;score&#34;] = v[&#34;score&#34;]
+    #     print_result.append(item)
+
+    # my_pretty_table(
+    #     DataFrame(print_result)
+    #     .sort_values(&#34;score&#34;, ascending=True)
+    #     .reset_index(drop=True)
+    # )
+
+    if report:
+        my_prophet_report(
+            best_model, best_forecast, best_pred, test, print_forecast, figsize, dpi
+        )
+
+    return best_model, best_params, best_score, best_forecast, best_pred</code></pre>
+</details>
+</dd>
+<dt id="hossam.timeserise.my_prophet_report"><code class="name flex">
+<span>def <span class="ident">my_prophet_report</span></span>(<span>model: prophet.forecaster.Prophet, forecast: pandas.core.frame.DataFrame, pred: pandas.core.frame.DataFrame, test: pandas.core.frame.DataFrame = None, print_forecast: bool = False, figsize: tuple = (20, 8), dpi: int = 100) ‑> pandas.core.frame.DataFrame</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Prophet 모델 결과를 시각화한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>model</code></strong> :&ensp;<code>Prophet</code></dt>
+<dd>Prophet 모델</dd>
+<dt><strong><code>forecast</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>예측 결과</dd>
+<dt><strong><code>pred</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>예측 결과</dd>
+<dt><strong><code>test</code></strong> :&ensp;<code>DataFrame</code>, optional</dt>
+<dd>검증 데이터. Defaults to None.</dd>
+<dt><strong><code>print_forecast</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>예측 결과를 출력할지 여부. Defaults to False.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>DataFrame</code></dt>
+<dd>독립변수 결과 보고</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_prophet_report(
+    model: Prophet,
+    forecast: DataFrame,
+    pred: DataFrame,
+    test: DataFrame = None,
+    print_forecast: bool = False,
+    figsize: tuple = (20, 8),
+    dpi: int = 100,
+) -&gt; DataFrame:
+    &#34;&#34;&#34;Prophet 모델 결과를 시각화한다.
+
+    Args:
+        model (Prophet): Prophet 모델
+        forecast (DataFrame): 예측 결과
+        pred (DataFrame): 예측 결과
+        test (DataFrame, optional): 검증 데이터. Defaults to None.
+        print_forecast (bool, optional): 예측 결과를 출력할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+
+    Returns:
+        DataFrame: 독립변수 결과 보고
+    &#34;&#34;&#34;
+
+    # ------------------------------------------------------
+    # 결과 시각화
+    fig = model.plot(forecast, figsize=figsize, xlabel=&#34;Date&#34;, ylabel=&#34;Value&#34;)
+    fig.set_dpi(dpi)
+    ax = fig.gca()
+    add_changepoints_to_plot(ax, model, forecast)
+
+    if test is not None:
+        sb.scatterplot(
+            data=test,
+            x=&#34;ds&#34;,
+            y=&#34;y&#34;,
+            size=1,
+            color=&#34;#ff0000&#34;,
+            marker=&#34;o&#34;,
+            ax=ax,
+        )
+
+        sb.lineplot(
+            data=test,
+            x=&#34;ds&#34;,
+            y=&#34;y&#34;,
+            color=&#34;#ff6600&#34;,
+            ax=ax,
+            label=&#34;Test&#34;,
+            alpha=0.7,
+            linewidth=0.7,
+            linestyle=&#34;--&#34;,
+        )
+
+    ax.set_ylim([forecast[&#34;yhat&#34;].min() * 0.95, forecast[&#34;yhat&#34;].max() * 1.05])
+
+    plt.legend()
+    plt.show()
+    plt.close()
+
+    height = figsize[1] * (len(model.seasonalities) + 1)
+
+    fig = model.plot_components(forecast, figsize=(figsize[0], height))
+    fig.set_dpi(dpi)
+    ax = fig.gca()
+
+    plt.show()
+    plt.close()
+
+    # 예측 결과 테이블
+    if print_forecast:
+        my_pretty_table(forecast)
+
+    if test is not None:
+        yhat = forecast[&#34;yhat&#34;].values[-len(test) :]
+        y = test[&#34;y&#34;].values
+
+        result = {
+            &#34;평균절대오차(MAE)&#34;: mean_absolute_error(y, yhat),
+            &#34;평균제곱오차(MSE)&#34;: mean_squared_error(y, yhat),
+            &#34;평균오차(RMSE)&#34;: np.sqrt(mean_squared_error(y, yhat)),
+        }
+
+        my_pretty_table(DataFrame(result, index=[&#34;Prophet&#34;]).T)</code></pre>
+</details>
+</dd>
 <dt id="hossam.timeserise.my_rolling"><code class="name flex">
 <span>def <span class="ident">my_rolling</span></span>(<span>data: pandas.core.series.Series, window: int, plot: bool = True, figsize: tuple = (10, 5), dpi: int = 100) ‑> pandas.core.series.Series</span>
 </code></dt>
@@ -937,6 +1584,48 @@ def my_arima(
     return sd_df</code></pre>
 </details>
 </dd>
+<dt id="hossam.timeserise.my_timeseries_split"><code class="name flex">
+<span>def <span class="ident">my_timeseries_split</span></span>(<span>data: pandas.core.frame.DataFrame, test_size: float = 0.2) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>시계열 데이터를 학습 데이터와 테스트 데이터로 분할한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>data</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>시계열 데이터</dd>
+<dt><strong><code>test_size</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>테스트 데이터 비율. Defaults to 0.2.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>tuple</code></dt>
+<dd>(학습 데이터, 테스트 데이터)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_timeseries_split(data: DataFrame, test_size: float = 0.2) -&gt; tuple:
+    &#34;&#34;&#34;시계열 데이터를 학습 데이터와 테스트 데이터로 분할한다.
+
+    Args:
+        data (DataFrame): 시계열 데이터
+        test_size (float, optional): 테스트 데이터 비율. Defaults to 0.2.
+
+    Returns:
+        tuple: (학습 데이터, 테스트 데이터)
+    &#34;&#34;&#34;
+    train_size = 1 - test_size
+
+    # 처음부터 70% 위치 전까지 분할
+    train = data[: int(train_size * len(data))]
+
+    # 70% 위치부터 끝까지 분할
+    test = data[int(train_size * len(data)) :]
+
+    return (train, test)</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
@@ -955,14 +1644,18 @@ def my_arima(
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="hossam.timeserise.get_weekend_df" href="#hossam.timeserise.get_weekend_df">get_weekend_df</a></code></li>
 <li><code><a title="hossam.timeserise.my_acf_pacf_plot" href="#hossam.timeserise.my_acf_pacf_plot">my_acf_pacf_plot</a></code></li>
 <li><code><a title="hossam.timeserise.my_acf_plot" href="#hossam.timeserise.my_acf_plot">my_acf_plot</a></code></li>
 <li><code><a title="hossam.timeserise.my_arima" href="#hossam.timeserise.my_arima">my_arima</a></code></li>
 <li><code><a title="hossam.timeserise.my_diff" href="#hossam.timeserise.my_diff">my_diff</a></code></li>
 <li><code><a title="hossam.timeserise.my_ewm" href="#hossam.timeserise.my_ewm">my_ewm</a></code></li>
 <li><code><a title="hossam.timeserise.my_pacf_plot" href="#hossam.timeserise.my_pacf_plot">my_pacf_plot</a></code></li>
+<li><code><a title="hossam.timeserise.my_prophet" href="#hossam.timeserise.my_prophet">my_prophet</a></code></li>
+<li><code><a title="hossam.timeserise.my_prophet_report" href="#hossam.timeserise.my_prophet_report">my_prophet_report</a></code></li>
 <li><code><a title="hossam.timeserise.my_rolling" href="#hossam.timeserise.my_rolling">my_rolling</a></code></li>
 <li><code><a title="hossam.timeserise.my_seasonal_decompose" href="#hossam.timeserise.my_seasonal_decompose">my_seasonal_decompose</a></code></li>
+<li><code><a title="hossam.timeserise.my_timeseries_split" href="#hossam.timeserise.my_timeseries_split">my_timeseries_split</a></code></li>
 </ul>
 </li>
 </ul>

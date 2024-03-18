@@ -908,8 +908,8 @@ def my_svc_classification(
         if not params:
             params = {
                 "C": [0.1, 1, 10],
-                # "kernel": ["rbf", "linear", "poly", "sigmoid"],
-                "kernel": ["rbf", "poly"],
+                "kernel": ["rbf", "linear", "poly", "sigmoid"],
+                # "kernel": ["rbf", "poly"],
                 "degree": [2, 3, 4, 5],
                 # "gamma": ["scale", "auto"],
                 # "coef0": [0.01, 0.1, 1, 10],

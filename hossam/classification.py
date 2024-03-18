@@ -935,7 +935,7 @@ def my_svc_classification(
     )
 
 
-def my_gnb_classification(
+def my_nb_classification(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
@@ -951,7 +951,7 @@ def my_gnb_classification(
     is_print: bool = True,
     **params
 ) -> GaussianNB:
-    """가우시안 나이브베이즈 분류분석을 수행하고 결과를 출력한다.
+    """나이브베이즈 분류분석을 수행하고 결과를 출력한다.
 
     Args:
         x_train (DataFrame): 독립변수에 대한 훈련 데이터
@@ -1095,7 +1095,7 @@ def my_classification(
 
         processes.append(
             executor.submit(
-                my_gnb_classification,
+                my_nb_classification,
                 x_train=x_train,
                 y_train=y_train,
                 x_test=x_test,

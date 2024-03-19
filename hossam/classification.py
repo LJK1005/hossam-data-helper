@@ -77,26 +77,30 @@ def __my_classification(
         if not params:
             params = {}
 
-        # if hasattr(classname, "n_jobs"):
+        args = {}
+
         if "n_jobs" in dict(inspect.signature(classname.__init__).parameters):
-            prototype_estimator = classname(n_jobs=-1)
-            # grid = GridSearchCV(
-            #     prototype_estimator, param_grid=params, cv=cv, n_jobs=-1
-            # )
-            grid = RandomizedSearchCV(
-                prototype_estimator,
-                param_distributions=params,
-                cv=cv,
-                n_jobs=-1,
-                n_iter=500,
-            )
+            args["n_jobs"] = -1
         else:
             print("%s는 n_jobs를 허용하지 않음" % classname)
-            prototype_estimator = classname()
-            # grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv)
-            grid = RandomizedSearchCV(
-                prototype_estimator, param_distributions=params, cv=cv, n_iter=500
-            )
+
+        if "random_state" in dict(inspect.signature(classname.__init__).parameters):
+            args["random_state"] = 1234
+        else:
+            print("%s는 random_state를 허용하지 않음" % classname)
+
+        prototype_estimator = classname(**args)
+
+        # grid = GridSearchCV(
+        #     prototype_estimator, param_grid=params, cv=cv, n_jobs=-1
+        # )
+        grid = RandomizedSearchCV(
+            prototype_estimator,
+            param_distributions=params,
+            cv=cv,
+            n_jobs=-1,
+            n_iter=500,
+        )
 
         grid.fit(x_train, y_train)
 
@@ -855,7 +859,6 @@ def my_linear_svc_classification(
                 "C": [0.01, 0.1, 1, 10],
                 "max_iter": [1000],
                 "dual": [True, False],
-                "random_state": [1234],
             }
 
     return __my_classification(
@@ -1037,9 +1040,8 @@ def my_dtree_classification(
         if not params:
             params = {
                 "criterion": ["gini", "entropy"],
-                "max_depth": [3, 5, 7, 9],
-                "min_samples_split": [2, 3, 4],
-                "min_samples_leaf": [1, 2, 3],
+                # "min_samples_split": [2, 3, 4],
+                # "min_samples_leaf": [1, 2, 3],
             }
 
     return __my_classification(

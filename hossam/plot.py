@@ -1,3 +1,4 @@
+import os
 import sys
 import numpy as np
 import seaborn as sb
@@ -1860,6 +1861,8 @@ def my_tree(estimator: DecisionTreeClassifier) -> None:
         estimator (DecisionTreeClassifier): 학습된 의사결정나무 객체
     """
 
+    print("depth:", estimator.get_depth(), "leaves:", estimator.get_n_leaves())
+
     fname = "Malgun Gothic" if sys.platform == "win32" else "AppleGothic"
     xnames = list(estimator.feature_names_in_)
     class_names = estimator.classes_
@@ -1878,3 +1881,5 @@ def my_tree(estimator: DecisionTreeClassifier) -> None:
     with open("tree.dot") as f:
         dot = f.read()
         display(graphviz.Source(dot))
+
+    os.remove("tree.dot")

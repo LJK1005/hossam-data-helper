@@ -724,7 +724,7 @@ def my_logistic_classification(
             params = {
                 "penalty": ["l1", "l2", "elasticnet"],
                 "C": [0.001, 0.01, 0.1, 1, 10, 100],
-                "max_iter": [500],
+                "max_iter": [1000],
             }
 
     return __my_classification(
@@ -1010,110 +1010,117 @@ def my_classification(
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
+    algorithm: list = None,
     **params
 ) -> DataFrame:
 
     results = []  # 결과값을 저장할 리스트
     processes = []  # 병렬처리를 위한 프로세스 리스트
-    estimators = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
+    estimators = {}  # 분류분석 모델을 저장할 딕셔너리
+    estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
 
     # 병렬처리를 위한 프로세스 생성 -> 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
-        processes.append(
-            executor.submit(
-                my_logistic_classification,
-                x_train=x_train,
-                y_train=y_train,
-                x_test=x_test,
-                y_test=y_test,
-                cv=cv,
-                hist=hist,
-                roc=roc,
-                pr=pr,
-                multiclass=multiclass,
-                learning_curve=learning_curve,
-                report=report,
-                figsize=figsize,
-                dpi=dpi,
-                sort=sort,
-                is_print=False,
-                **params,
+        if not algorithm or "logistic" in algorithm:
+            processes.append(
+                executor.submit(
+                    my_logistic_classification,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_test=x_test,
+                    y_test=y_test,
+                    cv=cv,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    learning_curve=learning_curve,
+                    report=report,
+                    figsize=figsize,
+                    dpi=dpi,
+                    sort=sort,
+                    is_print=False,
+                    **params,
+                )
             )
-        )
 
-        processes.append(
-            executor.submit(
-                my_knn_classification,
-                x_train=x_train,
-                y_train=y_train,
-                x_test=x_test,
-                y_test=y_test,
-                cv=cv,
-                hist=hist,
-                roc=roc,
-                pr=pr,
-                multiclass=multiclass,
-                learning_curve=learning_curve,
-                figsize=figsize,
-                dpi=dpi,
-                is_print=False,
-                **params,
+        if not algorithm or "knn" in algorithm:
+            processes.append(
+                executor.submit(
+                    my_knn_classification,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_test=x_test,
+                    y_test=y_test,
+                    cv=cv,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    learning_curve=learning_curve,
+                    figsize=figsize,
+                    dpi=dpi,
+                    is_print=False,
+                    **params,
+                )
             )
-        )
 
-        # processes.append(
-        #     executor.submit(
-        #         my_linear_svc_classification,
-        #         x_train=x_train,
-        #         y_train=y_train,
-        #         x_test=x_test,
-        #         y_test=y_test,
-        #         cv=cv,
-        #         learning_curve=learning_curve,
-        #         figsize=figsize,
-        #         dpi=dpi,
-        #         is_print=False,
-        #         **params,
+        # if not algorithm or "lsvc" in algorithm:
+        #     processes.append(
+        #         executor.submit(
+        #             my_linear_svc_classification,
+        #             x_train=x_train,
+        #             y_train=y_train,
+        #             x_test=x_test,
+        #             y_test=y_test,
+        #             cv=cv,
+        #             learning_curve=learning_curve,
+        #             figsize=figsize,
+        #             dpi=dpi,
+        #             is_print=False,
+        #             **params,
+        #         )
         #     )
-        # )
 
-        processes.append(
-            executor.submit(
-                my_svc_classification,
-                x_train=x_train,
-                y_train=y_train,
-                x_test=x_test,
-                y_test=y_test,
-                cv=cv,
-                learning_curve=learning_curve,
-                figsize=figsize,
-                dpi=dpi,
-                is_print=False,
-                **params,
+        if not algorithm or "svc" in algorithm:
+            processes.append(
+                executor.submit(
+                    my_svc_classification,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_test=x_test,
+                    y_test=y_test,
+                    cv=cv,
+                    learning_curve=learning_curve,
+                    figsize=figsize,
+                    dpi=dpi,
+                    is_print=False,
+                    **params,
+                )
             )
-        )
 
-        processes.append(
-            executor.submit(
-                my_nb_classification,
-                x_train=x_train,
-                y_train=y_train,
-                x_test=x_test,
-                y_test=y_test,
-                cv=cv,
-                hist=hist,
-                roc=roc,
-                pr=pr,
-                multiclass=multiclass,
-                learning_curve=learning_curve,
-                report=report,
-                figsize=figsize,
-                dpi=dpi,
-                sort=sort,
-                is_print=False,
-                **params,
+        if not algorithm or "nb" in algorithm:
+            processes.append(
+                executor.submit(
+                    my_nb_classification,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_test=x_test,
+                    y_test=y_test,
+                    cv=cv,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    learning_curve=learning_curve,
+                    report=report,
+                    figsize=figsize,
+                    dpi=dpi,
+                    sort=sort,
+                    is_print=False,
+                    **params,
+                )
             )
-        )
 
         # 병렬처리 결과를 기다린다.
         for p in futures.as_completed(processes):
@@ -1121,11 +1128,15 @@ def my_classification(
             estimator = p.result()
             # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
             scores = estimator.scores
-            # 분류모형의 이름을 저장한다.
-            estimators.append(estimator.__class__.__name__)
+            # 분류모형의 이름과 객체를 저장한다.
+            n = estimator.__class__.__name__
+            estimator_names.append(n)
+            estimators[n] = estimator
             # 성능평가 지표 딕셔너리를 리스트에 저장
             results.append(scores)
 
         # 결과값을 데이터프레임으로 변환
-        result_df = DataFrame(results, index=estimators)
+        result_df = DataFrame(results, index=estimator_names)
         my_pretty_table(result_df)
+
+    return estimators

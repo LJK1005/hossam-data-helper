@@ -20,11 +20,12 @@ from sklearn.svm import LinearSVC, SVC
 from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+from sklearn.tree import DecisionTreeClassifier
 
 from scipy.stats import norm
 
 from .util import my_pretty_table
-from .plot import my_learing_curve, my_confusion_matrix, my_roc_curve
+from .plot import my_learing_curve, my_confusion_matrix, my_roc_curve, my_tree
 
 
 def __my_classification(
@@ -470,6 +471,9 @@ def my_classification_result(
                 my_learing_curve(
                     estimator, data=x_df, yname=yname, figsize=figsize, dpi=dpi
                 )
+
+        if estimator.__class__.__name__ == "DecisionTreeClassifier":
+            my_tree(estimator)
 
 
 def my_classification_report(
@@ -995,6 +999,68 @@ def my_nb_classification(
     )
 
 
+def my_dtree_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params
+) -> DecisionTreeClassifier:
+    """의사결정나무 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        DecisionTreeClassifier
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {
+                "criterion": ["gini", "entropy"],
+                "max_depth": [3, 5, 7, 9],
+                "min_samples_split": [2, 3, 4],
+                "min_samples_leaf": [1, 2, 3],
+            }
+
+    return __my_classification(
+        classname=DecisionTreeClassifier,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+        **params,
+    )
+
+
 def my_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1103,6 +1169,29 @@ def my_classification(
             processes.append(
                 executor.submit(
                     my_nb_classification,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_test=x_test,
+                    y_test=y_test,
+                    cv=cv,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    learning_curve=learning_curve,
+                    report=report,
+                    figsize=figsize,
+                    dpi=dpi,
+                    sort=sort,
+                    is_print=False,
+                    **params,
+                )
+            )
+
+        if not algorithm or "dtree" in algorithm:
+            processes.append(
+                executor.submit(
+                    my_dtree_classification,
                     x_train=x_train,
                     y_train=y_train,
                     x_test=x_test,

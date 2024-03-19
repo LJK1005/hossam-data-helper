@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import seaborn as sb
 import matplotlib.pyplot as plt
@@ -16,6 +17,10 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import learning_curve
 from sklearn.preprocessing import StandardScaler
+
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import export_graphviz
+import graphviz
 
 import sys
 
@@ -1846,3 +1851,30 @@ def my_scatter_by_class(
     else:
         for i, v in enumerate(group):
             my_scatterplot(data, v[0], v[1], hue, palette, figsize, dpi, callback)
+
+
+def my_tree(estimator: DecisionTreeClassifier) -> None:
+    """의사결정나무를 출력한다.
+
+    Args:
+        estimator (DecisionTreeClassifier): 학습된 의사결정나무 객체
+    """
+
+    fname = "Malgun Gothic" if sys.platform == "win32" else "AppleGothic"
+    xnames = list(estimator.feature_names_in_)
+    class_names = estimator.classes_
+    class_names = [str(i) for i in class_names]
+
+    export_graphviz(
+        estimator,
+        out_file="tree.dot",
+        feature_names=xnames,
+        class_names=class_names,
+        rounded=True,  # 노드의 모서리를 둥글게
+        filled=True,  # 노드의 색상을 다르게
+        fontname=fname,
+    )
+
+    with open("tree.dot") as f:
+        dot = f.read()
+        display(graphviz.Source(dot))

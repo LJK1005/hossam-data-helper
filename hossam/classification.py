@@ -91,6 +91,12 @@ def __my_classification(
         else:
             print("%s는 random_state를 허용하지 않음" % classname)
 
+        if classname == DecisionTreeClassifier:
+            dtree = DecisionTreeClassifier(**args)
+            path = dtree.cost_complexity_pruning_path(x_train, y_train)
+            ccp_alphas = path.ccp_alphas[1:-1]
+            params["ccp_alpha"] = ccp_alphas
+
         prototype_estimator = classname(**args)
 
         # grid = GridSearchCV(
@@ -109,6 +115,9 @@ def __my_classification(
         result_df = DataFrame(grid.cv_results_["params"])
         result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
 
+        estimator = grid.best_estimator_
+        estimator.best_params = grid.best_params_
+
         if is_print:
             print("[교차검증 TOP5]")
             my_pretty_table(
@@ -118,14 +127,22 @@ def __my_classification(
             )
             print("")
 
-        estimator = grid.best_estimator_
-        estimator.best_params = grid.best_params_
-    else:
-        if hasattr(classname, "n_jobs"):
-            estimator = classname(n_jobs=-1, **params)
-        else:
-            estimator = classname(**params)
+            print("[Best Params]")
+            print(grid.best_params_)
+            print("")
 
+    else:
+        if "n_jobs" in dict(inspect.signature(classname.__init__).parameters):
+            params["n_jobs"] = -1
+        else:
+            print("%s는 n_jobs를 허용하지 않음" % classname)
+
+        if "random_state" in dict(inspect.signature(classname.__init__).parameters):
+            params["random_state"] = 1234
+        else:
+            print("%s는 random_state를 허용하지 않음" % classname)
+
+        estimator = classname(**params)
         estimator.fit(x_train, y_train)
 
     # ------------------------------------------------------

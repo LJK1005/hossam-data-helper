@@ -81,21 +81,25 @@ def __my_classification(
             params = {}
 
         args = {}
+        
+        c = str(classname)
+        p = c.rfind(".")
+        cn = c[p+1:-2]
 
         if "n_jobs" in dict(inspect.signature(classname.__init__).parameters):
             args["n_jobs"] = -1
         else:
-            print("%s는 n_jobs를 허용하지 않음" % classname)
+            print("<%s>(은)는 n_jobs를 허용하지 않음" % cn)
 
         if "random_state" in dict(inspect.signature(classname.__init__).parameters):
             args["random_state"] = 1234
         else:
-            print("%s는 random_state를 허용하지 않음" % classname)
+            print("<%s>(은)는 random_state를 허용하지 않음" % cn)
 
         if "early_stopping" in dict(inspect.signature(classname.__init__).parameters):
             args["early_stopping"] = True
         else:
-            print("%s는 early_stopping를 허용하지 않음" % classname)
+            print("<%s>(은)는 early_stopping를 허용하지 않음" % cn)
 
         if classname == DecisionTreeClassifier:
             dtree = DecisionTreeClassifier(**args)
@@ -104,6 +108,7 @@ def __my_classification(
             params["ccp_alpha"] = ccp_alphas
 
         prototype_estimator = classname(**args)
+        print("%s: %s" % (cn, params))
 
         # grid = GridSearchCV(
         #     prototype_estimator, param_grid=params, cv=cv, n_jobs=-1
@@ -739,6 +744,7 @@ def my_logistic_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
         roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
@@ -770,6 +776,7 @@ def my_logistic_classification(
         y_train=y_train,
         x_test=x_test,
         y_test=y_test,
+        conf_matrix=conf_matrix,
         cv=cv,
         hist=hist,
         roc=roc,
@@ -797,8 +804,10 @@ def my_knn_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
+    report: bool = False,
     figsize=(10, 5),
     dpi: int = 100,
+    sort: str = None,
     is_print: bool = True,
     **params
 ) -> KNeighborsClassifier:
@@ -809,14 +818,17 @@ def my_knn_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
         roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
         pr (bool, optional): PR Curve를 출력할지 여부. Defaults to True.
         multiclass (str, optional): 다항분류일 경우, 다항분류 방법. Defaults to None.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
@@ -838,14 +850,17 @@ def my_knn_classification(
         y_train=y_train,
         x_test=x_test,
         y_test=y_test,
+        conf_matrix=conf_matrix,
         cv=cv,
         hist=hist,
         roc=roc,
         pr=pr,
         multiclass=multiclass,
         learning_curve=learning_curve,
+        report=report,
         figsize=figsize,
         dpi=dpi,
+        sort=sort,
         is_print=is_print,
         **params,
     )
@@ -871,6 +886,7 @@ def my_linear_svc_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
@@ -898,6 +914,7 @@ def my_linear_svc_classification(
         y_train=y_train,
         x_test=x_test,
         y_test=y_test,
+        conf_matrix=conf_matrix,
         cv=cv,
         learning_curve=learning_curve,
         figsize=figsize,
@@ -931,6 +948,7 @@ def my_svc_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
@@ -961,6 +979,7 @@ def my_svc_classification(
         y_train=y_train,
         x_test=x_test,
         y_test=y_test,
+        conf_matrix=conf_matrix,
         cv=cv,
         # hist=hist,
         # roc=roc,
@@ -986,8 +1005,10 @@ def my_nb_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
+    report: bool = False,
     figsize=(10, 5),
     dpi: int = 100,
+    sort: str = None,
     is_print: bool = True,
     **params
 ) -> GaussianNB:
@@ -1001,8 +1022,10 @@ def my_nb_classification(
         conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
@@ -1029,8 +1052,10 @@ def my_nb_classification(
         pr=pr,
         multiclass=multiclass,
         learning_curve=learning_curve,
+        report=report,
         figsize=figsize,
         dpi=dpi,
+        sort=sort,
         is_print=is_print,
         **params,
     )
@@ -1048,8 +1073,10 @@ def my_dtree_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
+    report: bool = False,
     figsize=(10, 5),
     dpi: int = 100,
+    sort: str = None,
     is_print: bool = True,
     **params
 ) -> DecisionTreeClassifier:
@@ -1063,8 +1090,10 @@ def my_dtree_classification(
         conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
@@ -1093,8 +1122,10 @@ def my_dtree_classification(
         pr=pr,
         multiclass=multiclass,
         learning_curve=learning_curve,
+        report=report,
         figsize=figsize,
         dpi=dpi,
+        sort=sort,
         is_print=is_print,
         **params,
     )
@@ -1112,8 +1143,10 @@ def my_sgd_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
+    report: bool = False,
     figsize=(10, 5),
     dpi: int = 100,
+    sort: str = None,
     is_print: bool = True,
     **params
 ) -> SGDClassifier:
@@ -1127,8 +1160,10 @@ def my_sgd_classification(
         conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
@@ -1166,8 +1201,10 @@ def my_sgd_classification(
         pr=pr,
         multiclass=multiclass,
         learning_curve=learning_curve,
+        report=report,
         figsize=figsize,
         dpi=dpi,
+        sort=sort,
         is_print=is_print,
         **params,
     )
@@ -1192,6 +1229,29 @@ def my_classification(
     algorithm: list = None,
     **params
 ) -> DataFrame:
+    """분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 훈련 데이터의 독립변수
+        y_train (Series): 훈련 데이터의 종속변수
+        x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
+        y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to False.
+        roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to False.
+        pr (bool, optional): PR Curve를 출력할지 여부. Defaults to False.
+        multiclass (str, optional): 다항분류일 경우, 다항분류 방법. Defaults to None.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 독립변수 보고를 출력할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        algorithm (list, optional): 분류분석 알고리즘 리스트. Defaults to None.
+
+    Returns:
+        DataFrame: 분류분석 결과
+    """
 
     results = []  # 결과값을 저장할 리스트
     processes = []  # 병렬처리를 위한 프로세스 리스트
@@ -1239,8 +1299,10 @@ def my_classification(
                     pr=pr,
                     multiclass=multiclass,
                     learning_curve=learning_curve,
+                    report=report,
                     figsize=figsize,
                     dpi=dpi,
+                    sort=sort,
                     is_print=False,
                     **params,
                 )

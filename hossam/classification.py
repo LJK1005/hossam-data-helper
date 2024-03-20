@@ -1140,17 +1140,17 @@ def my_sgd_classification(
         if not params:
             params = {
                 # 손실함수
-                'loss': ['hinge', 'log', 'modified_huber'],
+                "loss": ["hinge", "log", "modified_huber"],
                 # 정규화 종류
-                'loss': ['hinge', 'log', 'modified_huber'],
+                "penalty": ["l2", "l1", "elasticnet"],
                 # 정규화 강도(값이 낮을 수록 약한 정규화)
-                'alpha': [0.0001, 0.001, 0.01, 0.1],
+                "alpha": [0.0001, 0.001, 0.01, 0.1],
                 # 최대 반복 수행 횟수
-                'max_iter': [1000, 2000, 3000, 4000, 5000],
+                "max_iter": [1000, 2000, 3000, 4000, 5000],
                 # 학습률 스케줄링 전략
-                'learning_rate': ['optimal', 'constant', 'invscaling', 'adaptive'],
+                "learning_rate": ["optimal", "constant", "invscaling", "adaptive"],
                 # 초기 학습률
-                'eta0': [0.01, 0.1, 0.5]
+                "eta0": [0.01, 0.1, 0.5],
             }
 
     return __my_classification(

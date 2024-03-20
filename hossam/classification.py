@@ -34,6 +34,7 @@ def __my_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
     roc: bool = True,
@@ -55,6 +56,7 @@ def __my_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
         roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
@@ -160,6 +162,7 @@ def __my_classification(
             y_train=y_train,
             x_test=x_test,
             y_test=y_test,
+            conf_matrix=conf_matrix,
             hist=hist,
             roc=roc,
             pr=pr,
@@ -175,6 +178,7 @@ def __my_classification(
             estimator,
             x_train=x_train,
             y_train=y_train,
+            conf_matrix=conf_matrix,
             hist=hist,
             roc=roc,
             pr=pr,
@@ -427,9 +431,9 @@ def my_classification_result(
     # curve
     if is_print:
         if hasattr(estimator, "predict_proba"):
-            print("\n[Roc Curve]")
 
             if x_test is None or y_test is None:
+                print("\n[Roc Curve]")
                 my_roc_curve(
                     estimator,
                     x_train,
@@ -441,6 +445,7 @@ def my_classification_result(
                     dpi=dpi,
                 )
             else:
+                print("\n[Roc Curve]")
                 my_roc_curve(
                     estimator,
                     x_test,
@@ -690,6 +695,7 @@ def my_logistic_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
     roc: bool = True,
@@ -761,6 +767,7 @@ def my_knn_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
     roc: bool = True,
@@ -826,6 +833,7 @@ def my_linear_svc_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     learning_curve=True,
     figsize=(10, 5),
@@ -881,6 +889,7 @@ def my_svc_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     # hist: bool = True,
     # roc: bool = True,
@@ -947,6 +956,7 @@ def my_nb_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
     roc: bool = True,
@@ -965,6 +975,7 @@ def my_nb_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
@@ -1007,6 +1018,7 @@ def my_dtree_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
     roc: bool = True,
@@ -1025,6 +1037,7 @@ def my_dtree_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
@@ -1050,6 +1063,7 @@ def my_dtree_classification(
         y_train=y_train,
         x_test=x_test,
         y_test=y_test,
+        conf_matrix=conf_matrix,
         cv=cv,
         hist=hist,
         roc=roc,
@@ -1068,12 +1082,13 @@ def my_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
-    hist: bool = True,
-    roc: bool = True,
-    pr: bool = True,
+    hist: bool = False,
+    roc: bool = False,
+    pr: bool = False,
     multiclass: str = None,
-    learning_curve=True,
+    learning_curve=False,
     report: bool = False,
     figsize=(10, 5),
     dpi: int = 100,
@@ -1097,6 +1112,7 @@ def my_classification(
                     y_train=y_train,
                     x_test=x_test,
                     y_test=y_test,
+                    conf_matrix=conf_matrix,
                     cv=cv,
                     hist=hist,
                     roc=roc,
@@ -1120,6 +1136,7 @@ def my_classification(
                     y_train=y_train,
                     x_test=x_test,
                     y_test=y_test,
+                    conf_matrix=conf_matrix,
                     cv=cv,
                     hist=hist,
                     roc=roc,
@@ -1141,6 +1158,7 @@ def my_classification(
         #             y_train=y_train,
         #             x_test=x_test,
         #             y_test=y_test,
+        #             conf_matrix=conf_matrix,
         #             cv=cv,
         #             learning_curve=learning_curve,
         #             figsize=figsize,
@@ -1158,6 +1176,7 @@ def my_classification(
                     y_train=y_train,
                     x_test=x_test,
                     y_test=y_test,
+                    conf_matrix=conf_matrix,
                     cv=cv,
                     learning_curve=learning_curve,
                     figsize=figsize,
@@ -1175,6 +1194,7 @@ def my_classification(
                     y_train=y_train,
                     x_test=x_test,
                     y_test=y_test,
+                    conf_matrix=conf_matrix,
                     cv=cv,
                     hist=hist,
                     roc=roc,
@@ -1198,6 +1218,7 @@ def my_classification(
                     y_train=y_train,
                     x_test=x_test,
                     y_test=y_test,
+                    conf_matrix=conf_matrix,
                     cv=cv,
                     hist=hist,
                     roc=roc,

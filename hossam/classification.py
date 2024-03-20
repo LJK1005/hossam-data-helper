@@ -21,6 +21,7 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import SGDClassifier
 
 from scipy.stats import norm
 
@@ -90,6 +91,11 @@ def __my_classification(
             args["random_state"] = 1234
         else:
             print("%s는 random_state를 허용하지 않음" % classname)
+
+        if "early_stopping" in dict(inspect.signature(classname.__init__).parameters):
+            args["early_stopping"] = True
+        else:
+            print("%s는 early_stopping를 허용하지 않음" % classname)
 
         if classname == DecisionTreeClassifier:
             dtree = DecisionTreeClassifier(**args)
@@ -1094,6 +1100,79 @@ def my_dtree_classification(
     )
 
 
+def my_sgd_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params
+) -> SGDClassifier:
+    """SGD 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        SGDClassifier
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {
+                # 손실함수
+                'loss': ['hinge', 'log', 'modified_huber'],
+                # 정규화 종류
+                'loss': ['hinge', 'log', 'modified_huber'],
+                # 정규화 강도(값이 낮을 수록 약한 정규화)
+                'alpha': [0.0001, 0.001, 0.01, 0.1],
+                # 최대 반복 수행 횟수
+                'max_iter': [1000, 2000, 3000, 4000, 5000],
+                # 학습률 스케줄링 전략
+                'learning_rate': ['optimal', 'constant', 'invscaling', 'adaptive'],
+                # 초기 학습률
+                'eta0': [0.01, 0.1, 0.5]
+            }
+
+    return __my_classification(
+        classname=SGDClassifier,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+        **params,
+    )
+
+
 def my_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1231,6 +1310,30 @@ def my_classification(
             processes.append(
                 executor.submit(
                     my_dtree_classification,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_test=x_test,
+                    y_test=y_test,
+                    conf_matrix=conf_matrix,
+                    cv=cv,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    learning_curve=learning_curve,
+                    report=report,
+                    figsize=figsize,
+                    dpi=dpi,
+                    sort=sort,
+                    is_print=False,
+                    **params,
+                )
+            )
+
+        if not algorithm or "sgd" in algorithm:
+            processes.append(
+                executor.submit(
+                    my_sgd_classification,
                     x_train=x_train,
                     y_train=y_train,
                     x_test=x_test,

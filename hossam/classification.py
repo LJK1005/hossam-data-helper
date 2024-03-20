@@ -47,7 +47,7 @@ def __my_classification(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    **params
+    **params,
 ) -> any:
     """분류분석을 수행하고 결과를 출력한다.
 
@@ -81,10 +81,10 @@ def __my_classification(
             params = {}
 
         args = {}
-        
+
         c = str(classname)
         p = c.rfind(".")
-        cn = c[p+1:-2]
+        cn = c[p + 1 : -2]
 
         if "n_jobs" in dict(inspect.signature(classname.__init__).parameters):
             args["n_jobs"] = -1
@@ -98,14 +98,14 @@ def __my_classification(
             args["early_stopping"] = True
             print(f"\033[94m{cn}의 early_stopping 설정됨\033[0m")
 
-        # if classname == DecisionTreeClassifier:
-        #     try:
-        #         dtree = DecisionTreeClassifier(**args)
-        #         path = dtree.cost_complexity_pruning_path(x_train, y_train)
-        #         ccp_alphas = path.ccp_alphas[1:-1]
-        #         params["ccp_alpha"] = ccp_alphas
-        #     except Exception as e:
-        #         print(f"\033[91m{cn}의 가지치기 실패 ({e})\033[0m")
+        if classname == DecisionTreeClassifier:
+            try:
+                dtree = DecisionTreeClassifier(**args)
+                path = dtree.cost_complexity_pruning_path(x_train, y_train)
+                ccp_alphas = path.ccp_alphas[1:-1]
+                params["ccp_alpha"] = ccp_alphas
+            except Exception as e:
+                print(f"\033[91m{cn}의 가지치기 실패 ({e})\033[0m")
 
         prototype_estimator = classname(**args)
         print(f"\033[92m{cn} {params}\033[0m".replace("\n", ""))
@@ -739,7 +739,7 @@ def my_logistic_classification(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    **params
+    **params,
 ) -> LogisticRegression:
     """로지스틱 회귀분석을 수행하고 결과를 출력한다.
 
@@ -813,7 +813,7 @@ def my_knn_classification(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    **params
+    **params,
 ) -> KNeighborsClassifier:
     """KNN 분류분석을 수행하고 결과를 출력한다.
 
@@ -887,7 +887,7 @@ def my_nb_classification(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    **params
+    **params,
 ) -> GaussianNB:
     """나이브베이즈 분류분석을 수행하고 결과를 출력한다.
 
@@ -955,7 +955,7 @@ def my_dtree_classification(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    **params
+    **params,
 ) -> DecisionTreeClassifier:
     """의사결정나무 분류분석을 수행하고 결과를 출력한다.
 
@@ -1008,9 +1008,6 @@ def my_dtree_classification(
     )
 
 
-
-
-
 def my_linear_svc_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1022,7 +1019,7 @@ def my_linear_svc_classification(
     figsize=(10, 5),
     dpi: int = 100,
     is_print: bool = True,
-    **params
+    **params,
 ) -> LinearSVC:
     """선형 SVM 분류분석을 수행하고 결과를 출력한다.
 
@@ -1042,10 +1039,14 @@ def my_linear_svc_classification(
         LinearSVC
     """
 
-    if "hist" in params: del(params['hist'])
-    if "roc" in params: del(params['roc'])
-    if "pr" in params: del(params['pr'])
-    if "report" in params: del(params['report'])
+    if "hist" in params:
+        del params["hist"]
+    if "roc" in params:
+        del params["roc"]
+    if "pr" in params:
+        del params["pr"]
+    if "report" in params:
+        del params["report"]
 
     # 교차검증 설정
     if cv > 0:
@@ -1089,7 +1090,7 @@ def my_svc_classification(
     figsize=(10, 5),
     dpi: int = 100,
     is_print: bool = True,
-    **params
+    **params,
 ) -> SVC:
     """SVC 분류분석을 수행하고 결과를 출력한다.
 
@@ -1109,10 +1110,14 @@ def my_svc_classification(
         SVC
     """
 
-    if "hist" in params: del(params['hist'])
-    if "roc" in params: del(params['roc'])
-    if "pr" in params: del(params['pr'])
-    if "report" in params: del(params['report'])
+    if "hist" in params:
+        del params["hist"]
+    if "roc" in params:
+        del params["roc"]
+    if "pr" in params:
+        del params["pr"]
+    if "report" in params:
+        del params["report"]
 
     # 교차검증 설정
     if cv > 0:
@@ -1165,7 +1170,7 @@ def my_sgd_classification(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    **params
+    **params,
 ) -> SGDClassifier:
     """SGD 분류분석을 수행하고 결과를 출력한다.
 
@@ -1244,7 +1249,7 @@ def my_classification(
     dpi: int = 100,
     sort: str = None,
     algorithm: list = None,
-    **params
+    **params,
 ) -> DataFrame:
     """분류분석을 수행하고 결과를 출력한다.
 
@@ -1437,7 +1442,7 @@ def my_classification(
         for p in futures.as_completed(processes):
             # 각 분류 함수의 결과값(분류모형 객체)을 저장한다.
             estimator = p.result()
-            
+
             if estimator is not None:
                 # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
                 scores = estimator.scores

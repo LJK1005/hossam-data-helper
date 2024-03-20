@@ -88,27 +88,27 @@ def __my_classification(
 
         if "n_jobs" in dict(inspect.signature(classname.__init__).parameters):
             args["n_jobs"] = -1
-        else:
-            print("<%s>(은)는 n_jobs를 허용하지 않음" % cn)
+            print(f"\033[94m{cn}의 n_jobs 설정됨\033[0m")
 
         if "random_state" in dict(inspect.signature(classname.__init__).parameters):
             args["random_state"] = 1234
-        else:
-            print("<%s>(은)는 random_state를 허용하지 않음" % cn)
+            print(f"\033[94m{cn}의 random_state 설정됨\033[0m")
 
         if "early_stopping" in dict(inspect.signature(classname.__init__).parameters):
             args["early_stopping"] = True
-        else:
-            print("<%s>(은)는 early_stopping를 허용하지 않음" % cn)
+            print(f"\033[94m{cn}의 early_stopping 설정됨\033[0m")
 
-        if classname == DecisionTreeClassifier:
-            dtree = DecisionTreeClassifier(**args)
-            path = dtree.cost_complexity_pruning_path(x_train, y_train)
-            ccp_alphas = path.ccp_alphas[1:-1]
-            params["ccp_alpha"] = ccp_alphas
+        # if classname == DecisionTreeClassifier:
+        #     try:
+        #         dtree = DecisionTreeClassifier(**args)
+        #         path = dtree.cost_complexity_pruning_path(x_train, y_train)
+        #         ccp_alphas = path.ccp_alphas[1:-1]
+        #         params["ccp_alpha"] = ccp_alphas
+        #     except Exception as e:
+        #         print(f"\033[91m{cn}의 가지치기 실패 ({e})\033[0m")
 
         prototype_estimator = classname(**args)
-        print("%s: %s" % (cn, params))
+        print(f"\033[92m{cn} {params}\033[0m".replace("\n", ""))
 
         # grid = GridSearchCV(
         #     prototype_estimator, param_grid=params, cv=cv, n_jobs=-1
@@ -121,7 +121,11 @@ def __my_classification(
             n_iter=500,
         )
 
-        grid.fit(x_train, y_train)
+        try:
+            grid.fit(x_train, y_train)
+        except Exception as e:
+            print(f"\033[91m{cn}에서 에러발생 ({e})\033[0m")
+            return None
 
         result_df = DataFrame(grid.cv_results_["params"])
         result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
@@ -1420,14 +1424,16 @@ def my_classification(
         for p in futures.as_completed(processes):
             # 각 분류 함수의 결과값(분류모형 객체)을 저장한다.
             estimator = p.result()
-            # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
-            scores = estimator.scores
-            # 분류모형의 이름과 객체를 저장한다.
-            n = estimator.__class__.__name__
-            estimator_names.append(n)
-            estimators[n] = estimator
-            # 성능평가 지표 딕셔너리를 리스트에 저장
-            results.append(scores)
+            
+            if estimator is not None:
+                # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
+                scores = estimator.scores
+                # 분류모형의 이름과 객체를 저장한다.
+                n = estimator.__class__.__name__
+                estimator_names.append(n)
+                estimators[n] = estimator
+                # 성능평가 지표 딕셔너리를 리스트에 저장
+                results.append(scores)
 
         # 결과값을 데이터프레임으로 변환
         result_df = DataFrame(results, index=estimator_names)

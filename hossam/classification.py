@@ -870,133 +870,6 @@ def my_knn_classification(
     )
 
 
-def my_linear_svc_classification(
-    x_train: DataFrame,
-    y_train: Series,
-    x_test: DataFrame = None,
-    y_test: Series = None,
-    conf_matrix: bool = True,
-    cv: int = 5,
-    learning_curve=True,
-    figsize=(10, 5),
-    dpi: int = 100,
-    is_print: bool = True,
-    **params
-) -> LinearSVC:
-    """선형 SVM 분류분석을 수행하고 결과를 출력한다.
-
-    Args:
-        x_train (DataFrame): 독립변수에 대한 훈련 데이터
-        y_train (Series): 종속변수에 대한 훈련 데이터
-        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
-        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
-        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
-        cv (int, optional): 교차검증 횟수. Defaults to 5.
-        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
-        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
-        dpi (int, optional): 그래프의 해상도. Defaults to 100.
-        is_print (bool, optional): 출력 여부. Defaults to True.
-        **params (dict, optional): 하이퍼파라미터. Defaults to None.
-    Returns:
-        LinearSVC
-    """
-
-    # 교차검증 설정
-    if cv > 0:
-        if not params:
-            params = {
-                "penalty": ["l1", "l2"],
-                "loss": ["squared_hinge", "hinge"],
-                "C": [0.01, 0.1, 1, 10],
-                "max_iter": [1000],
-                "dual": [True, False],
-            }
-
-    return __my_classification(
-        classname=LinearSVC,
-        x_train=x_train,
-        y_train=y_train,
-        x_test=x_test,
-        y_test=y_test,
-        conf_matrix=conf_matrix,
-        cv=cv,
-        learning_curve=learning_curve,
-        figsize=figsize,
-        dpi=dpi,
-        is_print=is_print,
-        **params,
-    )
-
-
-def my_svc_classification(
-    x_train: DataFrame,
-    y_train: Series,
-    x_test: DataFrame = None,
-    y_test: Series = None,
-    conf_matrix: bool = True,
-    cv: int = 5,
-    # hist: bool = True,
-    # roc: bool = True,
-    # pr: bool = True,
-    # multiclass: str = None,
-    learning_curve=True,
-    figsize=(10, 5),
-    dpi: int = 100,
-    is_print: bool = True,
-    **params
-) -> SVC:
-    """SVC 분류분석을 수행하고 결과를 출력한다.
-
-    Args:
-        x_train (DataFrame): 독립변수에 대한 훈련 데이터
-        y_train (Series): 종속변수에 대한 훈련 데이터
-        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
-        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
-        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
-        cv (int, optional): 교차검증 횟수. Defaults to 5.
-        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
-        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
-        dpi (int, optional): 그래프의 해상도. Defaults to 100.
-        is_print (bool, optional): 출력 여부. Defaults to True.
-        **params (dict, optional): 하이퍼파라미터. Defaults to None.
-    Returns:
-        SVC
-    """
-
-    # 교차검증 설정
-    if cv > 0:
-        if not params:
-            params = {
-                "C": [0.1, 1, 10],
-                # "kernel": ["rbf", "linear", "poly", "sigmoid"],
-                "kernel": ["rbf", "poly", "sigmoid"],
-                "degree": [2, 3, 4, 5],
-                # "gamma": ["scale", "auto"],
-                # "coef0": [0.01, 0.1, 1, 10],
-                # "shrinking": [True, False],
-                # "probability": [True],  # AUC 값 확인을 위해서는 True로 설정
-            }
-
-    return __my_classification(
-        classname=SVC,
-        x_train=x_train,
-        y_train=y_train,
-        x_test=x_test,
-        y_test=y_test,
-        conf_matrix=conf_matrix,
-        cv=cv,
-        # hist=hist,
-        # roc=roc,
-        # pr=pr,
-        # multiclass=multiclass,
-        learning_curve=learning_curve,
-        figsize=figsize,
-        dpi=dpi,
-        is_print=is_print,
-        **params,
-    )
-
-
 def my_nb_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1130,6 +1003,146 @@ def my_dtree_classification(
         figsize=figsize,
         dpi=dpi,
         sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+
+
+
+def my_linear_svc_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    learning_curve=True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params
+) -> LinearSVC:
+    """선형 SVM 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        LinearSVC
+    """
+
+    if "hist" in params: del(params['hist'])
+    if "roc" in params: del(params['roc'])
+    if "pr" in params: del(params['pr'])
+    if "report" in params: del(params['report'])
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {
+                "penalty": ["l1", "l2"],
+                "loss": ["squared_hinge", "hinge"],
+                "C": [0.01, 0.1, 1, 10],
+                "max_iter": [1000],
+                "dual": [True, False],
+            }
+
+    return __my_classification(
+        classname=LinearSVC,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        learning_curve=learning_curve,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_svc_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    # hist: bool = True,
+    # roc: bool = True,
+    # pr: bool = True,
+    # multiclass: str = None,
+    learning_curve=True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params
+) -> SVC:
+    """SVC 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        SVC
+    """
+
+    if "hist" in params: del(params['hist'])
+    if "roc" in params: del(params['roc'])
+    if "pr" in params: del(params['pr'])
+    if "report" in params: del(params['report'])
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {
+                "C": [0.1, 1, 10],
+                # "kernel": ["rbf", "linear", "poly", "sigmoid"],
+                "kernel": ["rbf", "poly", "sigmoid"],
+                "degree": [2, 3, 4, 5],
+                # "gamma": ["scale", "auto"],
+                # "coef0": [0.01, 0.1, 1, 10],
+                # "shrinking": [True, False],
+                # "probability": [True],  # AUC 값 확인을 위해서는 True로 설정
+            }
+
+    return __my_classification(
+        classname=SVC,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        # hist=hist,
+        # roc=roc,
+        # pr=pr,
+        # multiclass=multiclass,
+        learning_curve=learning_curve,
+        figsize=figsize,
+        dpi=dpi,
         is_print=is_print,
         **params,
     )

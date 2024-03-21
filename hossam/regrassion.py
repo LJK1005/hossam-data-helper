@@ -1,41 +1,51 @@
+import inspect
+
 import numpy as np
 import seaborn as sb
 import matplotlib.pyplot as plt
+import concurrent.futures as futures
 
 from pandas import DataFrame, Series, concat
 
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.neighbors import KNeighborsRegressor
+
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import StandardScaler
 
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson
 from statsmodels.stats.api import het_breuschpagan
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 from scipy.stats import t, f
 from .util import my_pretty_table, my_trend
 from .plot import my_residplot, my_qqplot, my_learing_curve
+from .core import __ml
 
 
-def my_linear_regrassion(
+def __my_regrassion(
+    classname: any,
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
     learning_curve: bool = True,
-    report=False,
-    plot: bool = False,
-    resid_test=False,
+    report=True,
+    plot: bool = True,
+    resid_test=True,
     degree: int = 1,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
+    is_print: bool = True,
+    **params,
 ) -> LinearRegression:
-    """선형회귀분석을 수행하고 결과를 출력한다.
+    """회귀분석을 수행하고 결과를 출력한다.
 
     Args:
+        classname (any): 분류분석 추정기 (모델 객체)
         x_train (DataFrame): 독립변수에 대한 훈련 데이터
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
@@ -49,48 +59,23 @@ def my_linear_regrassion(
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
 
     Returns:
-        LinearRegression: 회귀분석 모델
+        any: 분류분석 모델
     """
 
     # ------------------------------------------------------
     # 분석모델 생성
-
-    # 교차검증 설정
-    if cv > 0:
-        params = {}
-        prototype_estimator = LinearRegression(n_jobs=-1)
-        grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv, n_jobs=-1)
-        grid.fit(x_train, y_train)
-
-        result_df = DataFrame(grid.cv_results_["params"])
-        result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
-
-        print("[교차검증]")
-        my_pretty_table(result_df.sort_values(by="mean_test_score", ascending=False))
-        print("")
-
-        estimator = grid.best_estimator_
-        estimator.best_params = grid.best_params_
-    else:
-        estimator = LinearRegression(n_jobs=-1)
-        estimator.fit(x_train, y_train)
-
-    # ------------------------------------------------------
-    # 결과값 생성
-
-    # 훈련 데이터에 대한 추정치 생성
-    y_pred = (
-        estimator.predict(x_test) if x_test is not None else estimator.predict(x_train)
-    )
-
-    # 도출된 결과를 회귀모델 객체에 포함시킴
-    estimator.x = x_test if x_test is not None else x_train
-    estimator.y = y_test if y_test is not None else y_train
-    estimator.y_pred = y_pred if y_test is not None else estimator.predict(x_train)
-    estimator.resid = (
-        y_test - y_pred if y_test is not None else y_train - estimator.predict(x_train)
+    estimator = __ml(
+        classname=classname,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        is_print=is_print,
+        **params,
     )
 
     # ------------------------------------------------------
@@ -106,6 +91,7 @@ def my_linear_regrassion(
             cv=cv,
             figsize=figsize,
             dpi=dpi,
+            is_print=is_print,
         )
     else:
         my_regrassion_result(
@@ -116,11 +102,12 @@ def my_linear_regrassion(
             cv=cv,
             figsize=figsize,
             dpi=dpi,
+            is_print=is_print,
         )
 
     # ------------------------------------------------------
     # 보고서 출력
-    if report:
+    if report and is_print:
         print("")
         my_regrassion_report(
             estimator,
@@ -135,279 +122,7 @@ def my_linear_regrassion(
 
     # ------------------------------------------------------
     # 잔차 가정 확인
-    if resid_test:
-        print("\n\n[잔차의 가정 확인] ==============================")
-        my_resid_test(
-            estimator.x, estimator.y, estimator.y_pred, figsize=figsize, dpi=dpi
-        )
-
-    return estimator
-
-
-def my_ridge_regrassion(
-    x_train: DataFrame,
-    y_train: Series,
-    x_test: DataFrame = None,
-    y_test: Series = None,
-    cv: int = 5,
-    learning_curve: bool = True,
-    report=False,
-    plot: bool = False,
-    degree: int = 1,
-    resid_test=False,
-    figsize=(10, 5),
-    dpi: int = 100,
-    sort: str = None,
-    **params,
-) -> LinearRegression:
-    """릿지회귀분석을 수행하고 결과를 출력한다.
-
-    Args:
-        x_train (DataFrame): 독립변수에 대한 훈련 데이터
-        y_train (Series): 종속변수에 대한 훈련 데이터
-        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
-        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
-        cv (int, optional): 교차검증 횟수. Defaults to 0.
-        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
-        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
-        plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
-        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
-        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
-        dpi (int, optional): 그래프의 해상도. Defaults to 100.
-        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-        **params (dict, optional): 하이퍼파라미터. Defaults to None.
-
-    Returns:
-        Ridge: Ridge 모델
-    """
-
-    # ------------------------------------------------------
-    # 교차검증 설정
-    if cv > 0:
-        if not params:
-            params = {"alpha": [0.01, 0.1, 1, 10, 100]}
-
-        # 분석모델 생성
-        prototype_estimator = Ridge()
-
-        print("[%s 하이퍼파라미터]" % prototype_estimator.__class__.__name__)
-        my_pretty_table(DataFrame(params))
-        print("")
-
-        grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv, n_jobs=-1)
-        grid.fit(x_train, y_train)
-
-        result_df = DataFrame(grid.cv_results_["params"])
-        result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
-
-        print("[교차검증]")
-        my_pretty_table(result_df.sort_values(by="mean_test_score", ascending=False))
-        print("")
-
-        estimator = grid.best_estimator_
-        estimator.best_params = grid.best_params_
-    else:
-        # 분석모델 생성
-        estimator = Ridge(**params)
-        estimator.fit(x_train, y_train)
-
-    # ------------------------------------------------------
-    xnames = x_train.columns
-    yname = y_train.name
-
-    # 훈련 데이터에 대한 추정치 생성
-    y_pred = (
-        estimator.predict(x_test) if x_test is not None else estimator.predict(x_train)
-    )
-
-    # 도출된 결과를 회귀모델 객체에 포함시킴
-    estimator.x = x_test if x_test is not None else x_train
-    estimator.y = y_test if y_test is not None else y_train
-    estimator.y_pred = y_pred if y_test is not None else estimator.predict(x_train)
-    estimator.resid = (
-        y_test - y_pred if y_test is not None else y_train - estimator.predict(x_train)
-    )
-
-    # ------------------------------------------------------
-    # 성능평가
-    if x_test is not None and y_test is not None:
-        my_regrassion_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            x_test=x_test,
-            y_test=y_test,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-        )
-    else:
-        my_regrassion_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-        )
-
-    # ------------------------------------------------------
-    # 보고서 출력
-    if report:
-        print("")
-        my_regrassion_report(
-            estimator,
-            estimator.x,
-            estimator.y,
-            sort,
-            plot=plot,
-            degree=degree,
-            figsize=figsize,
-            dpi=dpi,
-        )
-
-    # ------------------------------------------------------
-    # 잔차 가정 확인
-    if resid_test:
-        print("\n\n[잔차의 가정 확인] ==============================")
-        my_resid_test(
-            estimator.x, estimator.y, estimator.y_pred, figsize=figsize, dpi=dpi
-        )
-
-    return estimator
-
-
-def my_lasso_regrassion(
-    x_train: DataFrame,
-    y_train: Series,
-    x_test: DataFrame = None,
-    y_test: Series = None,
-    cv: int = 5,
-    learning_curve: bool = True,
-    report=False,
-    plot: bool = False,
-    degree: int = 1,
-    resid_test=False,
-    figsize=(10, 5),
-    dpi: int = 100,
-    sort: str = None,
-    **params,
-) -> LinearRegression:
-    """라쏘회귀분석을 수행하고 결과를 출력한다.
-
-    Args:
-        x_train (DataFrame): 독립변수에 대한 훈련 데이터
-        y_train (Series): 종속변수에 대한 훈련 데이터
-        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
-        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
-        cv (int, optional): 교차검증 횟수. Defaults to 0.
-        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
-        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
-        plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
-        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
-        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
-        dpi (int, optional): 그래프의 해상도. Defaults to 100.
-        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-        **params (dict, optional): 하이퍼파라미터. Defaults to None.
-
-    Returns:
-        Lasso: Lasso 모델
-    """
-
-    # ------------------------------------------------------
-    # 교차검증 설정
-    if cv > 0:
-        if not params:
-            params = {"alpha": [0.01, 0.1, 1, 10, 100]}
-
-        # 분석모델 생성
-        prototype_estimator = Lasso()
-
-        print("[%s 하이퍼파라미터]" % prototype_estimator.__class__.__name__)
-        my_pretty_table(DataFrame(params))
-        print("")
-
-        grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv, n_jobs=-1)
-        grid.fit(x_train, y_train)
-
-        result_df = DataFrame(grid.cv_results_["params"])
-        result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
-
-        print("[교차검증]")
-        my_pretty_table(result_df.sort_values(by="mean_test_score", ascending=False))
-        print("")
-
-        estimator = grid.best_estimator_
-        estimator.best_params = grid.best_params_
-    else:
-        # 분석모델 생성
-        estimator = Lasso(**params)
-        estimator.fit(x_train, y_train)
-
-    # ------------------------------------------------------
-    xnames = x_train.columns
-    yname = y_train.name
-
-    # 훈련 데이터에 대한 추정치 생성
-    y_pred = (
-        estimator.predict(x_test) if x_test is not None else estimator.predict(x_train)
-    )
-
-    # 도출된 결과를 회귀모델 객체에 포함시킴
-    estimator.x = x_test if x_test is not None else x_train
-    estimator.y = y_test if y_test is not None else y_train
-    estimator.y_pred = y_pred if y_test is not None else estimator.predict(x_train)
-    estimator.resid = (
-        y_test - y_pred if y_test is not None else y_train - estimator.predict(x_train)
-    )
-
-    # ------------------------------------------------------
-    # 성능평가
-    if x_test is not None and y_test is not None:
-        my_regrassion_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            x_test=x_test,
-            y_test=y_test,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-        )
-    else:
-        my_regrassion_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-        )
-
-    # ------------------------------------------------------
-    # 보고서 출력
-    if report:
-        print("")
-        my_regrassion_report(
-            estimator,
-            estimator.x,
-            estimator.y,
-            sort,
-            plot=plot,
-            degree=degree,
-            figsize=figsize,
-            dpi=dpi,
-        )
-
-    # ------------------------------------------------------
-    # 잔차 가정 확인
-    if resid_test:
+    if resid_test and is_print:
         print("\n\n[잔차의 가정 확인] ==============================")
         my_resid_test(
             estimator.x, estimator.y, estimator.y_pred, figsize=figsize, dpi=dpi
@@ -426,6 +141,7 @@ def my_regrassion_result(
     cv: int = 10,
     figsize: tuple = (10, 5),
     dpi: int = 100,
+    is_print: bool = True,
 ) -> None:
     """회귀분석 결과를 출력한다.
 
@@ -439,6 +155,7 @@ def my_regrassion_result(
         cv (int, optional): 교차검증 횟수. Defaults to 10.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
     """
 
     scores = []
@@ -480,44 +197,48 @@ def my_regrassion_result(
         scores.append(result)
         score_names.append("검증데이터")
 
-    print("[회귀분석 성능평가]")
-    result_df = DataFrame(scores, index=score_names)
-    my_pretty_table(result_df.T)
+    # 결과값을 모델 객체에 포함시킴
+    estimator.scores = scores[-2]
 
-    # 학습곡선
-    if learning_curve:
-        print("\n[학습곡선]")
-        yname = y_train.name
+    if is_print:
+        print("[회귀분석 성능평가]")
+        result_df = DataFrame(scores, index=score_names)
+        my_pretty_table(result_df.T)
 
-        if x_test is not None and y_test is not None:
-            y_df = concat([y_train, y_test])
-            x_df = concat([x_train, x_test])
-        else:
-            y_df = y_train.copy()
-            x_df = x_train.copy()
+        # 학습곡선
+        if learning_curve:
+            print("\n[학습곡선]")
+            yname = y_train.name
 
-        x_df[yname] = y_df
-        x_df.sort_index(inplace=True)
+            if x_test is not None and y_test is not None:
+                y_df = concat([y_train, y_test])
+                x_df = concat([x_train, x_test])
+            else:
+                y_df = y_train.copy()
+                x_df = x_train.copy()
 
-        if cv > 0:
-            my_learing_curve(
-                estimator,
-                data=x_df,
-                yname=yname,
-                cv=cv,
-                scoring="RMSE",
-                figsize=figsize,
-                dpi=dpi,
-            )
-        else:
-            my_learing_curve(
-                estimator,
-                data=x_df,
-                yname=yname,
-                scoring="RMSE",
-                figsize=figsize,
-                dpi=dpi,
-            )
+            x_df[yname] = y_df
+            x_df.sort_index(inplace=True)
+
+            if cv > 0:
+                my_learing_curve(
+                    estimator,
+                    data=x_df,
+                    yname=yname,
+                    cv=cv,
+                    scoring="RMSE",
+                    figsize=figsize,
+                    dpi=dpi,
+                )
+            else:
+                my_learing_curve(
+                    estimator,
+                    data=x_df,
+                    yname=yname,
+                    scoring="RMSE",
+                    figsize=figsize,
+                    dpi=dpi,
+                )
 
 
 def my_regrassion_report(
@@ -827,3 +548,442 @@ def my_resid_test(
 
     print("\n[잔차의 독립성 가정]")
     my_resid_independence(y, y_pred)
+
+
+def my_linear_regrassion(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=False,
+    plot: bool = False,
+    degree: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -> LinearRegression:
+    """선형회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        Ridge: Ridge 모델
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {}
+
+    return __my_regrassion(
+        classname=LinearRegression,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        degree=degree,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_ridge_regrassion(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=False,
+    plot: bool = False,
+    degree: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -> Ridge:
+    """릿지회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        Ridge: Ridge 모델
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {"alpha": [0.01, 0.1, 1, 10, 100]}
+
+    return __my_regrassion(
+        classname=Ridge,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        degree=degree,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_lasso_regrassion(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=False,
+    plot: bool = False,
+    degree: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -> Lasso:
+    """라쏘회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        Lasso: Lasso 모델
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {"alpha": [0.01, 0.1, 1, 10, 100]}
+
+    return __my_regrassion(
+        classname=Lasso,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        degree=degree,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_ridge_regrassion(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=False,
+    plot: bool = False,
+    degree: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -> Ridge:
+    """릿지회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        Ridge: Ridge 모델
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {"alpha": [0.01, 0.1, 1, 10, 100]}
+
+    return __my_regrassion(
+        classname=Ridge,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        degree=degree,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_knn_regrassion(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=False,
+    plot: bool = False,
+    degree: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -> KNeighborsRegressor:
+    """KNN 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        KNeighborsRegressor
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {
+                "n_neighbors": [3, 5, 7],
+                "weights": ["uniform", "distance"],
+                "metric": ["euclidean", "manhattan"],
+            }
+
+    return __my_regrassion(
+        classname=KNeighborsRegressor,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        degree=degree,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_regrassion(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=False,
+    plot: bool = False,
+    degree: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    algorithm: list = None,
+    **params,
+) -> LinearRegression:
+    """회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        algorithm: list = None,
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        Lasso: Lasso 모델
+    """
+
+    results = []  # 결과값을 저장할 리스트
+    processes = []  # 병렬처리를 위한 프로세스 리스트
+    estimators = {}  # 분류분석 모델을 저장할 딕셔너리
+    estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {"alpha": [0.01, 0.1, 1, 10, 100]}
+
+    callstack = []
+
+    if not algorithm or "linear" in algorithm:
+        callstack.append(my_linear_regrassion)
+
+    if not algorithm or "ridge" in algorithm:
+        callstack.append(my_ridge_regrassion)
+
+    if not algorithm or "lasso" in algorithm:
+        callstack.append(my_lasso_regrassion)
+
+    if not algorithm or "knn" in algorithm:
+        callstack.append(my_knn_regrassion)
+
+    # 병렬처리를 위한 프로세스 생성 -> 분류 모델을 생성하는 함수를 각각 호출한다.
+    with futures.ThreadPoolExecutor() as executor:
+        for c in callstack:
+            processes.append(
+                executor.submit(
+                    c,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_test=x_test,
+                    y_test=y_test,
+                    cv=cv,
+                    learning_curve=learning_curve,
+                    report=report,
+                    plot=plot,
+                    degree=degree,
+                    resid_test=resid_test,
+                    figsize=figsize,
+                    dpi=dpi,
+                    sort=sort,
+                    is_print=False,
+                    **params,
+                )
+            )
+
+        # 병렬처리 결과를 기다린다.
+        for p in futures.as_completed(processes):
+            # 각 분류 함수의 결과값(분류모형 객체)을 저장한다.
+            estimator = p.result()
+
+            if estimator is not None:
+                # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
+                scores = estimator.scores
+                # 분류모형의 이름과 객체를 저장한다.
+                n = estimator.__class__.__name__
+                estimator_names.append(n)
+                estimators[n] = estimator
+                # 성능평가 지표 딕셔너리를 리스트에 저장
+                results.append(scores)
+
+        # 결과값을 데이터프레임으로 변환
+        result_df = DataFrame(results, index=estimator_names)
+        my_pretty_table(result_df)
+
+    return estimators

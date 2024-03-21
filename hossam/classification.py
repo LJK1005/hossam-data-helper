@@ -18,7 +18,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC, SVC
 from sklearn.naive_bayes import GaussianNB
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import SGDClassifier
@@ -27,6 +26,7 @@ from scipy.stats import norm
 
 from .util import my_pretty_table
 from .plot import my_learing_curve, my_confusion_matrix, my_roc_curve, my_tree
+from .core import __ml
 
 
 def __my_classification(
@@ -69,6 +69,7 @@ def __my_classification(
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
         pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
@@ -76,116 +77,16 @@ def __my_classification(
     """
     # ------------------------------------------------------
     # 분석모델 생성
-
-    # 교차검증 설정
-    if cv > 0:
-        if not params:
-            params = {}
-
-        args = {}
-
-        c = str(classname)
-        p = c.rfind(".")
-        cn = c[p + 1 : -2]
-
-        if "n_jobs" in dict(inspect.signature(classname.__init__).parameters):
-            args["n_jobs"] = -1
-            print(f"\033[94m{cn}의 n_jobs 설정됨\033[94m")
-
-        if "random_state" in dict(inspect.signature(classname.__init__).parameters):
-            args["random_state"] = 1234
-            print(f"\033[94m{cn}의 random_state 설정됨\033[94m")
-
-        if "early_stopping" in dict(inspect.signature(classname.__init__).parameters):
-            args["early_stopping"] = True
-            print(f"\033[94m{cn}의 early_stopping 설정됨\033[94m")
-
-        if classname == DecisionTreeClassifier and pruning == True:
-            try:
-                dtree = DecisionTreeClassifier(**args)
-                path = dtree.cost_complexity_pruning_path(x_train, y_train)
-                ccp_alphas = path.ccp_alphas[1:-1]
-                params["ccp_alpha"] = ccp_alphas
-            except Exception as e:
-                print(f"\033[91m{cn}의 가지치기 실패 ({e})\033[91m")
-
-        prototype_estimator = classname(**args)
-        print(f"\033[92m{cn} {params}\033[92m".replace("\n", ""))
-
-        # grid = GridSearchCV(
-        #     prototype_estimator, param_grid=params, cv=cv, n_jobs=-1
-        # )
-        grid = RandomizedSearchCV(
-            prototype_estimator,
-            param_distributions=params,
-            cv=cv,
-            n_jobs=-1,
-            n_iter=500,
-        )
-
-        try:
-            grid.fit(x_train, y_train)
-        except Exception as e:
-            print(f"\033[91m{cn}에서 에러발생 ({e})\033[0m")
-            return None
-
-        result_df = DataFrame(grid.cv_results_["params"])
-        result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
-
-        estimator = grid.best_estimator_
-        estimator.best_params = grid.best_params_
-
-        if is_print:
-            print("[교차검증 TOP5]")
-            my_pretty_table(
-                result_df.dropna(subset=["mean_test_score"])
-                .sort_values(by="mean_test_score", ascending=False)
-                .head()
-            )
-            print("")
-
-            print("[Best Params]")
-            print(grid.best_params_)
-            print("")
-
-    else:
-        if "n_jobs" in dict(inspect.signature(classname.__init__).parameters):
-            params["n_jobs"] = -1
-        else:
-            print("%s는 n_jobs를 허용하지 않음" % classname)
-
-        if "random_state" in dict(inspect.signature(classname.__init__).parameters):
-            params["random_state"] = 1234
-        else:
-            print("%s는 random_state를 허용하지 않음" % classname)
-
-        estimator = classname(**params)
-        estimator.fit(x_train, y_train)
-
-    # ------------------------------------------------------
-    # 결과값 생성
-
-    # 훈련 데이터에 대한 추정치 생성
-    y_pred = (
-        estimator.predict(x_test) if x_test is not None else estimator.predict(x_train)
+    estimator = __ml(
+        classname=classname,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        is_print=is_print,
+        **params,
     )
-
-    if hasattr(estimator, "predict_proba"):
-        y_pred_prob = (
-            estimator.predict_proba(x_test)
-            if x_test is not None
-            else estimator.predict_proba(x_train)
-        )
-
-    # 도출된 결과를 모델 객체에 포함시킴
-    estimator.x = x_test if x_test is not None else x_train
-    estimator.y = y_test if y_test is not None else y_train
-    estimator.y_pred = y_pred if y_test is not None else estimator.predict(x_train)
-
-    if hasattr(estimator, "predict_proba"):
-        estimator.y_pred_proba = (
-            y_pred_prob if y_test is not None else estimator.predict_proba(x_train)
-        )
 
     # ------------------------------------------------------
     # 성능평가
@@ -566,105 +467,18 @@ def my_classification_binary_report(
         y (Series, optional): 종속변수. Defaults to None.
         sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
     """
-    # 추정 확률
-    y_pred_proba = estimator.predict_proba(x)
+    if estimator.__class__.__name__ == "LogisticRegression":
+        # 추정 확률
+        y_pred_proba = estimator.predict_proba(x)
 
-    # 추정확률의 길이(=샘플수)
-    n = len(y_pred_proba)
+        # 추정확률의 길이(=샘플수)
+        n = len(y_pred_proba)
 
-    # 계수의 수 + 1(절편)
-    m = len(estimator.coef_[0]) + 1
-
-    # 절편과 계수를 하나의 배열로 결합
-    coefs = np.concatenate([estimator.intercept_, estimator.coef_[0]])
-
-    # 상수항 추가
-    x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
-
-    # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
-    ans = np.zeros((m, m))
-
-    # 표준오차
-    for i in range(n):
-        ans = (
-            ans
-            + np.dot(np.transpose(x_full[i, :]), x_full[i, :])
-            * y_pred_proba[i, 1]
-            * y_pred_proba[i, 0]
-        )
-
-    vcov = np.linalg.inv(np.matrix(ans))
-    se = np.sqrt(np.diag(vcov))
-
-    # t값
-    t = coefs / se
-
-    # p-value
-    p_values = (1 - norm.cdf(abs(t))) * 2
-
-    # VIF
-    if len(x.columns) > 1:
-        vif = [
-            variance_inflation_factor(x, list(x.columns).index(v))
-            for i, v in enumerate(x.columns)
-        ]
-    else:
-        vif = 0
-
-    # 결과표 생성
-    xnames = estimator.feature_names_in_
-
-    result_df = DataFrame(
-        {
-            "종속변수": [y.name] * len(xnames),
-            "독립변수": xnames,
-            "B(비표준화 계수)": np.round(estimator.coef_[0], 4),
-            "표준오차": np.round(se[1:], 3),
-            "t": np.round(t[1:], 4),
-            "유의확률": np.round(p_values[1:], 3),
-            "VIF": vif,
-            "OddsRate": np.round(np.exp(estimator.coef_[0]), 4),
-        }
-    )
-
-    if sort:
-        if sort.upper() == "V":
-            result_df.sort_values("VIF", inplace=True)
-        elif sort.upper() == "P":
-            result_df.sort_values("유의확률", inplace=True)
-
-    my_pretty_table(result_df)
-
-
-def my_classification_multiclass_report(
-    estimator: any,
-    x: DataFrame = None,
-    y: Series = None,
-    sort: str = None,
-) -> None:
-    """다중로지스틱 회귀분석 결과를 출력한다.
-
-    Args:
-        estimator (any): 분류분석 추정기 (모델 객체)
-        x (DataFrame, optional): 독립변수. Defaults to None.
-        y (Series, optional): 종속변수. Defaults to None.
-        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-    """
-    class_list = list(estimator.classes_)
-    class_size = len(class_list)
-
-    # 추정 확률
-    y_pred_proba = estimator.predict_proba(x)
-
-    # 추정확률의 길이(=샘플수)
-    n = len(y_pred_proba)
-
-    for i in range(0, class_size):
         # 계수의 수 + 1(절편)
-        m = len(estimator.coef_[i]) + 1
+        m = len(estimator.coef_[0]) + 1
 
         # 절편과 계수를 하나의 배열로 결합
-        coefs = np.concatenate([[estimator.intercept_[i]], estimator.coef_[i]])
+        coefs = np.concatenate([estimator.intercept_, estimator.coef_[0]])
 
         # 상수항 추가
         x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
@@ -673,10 +487,12 @@ def my_classification_multiclass_report(
         ans = np.zeros((m, m))
 
         # 표준오차
-        for j in range(n):
+        for i in range(n):
             ans = (
                 ans
-                + np.dot(np.transpose(x_full[j, :]), x_full[j, :]) * y_pred_proba[j, i]
+                + np.dot(np.transpose(x_full[i, :]), x_full[i, :])
+                * y_pred_proba[i, 1]
+                * y_pred_proba[i, 0]
             )
 
         vcov = np.linalg.inv(np.matrix(ans))
@@ -703,14 +519,13 @@ def my_classification_multiclass_report(
         result_df = DataFrame(
             {
                 "종속변수": [y.name] * len(xnames),
-                "CLASS": [class_list[i]] * len(xnames),
                 "독립변수": xnames,
-                "B(계수)": np.round(estimator.coef_[i], 4),
+                "B(비표준화 계수)": np.round(estimator.coef_[0], 4),
                 "표준오차": np.round(se[1:], 3),
                 "t": np.round(t[1:], 4),
                 "유의확률": np.round(p_values[1:], 3),
                 "VIF": vif,
-                "OddsRate": np.round(np.exp(estimator.coef_[i]), 4),
+                "OddsRate": np.round(np.exp(estimator.coef_[0]), 4),
             }
         )
 
@@ -719,9 +534,151 @@ def my_classification_multiclass_report(
                 result_df.sort_values("VIF", inplace=True)
             elif sort.upper() == "P":
                 result_df.sort_values("유의확률", inplace=True)
-                pass
 
         my_pretty_table(result_df)
+    else:
+        # VIF
+        if len(x.columns) > 1:
+            vif = [
+                variance_inflation_factor(x, list(x.columns).index(v))
+                for i, v in enumerate(x.columns)
+            ]
+        else:
+            vif = 0
+
+        # 결과표 생성
+        xnames = estimator.feature_names_in_
+
+        result_df = DataFrame(
+            {
+                "종속변수": [y.name] * len(xnames),
+                "독립변수": xnames,
+                "VIF": vif,
+            }
+        )
+
+        if sort:
+            if sort.upper() == "V":
+                result_df.sort_values("VIF", inplace=True)
+
+        my_pretty_table(result_df)
+
+
+def my_classification_multiclass_report(
+    estimator: any,
+    x: DataFrame = None,
+    y: Series = None,
+    sort: str = None,
+) -> None:
+    """다중로지스틱 회귀분석 결과를 출력한다.
+
+    Args:
+        estimator (any): 분류분석 추정기 (모델 객체)
+        x (DataFrame, optional): 독립변수. Defaults to None.
+        y (Series, optional): 종속변수. Defaults to None.
+        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+    """
+    class_list = list(estimator.classes_)
+    class_size = len(class_list)
+
+    if estimator.__class__.__name__ == "LogisticRegression":
+        # 추정 확률
+        y_pred_proba = estimator.predict_proba(x)
+
+        # 추정확률의 길이(=샘플수)
+        n = len(y_pred_proba)
+
+        for i in range(0, class_size):
+            # 계수의 수 + 1(절편)
+            m = len(estimator.coef_[i]) + 1
+
+            # 절편과 계수를 하나의 배열로 결합
+            coefs = np.concatenate([[estimator.intercept_[i]], estimator.coef_[i]])
+
+            # 상수항 추가
+            x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
+
+            # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
+            ans = np.zeros((m, m))
+
+            # 표준오차
+            for j in range(n):
+                ans = (
+                    ans
+                    + np.dot(np.transpose(x_full[j, :]), x_full[j, :])
+                    * y_pred_proba[j, i]
+                )
+
+            vcov = np.linalg.inv(np.matrix(ans))
+            se = np.sqrt(np.diag(vcov))
+
+            # t값
+            t = coefs / se
+
+            # p-value
+            p_values = (1 - norm.cdf(abs(t))) * 2
+
+            # VIF
+            if len(x.columns) > 1:
+                vif = [
+                    variance_inflation_factor(x, list(x.columns).index(v))
+                    for i, v in enumerate(x.columns)
+                ]
+            else:
+                vif = 0
+
+            # 결과표 생성
+            xnames = estimator.feature_names_in_
+
+            result_df = DataFrame(
+                {
+                    "종속변수": [y.name] * len(xnames),
+                    "CLASS": [class_list[i]] * len(xnames),
+                    "독립변수": xnames,
+                    "B(계수)": np.round(estimator.coef_[i], 4),
+                    "표준오차": np.round(se[1:], 3),
+                    "t": np.round(t[1:], 4),
+                    "유의확률": np.round(p_values[1:], 3),
+                    "VIF": vif,
+                    "OddsRate": np.round(np.exp(estimator.coef_[i]), 4),
+                }
+            )
+
+            if sort:
+                if sort.upper() == "V":
+                    result_df.sort_values("VIF", inplace=True)
+                elif sort.upper() == "P":
+                    result_df.sort_values("유의확률", inplace=True)
+
+            my_pretty_table(result_df)
+    else:
+        for i in range(0, class_size):
+            # VIF
+            if len(x.columns) > 1:
+                vif = [
+                    variance_inflation_factor(x, list(x.columns).index(v))
+                    for i, v in enumerate(x.columns)
+                ]
+            else:
+                vif = 0
+
+            # 결과표 생성
+            xnames = estimator.feature_names_in_
+
+            result_df = DataFrame(
+                {
+                    "종속변수": [y.name] * len(xnames),
+                    "CLASS": [class_list[i]] * len(xnames),
+                    "독립변수": xnames,
+                    "VIF": vif,
+                }
+            )
+
+            if sort:
+                if sort.upper() == "V":
+                    result_df.sort_values("VIF", inplace=True)
+
+            my_pretty_table(result_df)
 
 
 def my_logistic_classification(
@@ -736,7 +693,7 @@ def my_logistic_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
-    report: bool = False,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
@@ -810,7 +767,7 @@ def my_knn_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
-    report: bool = False,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
@@ -884,7 +841,7 @@ def my_nb_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
-    report: bool = False,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
@@ -953,7 +910,7 @@ def my_dtree_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
-    report: bool = False,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
@@ -1021,6 +978,7 @@ def my_linear_svc_classification(
     conf_matrix: bool = True,
     cv: int = 5,
     learning_curve=True,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
     is_print: bool = True,
@@ -1073,6 +1031,7 @@ def my_linear_svc_classification(
         conf_matrix=conf_matrix,
         cv=cv,
         learning_curve=learning_curve,
+        report=report,
         figsize=figsize,
         dpi=dpi,
         is_print=is_print,
@@ -1092,6 +1051,7 @@ def my_svc_classification(
     # pr: bool = True,
     # multiclass: str = None,
     learning_curve=True,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
     is_print: bool = True,
@@ -1107,6 +1067,7 @@ def my_svc_classification(
         conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         is_print (bool, optional): 출력 여부. Defaults to True.
@@ -1151,6 +1112,7 @@ def my_svc_classification(
         # pr=pr,
         # multiclass=multiclass,
         learning_curve=learning_curve,
+        report=report,
         figsize=figsize,
         dpi=dpi,
         is_print=is_print,
@@ -1170,7 +1132,7 @@ def my_sgd_classification(
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
-    report: bool = False,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
@@ -1288,145 +1250,32 @@ def my_classification(
     estimators = {}  # 분류분석 모델을 저장할 딕셔너리
     estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
 
+    callstack = []
+
+    if not algorithm or "logistic" in algorithm:
+        callstack.append(my_logistic_classification)
+
+    if not algorithm or "knn" in algorithm:
+        callstack.append(my_knn_classification)
+
+    if not algorithm or "svc" in algorithm:
+        callstack.append(my_svc_classification)
+
+    if not algorithm or "nb" in algorithm:
+        callstack.append(my_nb_classification)
+
+    if not algorithm or "dtree" in algorithm:
+        callstack.append(my_dtree_classification)
+
+    if not algorithm or "sgd" in algorithm:
+        callstack.append(my_sgd_classification)
+
     # 병렬처리를 위한 프로세스 생성 -> 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
-        if not algorithm or "logistic" in algorithm:
+        for c in callstack:
             processes.append(
                 executor.submit(
-                    my_logistic_classification,
-                    x_train=x_train,
-                    y_train=y_train,
-                    x_test=x_test,
-                    y_test=y_test,
-                    conf_matrix=conf_matrix,
-                    cv=cv,
-                    hist=hist,
-                    roc=roc,
-                    pr=pr,
-                    multiclass=multiclass,
-                    learning_curve=learning_curve,
-                    report=report,
-                    figsize=figsize,
-                    dpi=dpi,
-                    sort=sort,
-                    is_print=False,
-                    **params,
-                )
-            )
-
-        if not algorithm or "knn" in algorithm:
-            processes.append(
-                executor.submit(
-                    my_knn_classification,
-                    x_train=x_train,
-                    y_train=y_train,
-                    x_test=x_test,
-                    y_test=y_test,
-                    conf_matrix=conf_matrix,
-                    cv=cv,
-                    hist=hist,
-                    roc=roc,
-                    pr=pr,
-                    multiclass=multiclass,
-                    learning_curve=learning_curve,
-                    report=report,
-                    figsize=figsize,
-                    dpi=dpi,
-                    sort=sort,
-                    is_print=False,
-                    **params,
-                )
-            )
-
-        # if not algorithm or "lsvc" in algorithm:
-        #     processes.append(
-        #         executor.submit(
-        #             my_linear_svc_classification,
-        #             x_train=x_train,
-        #             y_train=y_train,
-        #             x_test=x_test,
-        #             y_test=y_test,
-        #             conf_matrix=conf_matrix,
-        #             cv=cv,
-        #             learning_curve=learning_curve,
-        #             figsize=figsize,
-        #             dpi=dpi,
-        #             is_print=False,
-        #             **params,
-        #         )
-        #     )
-
-        if not algorithm or "svc" in algorithm:
-            processes.append(
-                executor.submit(
-                    my_svc_classification,
-                    x_train=x_train,
-                    y_train=y_train,
-                    x_test=x_test,
-                    y_test=y_test,
-                    conf_matrix=conf_matrix,
-                    cv=cv,
-                    learning_curve=learning_curve,
-                    figsize=figsize,
-                    dpi=dpi,
-                    is_print=False,
-                    **params,
-                )
-            )
-
-        if not algorithm or "nb" in algorithm:
-            processes.append(
-                executor.submit(
-                    my_nb_classification,
-                    x_train=x_train,
-                    y_train=y_train,
-                    x_test=x_test,
-                    y_test=y_test,
-                    conf_matrix=conf_matrix,
-                    cv=cv,
-                    hist=hist,
-                    roc=roc,
-                    pr=pr,
-                    multiclass=multiclass,
-                    learning_curve=learning_curve,
-                    report=report,
-                    figsize=figsize,
-                    dpi=dpi,
-                    sort=sort,
-                    is_print=False,
-                    **params,
-                )
-            )
-
-        if not algorithm or "dtree" in algorithm:
-            processes.append(
-                executor.submit(
-                    my_dtree_classification,
-                    x_train=x_train,
-                    y_train=y_train,
-                    x_test=x_test,
-                    y_test=y_test,
-                    conf_matrix=conf_matrix,
-                    cv=cv,
-                    hist=hist,
-                    roc=roc,
-                    pr=pr,
-                    multiclass=multiclass,
-                    learning_curve=learning_curve,
-                    report=report,
-                    figsize=figsize,
-                    dpi=dpi,
-                    sort=sort,
-                    is_print=False,
-                    pruning=pruning,
-                    **params,
-                )
-            )
-
-        if not algorithm or "sgd" in algorithm:
-            processes.append(
-                executor.submit(
-                    my_sgd_classification,
+                    c,
                     x_train=x_train,
                     y_train=y_train,
                     x_test=x_test,

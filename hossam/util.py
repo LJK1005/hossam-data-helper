@@ -66,6 +66,7 @@ def my_pretty_table(data: DataFrame, headers: str = "keys") -> None:
 
 def my_read_excel(
     path: str,
+    sheet_name: str = None,
     index_col: str = None,
     timeindex: bool = False,
     info: bool = True,
@@ -75,6 +76,7 @@ def my_read_excel(
 
     Args:
         path (str): 엑셀 파일의 경로(혹은 URL)
+        sheet_name (str, optional): 엑셀파일에서 읽어들일 시트 이름
         index_col (str, optional): 인덱스 필드의 이름. Defaults to None.
         timeindex (bool, optional): True일 경우 인덱스를 시계열로 설정. Defaults to False.
         info (bool, optional): True일 경우 정보 출력. Defaults to True.
@@ -84,11 +86,16 @@ def my_read_excel(
         DataFrame: 데이터프레임 객체
     """
 
+    params = {}
+
+    if sheet_name is not None:
+        params["sheet_name"] = sheet_name
+
+    if index_col is not None:
+        params["index_col"] = index_col
+
     try:
-        if index_col:
-            data: DataFrame = read_excel(path, index_col=index_col)
-        else:
-            data: DataFrame = read_excel(path)
+        data: DataFrame = read_excel(path, **params)
     except Exception as e:
         raise Exception(f"\x1b[31m데이터를 로드하는데 실패했습니다. ({e})\x1b[0m")
 
@@ -167,7 +174,7 @@ def my_standard_scaler(data: DataFrame, yname: str = None) -> DataFrame:
 
 def my_train_test_split(
     data: DataFrame,
-    yname: str = "y",
+    yname: str = None,
     test_size: float = 0.2,
     random_state: int = 123,
     scalling: bool = False,
@@ -176,7 +183,7 @@ def my_train_test_split(
 
     Args:
         data (DataFrame): 데이터프레임 객체
-        yname (str, optional): 종속변수의 컬럼명. Defaults to 'y'.
+        yname (str, optional): 종속변수의 컬럼명. Defaults to None.
         test_size (float, optional): 검증 데이터의 비율(0~1). Defaults to 0.3.
         random_state (int, optional): 난수 시드. Defaults to 123.
         scalling (bool, optional): True일 경우 표준화를 수행한다. Defaults to False.
@@ -184,25 +191,43 @@ def my_train_test_split(
     Returns:
         tuple: x_train, x_test, y_train, y_test
     """
-    if yname not in data.columns:
-        raise Exception(f"\x1b[31m종속변수 {yname}가 존재하지 않습니다.\x1b[0m")
+    if yname is not None:
+        if yname not in data.columns:
+            raise Exception(f"\x1b[31m종속변수 {yname}가 존재하지 않습니다.\x1b[0m")
 
-    x = data.drop(yname, axis=1)
-    y = data[yname]
-    x_train, x_test, y_train, y_test = train_test_split(
-        x, y, test_size=test_size, random_state=random_state
-    )
-
-    if scalling:
-        scaler = StandardScaler()
-        x_train = DataFrame(
-            scaler.fit_transform(x_train), index=x_train.index, columns=x_train.columns
-        )
-        x_test = DataFrame(
-            scaler.transform(x_test), index=x_test.index, columns=x_test.columns
+        x = data.drop(yname, axis=1)
+        y = data[yname]
+        x_train, x_test, y_train, y_test = train_test_split(
+            x, y, test_size=test_size, random_state=random_state
         )
 
-    return x_train, x_test, y_train, y_test
+        if scalling:
+            scaler = StandardScaler()
+            x_train = DataFrame(
+                scaler.fit_transform(x_train),
+                index=x_train.index,
+                columns=x_train.columns,
+            )
+            x_test = DataFrame(
+                scaler.transform(x_test), index=x_test.index, columns=x_test.columns
+            )
+
+        return x_train, x_test, y_train, y_test
+    else:
+        train, test = train_test_split(
+            data, test_size=test_size, random_state=random_state
+        )
+
+        if scalling:
+            scaler = StandardScaler()
+            train = DataFrame(
+                scaler.fit_transform(train), index=train.index, columns=train.columns
+            )
+            test = DataFrame(
+                scaler.transform(test), index=test.index, columns=test.columns
+            )
+
+        return train, test
 
 
 def my_category(data: DataFrame, *args: str) -> DataFrame:

@@ -423,6 +423,21 @@ def my_replace_outliner_to_mean(data: DataFrame, *fields: str) -> DataFrame:
     return df3
 
 
+def my_drop_outliner(data: DataFrame, *fields: str) -> DataFrame:
+    """이상치를 결측치로 변환한 후 모두 삭제한다.
+
+    Args:
+        data (DataFrame): 데이터프레임
+        *fields (str): 컬럼명 목록
+
+    Returns:
+        DataFrame: 이상치가 삭제된 데이터프레임
+    """
+
+    df = my_replace_outliner_to_nan(data, *fields)
+    return df.dropna()
+
+
 def my_dummies(data: DataFrame, *args: str) -> DataFrame:
     """명목형 변수를 더미 변수로 변환한다.
 

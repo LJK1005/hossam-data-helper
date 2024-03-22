@@ -81,30 +81,18 @@ def __my_regression(
 
     # ------------------------------------------------------
     # 성능평가
-    if x_test is not None and y_test is not None:
-        my_regression_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            x_test=x_test,
-            y_test=y_test,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-            is_print=is_print,
-        )
-    else:
-        my_regression_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-            is_print=is_print,
-        )
+    my_regression_result(
+        estimator,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        learning_curve=learning_curve,
+        cv=cv,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+    )
 
     # ------------------------------------------------------
     # 보고서 출력
@@ -199,7 +187,7 @@ def my_regression_result(
         score_names.append("검증데이터")
 
     # 결과값을 모델 객체에 포함시킴
-    estimator.scores = scores[-2]
+    estimator.scores = scores[-1]
 
     if is_print:
         print("[회귀분석 성능평가]")
@@ -243,9 +231,11 @@ def my_regression_result(
 
 
 def my_regression_report(
-    estimator: LinearRegression,
-    x: DataFrame = None,
-    y: Series = None,
+    estimator: any,
+    x_train: DataFrame = None,
+    y_train: Series = None,
+    x_test: DataFrame = None,
+    y_test: Series = None,
     sort: str = None,
     plot: bool = False,
     degree: int = 1,
@@ -256,8 +246,10 @@ def my_regression_report(
 
     Args:
         estimator (LinearRegression): 선형회귀 객체
-        x (DataFrame): 독립변수에 대한 훈련 데이터
-        y (Series): 종속변수에 대한 훈련 데이터
+        x_train (DataFrame, optional): 훈련 데이터의 독립변수. Defaults to None.
+        y_train (Series, optional): 훈련 데이터의 종속변수. Defaults to None.
+        x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
+        y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
         sort (str, optional): 정렬 기준 (v, p). Defaults to None.
         plot (bool, optional): 시각화 여부. Defaults to False.
         degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
@@ -267,6 +259,14 @@ def my_regression_report(
 
     # ------------------------------------------------------
     # 회귀식
+
+    if x_test is not None and y_test is not None:
+        x = x_test.copy()
+        y = y_test.copy()
+    else:
+        x = x_train.copy()
+        y = y_train.copy()
+
     xnames = x.columns
     yname = y.name
 
@@ -770,71 +770,6 @@ def my_lasso_regression(
     )
 
 
-def my_ridge_regression(
-    x_train: DataFrame,
-    y_train: Series,
-    x_test: DataFrame = None,
-    y_test: Series = None,
-    cv: int = 5,
-    learning_curve: bool = True,
-    report=True,
-    plot: bool = False,
-    degree: int = 1,
-    resid_test=False,
-    figsize=(10, 5),
-    dpi: int = 100,
-    sort: str = None,
-    is_print: bool = True,
-    **params,
-) -> Ridge:
-    """릿지회귀분석을 수행하고 결과를 출력한다.
-
-    Args:
-        x_train (DataFrame): 독립변수에 대한 훈련 데이터
-        y_train (Series): 종속변수에 대한 훈련 데이터
-        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
-        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
-        cv (int, optional): 교차검증 횟수. Defaults to 0.
-        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
-        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
-        plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
-        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
-        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
-        dpi (int, optional): 그래프의 해상도. Defaults to 100.
-        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-        is_print (bool, optional): 출력 여부. Defaults to True.
-        **params (dict, optional): 하이퍼파라미터. Defaults to None.
-
-    Returns:
-        Ridge: Ridge 모델
-    """
-
-    # 교차검증 설정
-    if cv > 0:
-        if not params:
-            params = {"alpha": [0.01, 0.1, 1, 10, 100]}
-
-    return __my_regression(
-        classname=Ridge,
-        x_train=x_train,
-        y_train=y_train,
-        x_test=x_test,
-        y_test=y_test,
-        cv=cv,
-        learning_curve=learning_curve,
-        report=report,
-        plot=plot,
-        degree=degree,
-        resid_test=resid_test,
-        figsize=figsize,
-        dpi=dpi,
-        sort=sort,
-        is_print=is_print,
-        **params,
-    )
-
-
 def my_knn_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -910,6 +845,7 @@ def my_dtree_regression(
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
+    pruning: bool = False,
     learning_curve: bool = True,
     report=True,
     plot: bool = False,
@@ -938,6 +874,7 @@ def my_dtree_regression(
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
@@ -972,6 +909,7 @@ def my_dtree_regression(
         dpi=dpi,
         sort=sort,
         is_print=is_print,
+        pruning=pruning,
         **params,
     )
 
@@ -982,7 +920,7 @@ def my_regression(
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
-    learning_curve: bool = True,
+    learning_curve: bool = False,
     report=False,
     plot: bool = False,
     degree: int = 1,
@@ -991,6 +929,7 @@ def my_regression(
     dpi: int = 100,
     sort: str = None,
     algorithm: list = None,
+    pruning: bool = False,
     **params,
 ) -> any:
     """회귀분석을 수행하고 결과를 출력한다.
@@ -1010,6 +949,7 @@ def my_regression(
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         algorithm: list = None,
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
@@ -1020,12 +960,6 @@ def my_regression(
     processes = []  # 병렬처리를 위한 프로세스 리스트
     estimators = {}  # 분류분석 모델을 저장할 딕셔너리
     estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
-
-    # 교차검증 설정
-    if cv > 0:
-        if not params:
-            params = {"alpha": [0.01, 0.1, 1, 10, 100]}
-
     callstack = []
 
     if not algorithm or "linear" in algorithm:
@@ -1063,6 +997,7 @@ def my_regression(
                     dpi=dpi,
                     sort=sort,
                     is_print=False,
+                    pruning=pruning,
                     **params,
                 )
             )

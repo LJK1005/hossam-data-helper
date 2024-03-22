@@ -90,40 +90,23 @@ def __my_classification(
 
     # ------------------------------------------------------
     # 성능평가
-    if x_test is not None and y_test is not None:
-        my_classification_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            x_test=x_test,
-            y_test=y_test,
-            conf_matrix=conf_matrix,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-            is_print=is_print,
-        )
-    else:
-        my_classification_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            conf_matrix=conf_matrix,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-            is_print=is_print,
-        )
+    my_classification_result(
+        estimator,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        cv=cv,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+    )
 
     # ------------------------------------------------------
     # 보고서 출력
@@ -1205,7 +1188,7 @@ def my_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
-    conf_matrix: bool = True,
+    conf_matrix: bool = False,
     cv: int = 5,
     hist: bool = False,
     roc: bool = False,
@@ -1249,7 +1232,6 @@ def my_classification(
     processes = []  # 병렬처리를 위한 프로세스 리스트
     estimators = {}  # 분류분석 모델을 저장할 딕셔너리
     estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
-
     callstack = []
 
     if not algorithm or "logistic" in algorithm:
@@ -1292,6 +1274,7 @@ def my_classification(
                     dpi=dpi,
                     sort=sort,
                     is_print=False,
+                    pruning=pruning,
                     **params,
                 )
             )

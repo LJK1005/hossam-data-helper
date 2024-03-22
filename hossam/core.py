@@ -3,6 +3,7 @@ import inspect
 import numpy as np
 from pandas import DataFrame, Series
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from .util import my_pretty_table
 
 
@@ -14,6 +15,7 @@ def __ml(
     y_test: Series = None,
     cv: int = 5,
     is_print: bool = True,
+    pruning: bool = False,
     **params,
 ) -> any:
     """머신러닝 분석을 수행하고 결과를 출력한다.
@@ -56,6 +58,15 @@ def __ml(
 
         prototype_estimator = classname(**args)
         print(f"\033[92m{cn} {params}\033[0m".replace("\n", ""))
+
+        if pruning and (classname == DecisionTreeClassifier or classname == DecisionTreeRegressor):
+            try:
+                dtree = DecisionTreeClassifier(**args)
+                path = dtree.cost_complexity_pruning_path(x_train, y_train)
+                ccp_alphas = path.ccp_alphas[1:-1]
+                params["ccp_alpha"] = ccp_alphas
+            except Exception as e:
+                print(f"\033[91m{cn}의 가지치기 실패 ({e})\033[0m")
 
         # grid = GridSearchCV(
         #     prototype_estimator, param_grid=params, cv=cv, n_jobs=-1

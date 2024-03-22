@@ -848,7 +848,7 @@ def my_nb_classification(
         is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
-        SVC
+        GaussianNB
     """
 
     # 교차검증 설정
@@ -1147,7 +1147,6 @@ def my_sgd_classification(
         if not params:
             params = {
                 # 손실함수
-                # 'log_loss', 'squared_hinge', 'perceptron', 'squared_error', 'hinge', 'huber', 'squared_epsilon_insensitive', 'epsilon_insensitive', 'modified_huber'
                 "loss": ["hinge", "log_loss", "modified_huber"],
                 # 정규화 종류
                 "penalty": ["l2", "l1", "elasticnet"],
@@ -1274,7 +1273,7 @@ def my_classification(
                     dpi=dpi,
                     sort=sort,
                     is_print=False,
-                    pruning=pruning,
+                    #pruning=pruning,
                     **params,
                 )
             )

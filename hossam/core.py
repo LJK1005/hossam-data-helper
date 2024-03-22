@@ -59,9 +59,11 @@ def __ml(
         prototype_estimator = classname(**args)
         print(f"\033[92m{cn} {params}\033[0m".replace("\n", ""))
 
-        if pruning and (classname == DecisionTreeClassifier or classname == DecisionTreeRegressor):
+        if pruning and (
+            classname == DecisionTreeClassifier or classname == DecisionTreeRegressor
+        ):
             try:
-                dtree = DecisionTreeClassifier(**args)
+                dtree = classname(**args)
                 path = dtree.cost_complexity_pruning_path(x_train, y_train)
                 ccp_alphas = path.ccp_alphas[1:-1]
                 params["ccp_alpha"] = ccp_alphas

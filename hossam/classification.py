@@ -514,9 +514,11 @@ def my_classification_binary_report(
 
         if sort:
             if sort.upper() == "V":
-                result_df.sort_values("VIF", inplace=True)
+                result_df = result_df.sort_values("VIF", ascending=False).reset_index()
             elif sort.upper() == "P":
-                result_df.sort_values("유의확률", inplace=True)
+                result_df = result_df.sort_values(
+                    "유의확률", ascending=False
+                ).reset_index()
 
         my_pretty_table(result_df)
     else:
@@ -542,7 +544,7 @@ def my_classification_binary_report(
 
         if sort:
             if sort.upper() == "V":
-                result_df.sort_values("VIF", inplace=True)
+                result_df = result_df.sort_values("VIF", ascending=False).reset_index()
 
         my_pretty_table(result_df)
 
@@ -1200,6 +1202,7 @@ def my_classification(
     sort: str = None,
     algorithm: list = None,
     pruning: bool = False,
+    scoring: list = ["accuracy", "precision", "recall", "f1", "auc"],
     **params,
 ) -> DataFrame:
     """분류분석을 수행하고 결과를 출력한다.
@@ -1251,6 +1254,26 @@ def my_classification(
     if not algorithm or "sgd" in algorithm:
         callstack.append(my_sgd_classification)
 
+    score_fields = []
+
+    for s in scoring:
+        if s == "r2":
+            score_fields.append("의사결정계수(Pseudo R2)")
+        elif s == "accuracy":
+            score_fields.append("정확도(Accuracy)")
+        elif s == "precision":
+            score_fields.append("정밀도(Precision)")
+        elif s == "recall":
+            score_fields.append("재현율(Recall)")
+        elif s == "fallout":
+            score_fields.append("위양성율(Fallout)")
+        elif s == "tnr":
+            score_fields.append("특이성(TNR)")
+        elif s == "f1":
+            score_fields.append("F1 Score")
+        elif s == "auc":
+            score_fields.append("AUC")
+
     # 병렬처리를 위한 프로세스 생성 -> 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
         for c in callstack:
@@ -1273,7 +1296,7 @@ def my_classification(
                     dpi=dpi,
                     sort=sort,
                     is_print=False,
-                    #pruning=pruning,
+                    # pruning=pruning,
                     **params,
                 )
             )
@@ -1295,6 +1318,10 @@ def my_classification(
 
         # 결과값을 데이터프레임으로 변환
         result_df = DataFrame(results, index=estimator_names)
+
+        if score_fields:
+            result_df.sort_values(score_fields, ascending=False, inplace=True)
+
         my_pretty_table(result_df)
 
     return estimators

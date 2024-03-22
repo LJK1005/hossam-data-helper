@@ -356,9 +356,11 @@ def my_regression_report(
 
         if sort:
             if sort.upper() == "V":
-                result_df.sort_values("VIF", inplace=True)
+                result_df = result_df.sort_values("VIF", ascending=False).reset_index()
             elif sort.upper() == "P":
-                result_df.sort_values("유의확률", inplace=True)
+                result_df = result_df.sort_values(
+                    "유의확률", ascending=False
+                ).reset_index()
 
         # result_df
         my_pretty_table(result_df)
@@ -443,6 +445,10 @@ def my_regression_report(
                 "VIF": vif,
             }
         )
+
+        if sort:
+            if sort.upper() == "V":
+                result_df = result_df.sort_values("VIF", ascending=False).reset_index()
 
         # result_df
         my_pretty_table(result_df)
@@ -1038,7 +1044,7 @@ def my_sgd_regression(
         if not params:
             params = {
                 # 손실함수
-                "loss": ['squared_error', 'huber', 'epsilon_insensitive'],
+                "loss": ["squared_error", "huber", "epsilon_insensitive"],
                 # 정규화 종류
                 "penalty": ["l2", "l1", "elasticnet"],
                 # 정규화 강도(값이 낮을 수록 약한 정규화)
@@ -1160,7 +1166,7 @@ def my_regression(
                     dpi=dpi,
                     sort=sort,
                     is_print=False,
-                    #pruning=pruning,
+                    # pruning=pruning,
                     **params,
                 )
             )

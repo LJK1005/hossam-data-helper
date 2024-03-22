@@ -46,18 +46,18 @@ def __ml(
 
         if "n_jobs" in dict(inspect.signature(classname.__init__).parameters):
             args["n_jobs"] = -1
-            print(f"\033[94m{cn}의 n_jobs 설정됨\033[0m")
+            # print(f"\033[94m{cn}의 n_jobs 설정됨\033[0m")
 
         if "random_state" in dict(inspect.signature(classname.__init__).parameters):
             args["random_state"] = 1234
-            print(f"\033[94m{cn}의 random_state 설정됨\033[0m")
+            # print(f"\033[94m{cn}의 random_state 설정됨\033[0m")
 
         if "early_stopping" in dict(inspect.signature(classname.__init__).parameters):
             args["early_stopping"] = True
-            print(f"\033[94m{cn}의 early_stopping 설정됨\033[0m")
+            # print(f"\033[94m{cn}의 early_stopping 설정됨\033[0m")
 
         prototype_estimator = classname(**args)
-        print(f"\033[92m{cn} {params}\033[0m".replace("\n", ""))
+        print(f"\033[92m{cn}({args}) {params}\033[0m".replace("\n", ""))
 
         if pruning and (
             classname == DecisionTreeClassifier or classname == DecisionTreeRegressor

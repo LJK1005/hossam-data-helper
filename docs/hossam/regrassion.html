@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>hossam.regrassion API documentation</title>
+<title>hossam.regression API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -19,7 +19,7 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>hossam.regrassion</code></h1>
+<h1 class="title">Module <code>hossam.regression</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
@@ -46,7 +46,7 @@ from .util import my_pretty_table, my_trend
 from .plot import my_residplot, my_qqplot, my_learing_curve
 
 
-def my_linear_regrassion(
+def my_linear_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
@@ -124,7 +124,7 @@ def my_linear_regrassion(
     # ------------------------------------------------------
     # 성능평가
     if x_test is not None and y_test is not None:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -136,7 +136,7 @@ def my_linear_regrassion(
             dpi=dpi,
         )
     else:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -150,7 +150,7 @@ def my_linear_regrassion(
     # 보고서 출력
     if report:
         print(&#34;&#34;)
-        my_regrassion_report(
+        my_regression_report(
             estimator,
             estimator.x,
             estimator.y,
@@ -172,7 +172,7 @@ def my_linear_regrassion(
     return estimator
 
 
-def my_ridge_regrassion(
+def my_ridge_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
@@ -260,7 +260,7 @@ def my_ridge_regrassion(
     # ------------------------------------------------------
     # 성능평가
     if x_test is not None and y_test is not None:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -272,7 +272,7 @@ def my_ridge_regrassion(
             dpi=dpi,
         )
     else:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -286,7 +286,7 @@ def my_ridge_regrassion(
     # 보고서 출력
     if report:
         print(&#34;&#34;)
-        my_regrassion_report(
+        my_regression_report(
             estimator,
             estimator.x,
             estimator.y,
@@ -308,7 +308,7 @@ def my_ridge_regrassion(
     return estimator
 
 
-def my_lasso_regrassion(
+def my_lasso_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
@@ -396,7 +396,7 @@ def my_lasso_regrassion(
     # ------------------------------------------------------
     # 성능평가
     if x_test is not None and y_test is not None:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -408,7 +408,7 @@ def my_lasso_regrassion(
             dpi=dpi,
         )
     else:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -422,7 +422,7 @@ def my_lasso_regrassion(
     # 보고서 출력
     if report:
         print(&#34;&#34;)
-        my_regrassion_report(
+        my_regression_report(
             estimator,
             estimator.x,
             estimator.y,
@@ -444,7 +444,7 @@ def my_lasso_regrassion(
     return estimator
 
 
-def my_regrassion_result(
+def my_regression_result(
     estimator: any,
     x_train: DataFrame = None,
     y_train: Series = None,
@@ -548,7 +548,7 @@ def my_regrassion_result(
             )
 
 
-def my_regrassion_report(
+def my_regression_report(
     estimator: LinearRegression,
     x: DataFrame = None,
     y: Series = None,
@@ -864,8 +864,8 @@ def my_resid_test(
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="hossam.regrassion.my_lasso_regrassion"><code class="name flex">
-<span>def <span class="ident">my_lasso_regrassion</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=False, plot: bool = False, degree: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, **params) ‑> sklearn.linear_model._base.LinearRegression</span>
+<dt id="hossam.regression.my_lasso_regression"><code class="name flex">
+<span>def <span class="ident">my_lasso_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=False, plot: bool = False, degree: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, **params) ‑> sklearn.linear_model._base.LinearRegression</span>
 </code></dt>
 <dd>
 <div class="desc"><p>라쏘회귀분석을 수행하고 결과를 출력한다.</p>
@@ -909,7 +909,7 @@ def my_resid_test(
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_lasso_regrassion(
+<pre><code class="python">def my_lasso_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
@@ -997,7 +997,7 @@ def my_resid_test(
     # ------------------------------------------------------
     # 성능평가
     if x_test is not None and y_test is not None:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -1009,7 +1009,7 @@ def my_resid_test(
             dpi=dpi,
         )
     else:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -1023,7 +1023,7 @@ def my_resid_test(
     # 보고서 출력
     if report:
         print(&#34;&#34;)
-        my_regrassion_report(
+        my_regression_report(
             estimator,
             estimator.x,
             estimator.y,
@@ -1045,8 +1045,8 @@ def my_resid_test(
     return estimator</code></pre>
 </details>
 </dd>
-<dt id="hossam.regrassion.my_linear_regrassion"><code class="name flex">
-<span>def <span class="ident">my_linear_regrassion</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=False, plot: bool = False, resid_test=False, degree: int = 1, figsize=(10, 5), dpi: int = 100, sort: str = None) ‑> sklearn.linear_model._base.LinearRegression</span>
+<dt id="hossam.regression.my_linear_regression"><code class="name flex">
+<span>def <span class="ident">my_linear_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=False, plot: bool = False, resid_test=False, degree: int = 1, figsize=(10, 5), dpi: int = 100, sort: str = None) ‑> sklearn.linear_model._base.LinearRegression</span>
 </code></dt>
 <dd>
 <div class="desc"><p>선형회귀분석을 수행하고 결과를 출력한다.</p>
@@ -1088,7 +1088,7 @@ def my_resid_test(
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_linear_regrassion(
+<pre><code class="python">def my_linear_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
@@ -1166,7 +1166,7 @@ def my_resid_test(
     # ------------------------------------------------------
     # 성능평가
     if x_test is not None and y_test is not None:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -1178,7 +1178,7 @@ def my_resid_test(
             dpi=dpi,
         )
     else:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -1192,7 +1192,7 @@ def my_resid_test(
     # 보고서 출력
     if report:
         print(&#34;&#34;)
-        my_regrassion_report(
+        my_regression_report(
             estimator,
             estimator.x,
             estimator.y,
@@ -1214,8 +1214,8 @@ def my_resid_test(
     return estimator</code></pre>
 </details>
 </dd>
-<dt id="hossam.regrassion.my_regrassion_report"><code class="name flex">
-<span>def <span class="ident">my_regrassion_report</span></span>(<span>estimator: sklearn.linear_model._base.LinearRegression, x: pandas.core.frame.DataFrame = None, y: pandas.core.series.Series = None, sort: str = None, plot: bool = False, degree: int = 1, figsize: tuple = (10, 5), dpi: int = 100) ‑> None</span>
+<dt id="hossam.regression.my_regression_report"><code class="name flex">
+<span>def <span class="ident">my_regression_report</span></span>(<span>estimator: sklearn.linear_model._base.LinearRegression, x: pandas.core.frame.DataFrame = None, y: pandas.core.series.Series = None, sort: str = None, plot: bool = False, degree: int = 1, figsize: tuple = (10, 5), dpi: int = 100) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>선형회귀분석 결과를 보고한다.</p>
@@ -1242,7 +1242,7 @@ def my_resid_test(
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_regrassion_report(
+<pre><code class="python">def my_regression_report(
     estimator: LinearRegression,
     x: DataFrame = None,
     y: Series = None,
@@ -1455,8 +1455,8 @@ def my_resid_test(
             plt.close()</code></pre>
 </details>
 </dd>
-<dt id="hossam.regrassion.my_regrassion_result"><code class="name flex">
-<span>def <span class="ident">my_regrassion_result</span></span>(<span>estimator: <built-in function any>, x_train: pandas.core.frame.DataFrame = None, y_train: pandas.core.series.Series = None, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, learning_curve: bool = True, cv: int = 10, figsize: tuple = (10, 5), dpi: int = 100) ‑> None</span>
+<dt id="hossam.regression.my_regression_result"><code class="name flex">
+<span>def <span class="ident">my_regression_result</span></span>(<span>estimator: <built-in function any>, x_train: pandas.core.frame.DataFrame = None, y_train: pandas.core.series.Series = None, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, learning_curve: bool = True, cv: int = 10, figsize: tuple = (10, 5), dpi: int = 100) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>회귀분석 결과를 출력한다.</p>
@@ -1485,7 +1485,7 @@ def my_resid_test(
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_regrassion_result(
+<pre><code class="python">def my_regression_result(
     estimator: any,
     x_train: DataFrame = None,
     y_train: Series = None,
@@ -1589,7 +1589,7 @@ def my_resid_test(
             )</code></pre>
 </details>
 </dd>
-<dt id="hossam.regrassion.my_resid_equal_var"><code class="name flex">
+<dt id="hossam.regression.my_resid_equal_var"><code class="name flex">
 <span>def <span class="ident">my_resid_equal_var</span></span>(<span>x: pandas.core.frame.DataFrame, y: pandas.core.series.Series, y_pred: pandas.core.series.Series) ‑> None</span>
 </code></dt>
 <dd>
@@ -1636,7 +1636,7 @@ def my_resid_test(
     my_pretty_table(bs_result_df)</code></pre>
 </details>
 </dd>
-<dt id="hossam.regrassion.my_resid_independence"><code class="name flex">
+<dt id="hossam.regression.my_resid_independence"><code class="name flex">
 <span>def <span class="ident">my_resid_independence</span></span>(<span>y: pandas.core.series.Series, y_pred: pandas.core.series.Series) ‑> None</span>
 </code></dt>
 <dd>
@@ -1663,7 +1663,7 @@ def my_resid_test(
     print(f&#34;Durbin-Watson: {dw}, 잔차의 독립성 가정 만족 여부: {dw &gt; 1.5 and dw &lt; 2.5}&#34;)</code></pre>
 </details>
 </dd>
-<dt id="hossam.regrassion.my_resid_normality"><code class="name flex">
+<dt id="hossam.regression.my_resid_normality"><code class="name flex">
 <span>def <span class="ident">my_resid_normality</span></span>(<span>y: pandas.core.series.Series, y_pred: pandas.core.series.Series) ‑> None</span>
 </code></dt>
 <dd>
@@ -1710,7 +1710,7 @@ def my_resid_test(
     print(f&#34;잔차의 정규성 가정 충족 여부: {normality}&#34;)</code></pre>
 </details>
 </dd>
-<dt id="hossam.regrassion.my_resid_test"><code class="name flex">
+<dt id="hossam.regression.my_resid_test"><code class="name flex">
 <span>def <span class="ident">my_resid_test</span></span>(<span>x: pandas.core.frame.DataFrame, y: pandas.core.series.Series, y_pred: pandas.core.series.Series, figsize: tuple = (10, 5), dpi: int = 200) ‑> None</span>
 </code></dt>
 <dd>
@@ -1753,8 +1753,8 @@ def my_resid_test(
     my_resid_independence(y, y_pred)</code></pre>
 </details>
 </dd>
-<dt id="hossam.regrassion.my_ridge_regrassion"><code class="name flex">
-<span>def <span class="ident">my_ridge_regrassion</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=False, plot: bool = False, degree: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, **params) ‑> sklearn.linear_model._base.LinearRegression</span>
+<dt id="hossam.regression.my_ridge_regression"><code class="name flex">
+<span>def <span class="ident">my_ridge_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=False, plot: bool = False, degree: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, **params) ‑> sklearn.linear_model._base.LinearRegression</span>
 </code></dt>
 <dd>
 <div class="desc"><p>릿지회귀분석을 수행하고 결과를 출력한다.</p>
@@ -1798,7 +1798,7 @@ def my_resid_test(
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_ridge_regrassion(
+<pre><code class="python">def my_ridge_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
@@ -1886,7 +1886,7 @@ def my_resid_test(
     # ------------------------------------------------------
     # 성능평가
     if x_test is not None and y_test is not None:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -1898,7 +1898,7 @@ def my_resid_test(
             dpi=dpi,
         )
     else:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -1912,7 +1912,7 @@ def my_resid_test(
     # 보고서 출력
     if report:
         print(&#34;&#34;)
-        my_regrassion_report(
+        my_regression_report(
             estimator,
             estimator.x,
             estimator.y,
@@ -1952,15 +1952,15 @@ def my_resid_test(
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="hossam.regrassion.my_lasso_regrassion" href="#hossam.regrassion.my_lasso_regrassion">my_lasso_regrassion</a></code></li>
-<li><code><a title="hossam.regrassion.my_linear_regrassion" href="#hossam.regrassion.my_linear_regrassion">my_linear_regrassion</a></code></li>
-<li><code><a title="hossam.regrassion.my_regrassion_report" href="#hossam.regrassion.my_regrassion_report">my_regrassion_report</a></code></li>
-<li><code><a title="hossam.regrassion.my_regrassion_result" href="#hossam.regrassion.my_regrassion_result">my_regrassion_result</a></code></li>
-<li><code><a title="hossam.regrassion.my_resid_equal_var" href="#hossam.regrassion.my_resid_equal_var">my_resid_equal_var</a></code></li>
-<li><code><a title="hossam.regrassion.my_resid_independence" href="#hossam.regrassion.my_resid_independence">my_resid_independence</a></code></li>
-<li><code><a title="hossam.regrassion.my_resid_normality" href="#hossam.regrassion.my_resid_normality">my_resid_normality</a></code></li>
-<li><code><a title="hossam.regrassion.my_resid_test" href="#hossam.regrassion.my_resid_test">my_resid_test</a></code></li>
-<li><code><a title="hossam.regrassion.my_ridge_regrassion" href="#hossam.regrassion.my_ridge_regrassion">my_ridge_regrassion</a></code></li>
+<li><code><a title="hossam.regression.my_lasso_regression" href="#hossam.regression.my_lasso_regression">my_lasso_regression</a></code></li>
+<li><code><a title="hossam.regression.my_linear_regression" href="#hossam.regression.my_linear_regression">my_linear_regression</a></code></li>
+<li><code><a title="hossam.regression.my_regression_report" href="#hossam.regression.my_regression_report">my_regression_report</a></code></li>
+<li><code><a title="hossam.regression.my_regression_result" href="#hossam.regression.my_regression_result">my_regression_result</a></code></li>
+<li><code><a title="hossam.regression.my_resid_equal_var" href="#hossam.regression.my_resid_equal_var">my_resid_equal_var</a></code></li>
+<li><code><a title="hossam.regression.my_resid_independence" href="#hossam.regression.my_resid_independence">my_resid_independence</a></code></li>
+<li><code><a title="hossam.regression.my_resid_normality" href="#hossam.regression.my_resid_normality">my_resid_normality</a></code></li>
+<li><code><a title="hossam.regression.my_resid_test" href="#hossam.regression.my_resid_test">my_resid_test</a></code></li>
+<li><code><a title="hossam.regression.my_ridge_regression" href="#hossam.regression.my_ridge_regression">my_ridge_regression</a></code></li>
 </ul>
 </li>
 </ul>

@@ -9,6 +9,7 @@ from pandas import DataFrame, Series, concat
 
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeRegressor
 
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import StandardScaler
@@ -24,7 +25,7 @@ from .plot import my_residplot, my_qqplot, my_learing_curve
 from .core import __ml
 
 
-def __my_regrassion(
+def __my_regression(
     classname: any,
     x_train: DataFrame,
     y_train: Series,
@@ -81,7 +82,7 @@ def __my_regrassion(
     # ------------------------------------------------------
     # 성능평가
     if x_test is not None and y_test is not None:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -94,7 +95,7 @@ def __my_regrassion(
             is_print=is_print,
         )
     else:
-        my_regrassion_result(
+        my_regression_result(
             estimator,
             x_train=x_train,
             y_train=y_train,
@@ -109,7 +110,7 @@ def __my_regrassion(
     # 보고서 출력
     if report and is_print:
         print("")
-        my_regrassion_report(
+        my_regression_report(
             estimator,
             estimator.x,
             estimator.y,
@@ -131,7 +132,7 @@ def __my_regrassion(
     return estimator
 
 
-def my_regrassion_result(
+def my_regression_result(
     estimator: any,
     x_train: DataFrame = None,
     y_train: Series = None,
@@ -241,7 +242,7 @@ def my_regrassion_result(
                 )
 
 
-def my_regrassion_report(
+def my_regression_report(
     estimator: LinearRegression,
     x: DataFrame = None,
     y: Series = None,
@@ -269,156 +270,180 @@ def my_regrassion_report(
     xnames = x.columns
     yname = y.name
 
-    expr = "{yname} = ".format(yname=yname)
+    if estimator.__class__.__name__ in ["LinearRegression", "Lasso", "Ridge"]:
+        expr = "{yname} = ".format(yname=yname)
 
-    for i, v in enumerate(xnames):
-        expr += "%0.3f * %s + " % (estimator.coef_[i], v)
+        for i, v in enumerate(xnames):
+            expr += "%0.3f * %s + " % (estimator.coef_[i], v)
 
-    expr += "%0.3f" % estimator.intercept_
-    print("[회귀식]")
-    print(expr, end="\n\n")
+        expr += "%0.3f" % estimator.intercept_
+        print("[회귀식]")
+        print(expr, end="\n\n")
 
-    print("[독립변수보고]")
+        print("[독립변수보고]")
 
-    if x is None and y is None:
-        x = estimator.x
-        y = estimator.y
+        if x is None and y is None:
+            x = estimator.x
+            y = estimator.y
 
-    y_pred = estimator.predict(x)
-    xnames = x.columns
-    yname = y.name
+        y_pred = estimator.predict(x)
+        xnames = x.columns
+        yname = y.name
 
-    # 잔차
-    resid = y - y_pred
+        # 잔차
+        resid = y - y_pred
 
-    # 절편과 계수를 하나의 배열로 결합
-    params = np.append(estimator.intercept_, estimator.coef_)
+        # 절편과 계수를 하나의 배열로 결합
+        params = np.append(estimator.intercept_, estimator.coef_)
 
-    # 검증용 독립변수에 상수항 추가
-    design_x = x.copy()
-    design_x.insert(0, "상수", 1)
+        # 검증용 독립변수에 상수항 추가
+        design_x = x.copy()
+        design_x.insert(0, "상수", 1)
 
-    dot = np.dot(design_x.T, design_x)  # 행렬곱
-    inv = np.linalg.inv(dot)  # 역행렬
-    dia = inv.diagonal()  # 대각원소
+        dot = np.dot(design_x.T, design_x)  # 행렬곱
+        inv = np.linalg.inv(dot)  # 역행렬
+        dia = inv.diagonal()  # 대각원소
 
-    # 제곱오차
-    MSE = (sum((y - y_pred) ** 2)) / (len(design_x) - len(design_x.iloc[0]))
+        # 제곱오차
+        MSE = (sum((y - y_pred) ** 2)) / (len(design_x) - len(design_x.iloc[0]))
 
-    se_b = np.sqrt(MSE * dia)  # 표준오차
-    ts_b = params / se_b  # t값
+        se_b = np.sqrt(MSE * dia)  # 표준오차
+        ts_b = params / se_b  # t값
 
-    # 각 독립수에 대한 pvalue
-    p_values = [
-        2 * (1 - t.cdf(np.abs(i), (len(design_x) - len(design_x.iloc[0]))))
-        for i in ts_b
-    ]
-
-    # VIF
-    if len(x.columns) > 1:
-        vif = [
-            variance_inflation_factor(x, list(x.columns).index(v))
-            for i, v in enumerate(x.columns)
+        # 각 독립수에 대한 pvalue
+        p_values = [
+            2 * (1 - t.cdf(np.abs(i), (len(design_x) - len(design_x.iloc[0]))))
+            for i in ts_b
         ]
-    else:
-        vif = 0
 
-    # 표준화 계수
-    train_df = x.copy()
-    train_df[y.name] = y
-    scaler = StandardScaler()
-    std = scaler.fit_transform(train_df)
-    std_df = DataFrame(std, columns=train_df.columns)
-    std_x = std_df[xnames]
-    std_y = std_df[yname]
-    std_estimator = LinearRegression(n_jobs=-1)
-    std_estimator.fit(std_x, std_y)
-    beta = std_estimator.coef_
+        # VIF
+        if len(x.columns) > 1:
+            vif = [
+                variance_inflation_factor(x, list(x.columns).index(v))
+                for i, v in enumerate(x.columns)
+            ]
+        else:
+            vif = 0
 
-    # 결과표 구성하기
-    result_df = DataFrame(
-        {
-            "종속변수": [yname] * len(xnames),
-            "독립변수": xnames,
-            "B(비표준화 계수)": np.round(params[1:], 4),
-            "표준오차": np.round(se_b[1:], 3),
-            "β(표준화 계수)": np.round(beta, 3),
-            "t": np.round(ts_b[1:], 3),
-            "유의확률": np.round(p_values[1:], 3),
-            "VIF": vif,
-        }
-    )
+        # 표준화 계수
+        train_df = x.copy()
+        train_df[y.name] = y
+        scaler = StandardScaler()
+        std = scaler.fit_transform(train_df)
+        std_df = DataFrame(std, columns=train_df.columns)
+        std_x = std_df[xnames]
+        std_y = std_df[yname]
+        std_estimator = LinearRegression(n_jobs=-1)
+        std_estimator.fit(std_x, std_y)
+        beta = std_estimator.coef_
 
-    if sort:
-        if sort.upper() == "V":
-            result_df.sort_values("VIF", inplace=True)
-        elif sort.upper() == "P":
-            result_df.sort_values("유의확률", inplace=True)
-
-    # result_df
-    my_pretty_table(result_df)
-    print("")
-
-    resid = y - y_pred  # 잔차
-    dw = durbin_watson(resid)  # 더빈 왓슨 통계량
-    r2 = r2_score(y, y_pred)  # 결정계수(설명력)
-    rowcount = len(x)  # 표본수
-    featurecount = len(x.columns)  # 독립변수의 수
-
-    # 보정된 결정계수
-    adj_r2 = 1 - (1 - r2) * (rowcount - 1) / (rowcount - featurecount - 1)
-
-    # f값
-    f_statistic = (r2 / featurecount) / ((1 - r2) / (rowcount - featurecount - 1))
-
-    # Prob (F-statistic)
-    p = 1 - f.cdf(f_statistic, featurecount, rowcount - featurecount - 1)
-
-    tpl = "𝑅^2(%.3f), Adj.𝑅^2(%.3f), F(%.3f), P-value(%.4g), Durbin-Watson(%.3f)"
-    print(tpl % (r2, adj_r2, f_statistic, p, dw), end="\n\n")
-
-    # 결과보고
-    tpl = "%s에 대하여 %s로 예측하는 회귀분석을 실시한 결과,\n이 회귀모형은 통계적으로 %s(F(%s,%s) = %0.3f, p %s 0.05)."
-
-    result_str = tpl % (
-        yname,
-        ",".join(xnames),
-        "유의하다" if p <= 0.05 else "유의하지 않다",
-        len(x.columns),
-        len(x.index) - len(x.columns) - 1,
-        f_statistic,
-        "<=" if p <= 0.05 else ">",
-    )
-
-    print(result_str, end="\n\n")
-
-    # 독립변수 보고
-    for n in xnames:
-        item = result_df[result_df["독립변수"] == n]
-        coef = item["B(비표준화 계수)"].values[0]
-        pvalue = item["유의확률"].values[0]
-
-        s = "%s의 회귀계수는 %0.3f(p %s 0.05)로, %s에 대하여 %s."
-        k = s % (
-            n,
-            coef,
-            "<=" if pvalue <= 0.05 else ">",
-            yname,
-            (
-                "유의미한 예측변인인 것으로 나타났다"
-                if pvalue <= 0.05
-                else "유의하지 않은 예측변인인 것으로 나타났다"
-            ),
+        # 결과표 구성하기
+        result_df = DataFrame(
+            {
+                "종속변수": [yname] * len(xnames),
+                "독립변수": xnames,
+                "B(비표준화 계수)": np.round(params[1:], 4),
+                "표준오차": np.round(se_b[1:], 3),
+                "β(표준화 계수)": np.round(beta, 3),
+                "t": np.round(ts_b[1:], 3),
+                "유의확률": np.round(p_values[1:], 3),
+                "VIF": vif,
+            }
         )
 
-        print(k)
+        if sort:
+            if sort.upper() == "V":
+                result_df.sort_values("VIF", inplace=True)
+            elif sort.upper() == "P":
+                result_df.sort_values("유의확률", inplace=True)
 
-    # 도출된 결과를 회귀모델 객체에 포함시킴 --> 객체 타입의 파라미터는 참조변수로 전달되므로 fit 객체에 포함된 결과값들은 이 함수 외부에서도 사용 가능하다.
-    estimator.r2 = r2
-    estimator.adj_r2 = adj_r2
-    estimator.f_statistic = f_statistic
-    estimator.p = p
-    estimator.dw = dw
+        # result_df
+        my_pretty_table(result_df)
+        print("")
+
+        resid = y - y_pred  # 잔차
+        dw = durbin_watson(resid)  # 더빈 왓슨 통계량
+        r2 = r2_score(y, y_pred)  # 결정계수(설명력)
+        rowcount = len(x)  # 표본수
+        featurecount = len(x.columns)  # 독립변수의 수
+
+        # 보정된 결정계수
+        adj_r2 = 1 - (1 - r2) * (rowcount - 1) / (rowcount - featurecount - 1)
+
+        # f값
+        f_statistic = (r2 / featurecount) / ((1 - r2) / (rowcount - featurecount - 1))
+
+        # Prob (F-statistic)
+        p = 1 - f.cdf(f_statistic, featurecount, rowcount - featurecount - 1)
+
+        tpl = "𝑅^2(%.3f), Adj.𝑅^2(%.3f), F(%.3f), P-value(%.4g), Durbin-Watson(%.3f)"
+        print(tpl % (r2, adj_r2, f_statistic, p, dw), end="\n\n")
+
+        # 결과보고
+        tpl = "%s에 대하여 %s로 예측하는 회귀분석을 실시한 결과,\n이 회귀모형은 통계적으로 %s(F(%s,%s) = %0.3f, p %s 0.05)."
+
+        result_str = tpl % (
+            yname,
+            ",".join(xnames),
+            "유의하다" if p <= 0.05 else "유의하지 않다",
+            len(x.columns),
+            len(x.index) - len(x.columns) - 1,
+            f_statistic,
+            "<=" if p <= 0.05 else ">",
+        )
+
+        print(result_str, end="\n\n")
+
+        # 독립변수 보고
+        for n in xnames:
+            item = result_df[result_df["독립변수"] == n]
+            coef = item["B(비표준화 계수)"].values[0]
+            pvalue = item["유의확률"].values[0]
+
+            s = "%s의 회귀계수는 %0.3f(p %s 0.05)로, %s에 대하여 %s."
+            k = s % (
+                n,
+                coef,
+                "<=" if pvalue <= 0.05 else ">",
+                yname,
+                (
+                    "유의미한 예측변인인 것으로 나타났다"
+                    if pvalue <= 0.05
+                    else "유의하지 않은 예측변인인 것으로 나타났다"
+                ),
+            )
+
+            print(k)
+
+        # 도출된 결과를 회귀모델 객체에 포함시킴 --> 객체 타입의 파라미터는 참조변수로 전달되므로 fit 객체에 포함된 결과값들은 이 함수 외부에서도 사용 가능하다.
+        estimator.r2 = r2
+        estimator.adj_r2 = adj_r2
+        estimator.f_statistic = f_statistic
+        estimator.p = p
+        estimator.dw = dw
+
+    else:
+        # VIF
+        if len(x.columns) > 1:
+            vif = [
+                variance_inflation_factor(x, list(x.columns).index(v))
+                for i, v in enumerate(x.columns)
+            ]
+        else:
+            vif = 0
+
+        # 결과표 구성하기
+        result_df = DataFrame(
+            {
+                "종속변수": [yname] * len(xnames),
+                "독립변수": xnames,
+                "VIF": vif,
+            }
+        )
+
+        # result_df
+        my_pretty_table(result_df)
+        print("")
 
     # 시각화
     if plot:
@@ -550,14 +575,14 @@ def my_resid_test(
     my_resid_independence(y, y_pred)
 
 
-def my_linear_regrassion(
+def my_linear_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
     learning_curve: bool = True,
-    report=False,
+    report=True,
     plot: bool = False,
     degree: int = 1,
     resid_test=False,
@@ -595,7 +620,7 @@ def my_linear_regrassion(
         if not params:
             params = {}
 
-    return __my_regrassion(
+    return __my_regression(
         classname=LinearRegression,
         x_train=x_train,
         y_train=y_train,
@@ -615,14 +640,14 @@ def my_linear_regrassion(
     )
 
 
-def my_ridge_regrassion(
+def my_ridge_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
     learning_curve: bool = True,
-    report=False,
+    report=True,
     plot: bool = False,
     degree: int = 1,
     resid_test=False,
@@ -660,7 +685,7 @@ def my_ridge_regrassion(
         if not params:
             params = {"alpha": [0.01, 0.1, 1, 10, 100]}
 
-    return __my_regrassion(
+    return __my_regression(
         classname=Ridge,
         x_train=x_train,
         y_train=y_train,
@@ -680,14 +705,14 @@ def my_ridge_regrassion(
     )
 
 
-def my_lasso_regrassion(
+def my_lasso_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
     learning_curve: bool = True,
-    report=False,
+    report=True,
     plot: bool = False,
     degree: int = 1,
     resid_test=False,
@@ -725,7 +750,7 @@ def my_lasso_regrassion(
         if not params:
             params = {"alpha": [0.01, 0.1, 1, 10, 100]}
 
-    return __my_regrassion(
+    return __my_regression(
         classname=Lasso,
         x_train=x_train,
         y_train=y_train,
@@ -745,14 +770,14 @@ def my_lasso_regrassion(
     )
 
 
-def my_ridge_regrassion(
+def my_ridge_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
     learning_curve: bool = True,
-    report=False,
+    report=True,
     plot: bool = False,
     degree: int = 1,
     resid_test=False,
@@ -790,7 +815,7 @@ def my_ridge_regrassion(
         if not params:
             params = {"alpha": [0.01, 0.1, 1, 10, 100]}
 
-    return __my_regrassion(
+    return __my_regression(
         classname=Ridge,
         x_train=x_train,
         y_train=y_train,
@@ -810,14 +835,14 @@ def my_ridge_regrassion(
     )
 
 
-def my_knn_regrassion(
+def my_knn_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
     learning_curve: bool = True,
-    report=False,
+    report=True,
     plot: bool = False,
     degree: int = 1,
     resid_test=False,
@@ -859,7 +884,7 @@ def my_knn_regrassion(
                 "metric": ["euclidean", "manhattan"],
             }
 
-    return __my_regrassion(
+    return __my_regression(
         classname=KNeighborsRegressor,
         x_train=x_train,
         y_train=y_train,
@@ -879,7 +904,148 @@ def my_knn_regrassion(
     )
 
 
-def my_regrassion(
+def my_knn_regression(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=True,
+    plot: bool = False,
+    degree: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -> KNeighborsRegressor:
+    """KNN 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        KNeighborsRegressor
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {
+                "n_neighbors": [3, 5, 7],
+                "weights": ["uniform", "distance"],
+                "metric": ["euclidean", "manhattan"],
+            }
+
+    return __my_regression(
+        classname=KNeighborsRegressor,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        degree=degree,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_knn_regression(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=True,
+    plot: bool = False,
+    degree: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -> KNeighborsRegressor:
+    """DecisionTree 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        DecisionTreeRegressor
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = {
+                "criterion": [
+                    "squared_error",
+                    "friedman_mse",
+                    "absolute_error",
+                    "poisson",
+                ]
+            }
+
+    return __my_regression(
+        classname=DecisionTreeRegressor,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        degree=degree,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
@@ -895,7 +1061,7 @@ def my_regrassion(
     sort: str = None,
     algorithm: list = None,
     **params,
-) -> LinearRegression:
+) -> any:
     """회귀분석을 수행하고 결과를 출력한다.
 
     Args:
@@ -916,7 +1082,7 @@ def my_regrassion(
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
-        Lasso: Lasso 모델
+        any
     """
 
     results = []  # 결과값을 저장할 리스트
@@ -932,16 +1098,19 @@ def my_regrassion(
     callstack = []
 
     if not algorithm or "linear" in algorithm:
-        callstack.append(my_linear_regrassion)
+        callstack.append(my_linear_regression)
 
     if not algorithm or "ridge" in algorithm:
-        callstack.append(my_ridge_regrassion)
+        callstack.append(my_ridge_regression)
 
     if not algorithm or "lasso" in algorithm:
-        callstack.append(my_lasso_regrassion)
+        callstack.append(my_lasso_regression)
 
     if not algorithm or "knn" in algorithm:
-        callstack.append(my_knn_regrassion)
+        callstack.append(my_knn_regression)
+
+    if not algorithm or "dtree" in algorithm:
+        callstack.append(my_dtree_regression)
 
     # 병렬처리를 위한 프로세스 생성 -> 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:

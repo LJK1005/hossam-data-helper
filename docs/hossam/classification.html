@@ -26,7 +26,9 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import logging
+<pre><code class="python">import inspect
+
+# import logging
 import numpy as np
 import concurrent.futures as futures
 
@@ -42,13 +44,17 @@ from sklearn.metrics import (
 )
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import GridSearchCV
+from sklearn.svm import LinearSVC, SVC
+from sklearn.naive_bayes import GaussianNB
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import SGDClassifier
 
 from scipy.stats import norm
 
 from .util import my_pretty_table
-from .plot import my_learing_curve, my_confusion_matrix, my_roc_curve
+from .plot import my_learing_curve, my_confusion_matrix, my_roc_curve, my_tree
+from .core import __ml
 
 
 def __my_classification(
@@ -57,6 +63,7 @@ def __my_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
     roc: bool = True,
@@ -68,7 +75,8 @@ def __my_classification(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    **params
+    pruning: bool = False,
+    **params,
 ) -&gt; any:
     &#34;&#34;&#34;분류분석을 수행하고 결과를 출력한다.
 
@@ -78,6 +86,7 @@ def __my_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
         roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
@@ -88,59 +97,23 @@ def __my_classification(
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
         any: 분류분석 모델
     &#34;&#34;&#34;
     # ------------------------------------------------------
     # 분석모델 생성
-
-    # 교차검증 설정
-    if cv &gt; 0:
-        if not params:
-            params = {}
-
-        prototype_estimator = classname(n_jobs=-1)
-        grid = GridSearchCV(prototype_estimator, param_grid=params, cv=cv, n_jobs=-1)
-        grid.fit(x_train, y_train)
-
-        result_df = DataFrame(grid.cv_results_[&#34;params&#34;])
-        result_df[&#34;mean_test_score&#34;] = grid.cv_results_[&#34;mean_test_score&#34;]
-
-        if is_print:
-            print(&#34;[교차검증]&#34;)
-            my_pretty_table(
-                result_df.dropna(subset=[&#34;mean_test_score&#34;]).sort_values(
-                    by=&#34;mean_test_score&#34;, ascending=False
-                )
-            )
-            print(&#34;&#34;)
-
-        estimator = grid.best_estimator_
-        estimator.best_params = grid.best_params_
-    else:
-        estimator = classname(n_jobs=-1, **params)
-        estimator.fit(x_train, y_train)
-
-    # ------------------------------------------------------
-    # 결과값 생성
-
-    # 훈련 데이터에 대한 추정치 생성
-    y_pred = (
-        estimator.predict(x_test) if x_test is not None else estimator.predict(x_train)
-    )
-    y_pred_prob = (
-        estimator.predict_proba(x_test)
-        if x_test is not None
-        else estimator.predict_proba(x_train)
-    )
-
-    # 도출된 결과를 모델 객체에 포함시킴
-    estimator.x = x_test if x_test is not None else x_train
-    estimator.y = y_test if y_test is not None else y_train
-    estimator.y_pred = y_pred if y_test is not None else estimator.predict(x_train)
-    estimator.y_pred_proba = (
-        y_pred_prob if y_test is not None else estimator.predict_proba(x_train)
+    estimator = __ml(
+        classname=classname,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        is_print=is_print,
+        **params,
     )
 
     # ------------------------------------------------------
@@ -152,6 +125,7 @@ def __my_classification(
             y_train=y_train,
             x_test=x_test,
             y_test=y_test,
+            conf_matrix=conf_matrix,
             hist=hist,
             roc=roc,
             pr=pr,
@@ -167,6 +141,7 @@ def __my_classification(
             estimator,
             x_train=x_train,
             y_train=y_train,
+            conf_matrix=conf_matrix,
             hist=hist,
             roc=roc,
             pr=pr,
@@ -419,9 +394,9 @@ def my_classification_result(
     # curve
     if is_print:
         if hasattr(estimator, &#34;predict_proba&#34;):
-            print(&#34;\n[Roc Curve]&#34;)
 
             if x_test is None or y_test is None:
+                print(&#34;\n[Roc Curve]&#34;)
                 my_roc_curve(
                     estimator,
                     x_train,
@@ -433,6 +408,7 @@ def my_classification_result(
                     dpi=dpi,
                 )
             else:
+                print(&#34;\n[Roc Curve]&#34;)
                 my_roc_curve(
                     estimator,
                     x_test,
@@ -467,6 +443,9 @@ def my_classification_result(
                 my_learing_curve(
                     estimator, data=x_df, yname=yname, figsize=figsize, dpi=dpi
                 )
+
+        if estimator.__class__.__name__ == &#34;DecisionTreeClassifier&#34;:
+            my_tree(estimator)
 
 
 def my_classification_report(
@@ -516,105 +495,18 @@ def my_classification_binary_report(
         y (Series, optional): 종속변수. Defaults to None.
         sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
     &#34;&#34;&#34;
-    # 추정 확률
-    y_pred_proba = estimator.predict_proba(x)
+    if estimator.__class__.__name__ == &#34;LogisticRegression&#34;:
+        # 추정 확률
+        y_pred_proba = estimator.predict_proba(x)
 
-    # 추정확률의 길이(=샘플수)
-    n = len(y_pred_proba)
+        # 추정확률의 길이(=샘플수)
+        n = len(y_pred_proba)
 
-    # 계수의 수 + 1(절편)
-    m = len(estimator.coef_[0]) + 1
-
-    # 절편과 계수를 하나의 배열로 결합
-    coefs = np.concatenate([estimator.intercept_, estimator.coef_[0]])
-
-    # 상수항 추가
-    x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
-
-    # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
-    ans = np.zeros((m, m))
-
-    # 표준오차
-    for i in range(n):
-        ans = (
-            ans
-            + np.dot(np.transpose(x_full[i, :]), x_full[i, :])
-            * y_pred_proba[i, 1]
-            * y_pred_proba[i, 0]
-        )
-
-    vcov = np.linalg.inv(np.matrix(ans))
-    se = np.sqrt(np.diag(vcov))
-
-    # t값
-    t = coefs / se
-
-    # p-value
-    p_values = (1 - norm.cdf(abs(t))) * 2
-
-    # VIF
-    if len(x.columns) &gt; 1:
-        vif = [
-            variance_inflation_factor(x, list(x.columns).index(v))
-            for i, v in enumerate(x.columns)
-        ]
-    else:
-        vif = 0
-
-    # 결과표 생성
-    xnames = estimator.feature_names_in_
-
-    result_df = DataFrame(
-        {
-            &#34;종속변수&#34;: [y.name] * len(xnames),
-            &#34;독립변수&#34;: xnames,
-            &#34;B(비표준화 계수)&#34;: np.round(estimator.coef_[0], 4),
-            &#34;표준오차&#34;: np.round(se[1:], 3),
-            &#34;t&#34;: np.round(t[1:], 4),
-            &#34;유의확률&#34;: np.round(p_values[1:], 3),
-            &#34;VIF&#34;: vif,
-            &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[0]), 4),
-        }
-    )
-
-    if sort:
-        if sort.upper() == &#34;V&#34;:
-            result_df.sort_values(&#34;VIF&#34;, inplace=True)
-        elif sort.upper() == &#34;P&#34;:
-            result_df.sort_values(&#34;유의확률&#34;, inplace=True)
-
-    my_pretty_table(result_df)
-
-
-def my_classification_multiclass_report(
-    estimator: any,
-    x: DataFrame = None,
-    y: Series = None,
-    sort: str = None,
-) -&gt; None:
-    &#34;&#34;&#34;다중로지스틱 회귀분석 결과를 출력한다.
-
-    Args:
-        estimator (any): 분류분석 추정기 (모델 객체)
-        x (DataFrame, optional): 독립변수. Defaults to None.
-        y (Series, optional): 종속변수. Defaults to None.
-        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-    &#34;&#34;&#34;
-    class_list = list(estimator.classes_)
-    class_size = len(class_list)
-
-    # 추정 확률
-    y_pred_proba = estimator.predict_proba(x)
-
-    # 추정확률의 길이(=샘플수)
-    n = len(y_pred_proba)
-
-    for i in range(0, class_size):
         # 계수의 수 + 1(절편)
-        m = len(estimator.coef_[i]) + 1
+        m = len(estimator.coef_[0]) + 1
 
         # 절편과 계수를 하나의 배열로 결합
-        coefs = np.concatenate([[estimator.intercept_[i]], estimator.coef_[i]])
+        coefs = np.concatenate([estimator.intercept_, estimator.coef_[0]])
 
         # 상수항 추가
         x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
@@ -623,10 +515,12 @@ def my_classification_multiclass_report(
         ans = np.zeros((m, m))
 
         # 표준오차
-        for j in range(n):
+        for i in range(n):
             ans = (
                 ans
-                + np.dot(np.transpose(x_full[j, :]), x_full[j, :]) * y_pred_proba[j, i]
+                + np.dot(np.transpose(x_full[i, :]), x_full[i, :])
+                * y_pred_proba[i, 1]
+                * y_pred_proba[i, 0]
             )
 
         vcov = np.linalg.inv(np.matrix(ans))
@@ -653,14 +547,13 @@ def my_classification_multiclass_report(
         result_df = DataFrame(
             {
                 &#34;종속변수&#34;: [y.name] * len(xnames),
-                &#34;CLASS&#34;: [class_list[i]] * len(xnames),
                 &#34;독립변수&#34;: xnames,
-                &#34;B(계수)&#34;: np.round(estimator.coef_[i], 4),
+                &#34;B(비표준화 계수)&#34;: np.round(estimator.coef_[0], 4),
                 &#34;표준오차&#34;: np.round(se[1:], 3),
                 &#34;t&#34;: np.round(t[1:], 4),
                 &#34;유의확률&#34;: np.round(p_values[1:], 3),
                 &#34;VIF&#34;: vif,
-                &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[i]), 4),
+                &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[0]), 4),
             }
         )
 
@@ -669,9 +562,151 @@ def my_classification_multiclass_report(
                 result_df.sort_values(&#34;VIF&#34;, inplace=True)
             elif sort.upper() == &#34;P&#34;:
                 result_df.sort_values(&#34;유의확률&#34;, inplace=True)
-                pass
 
         my_pretty_table(result_df)
+    else:
+        # VIF
+        if len(x.columns) &gt; 1:
+            vif = [
+                variance_inflation_factor(x, list(x.columns).index(v))
+                for i, v in enumerate(x.columns)
+            ]
+        else:
+            vif = 0
+
+        # 결과표 생성
+        xnames = estimator.feature_names_in_
+
+        result_df = DataFrame(
+            {
+                &#34;종속변수&#34;: [y.name] * len(xnames),
+                &#34;독립변수&#34;: xnames,
+                &#34;VIF&#34;: vif,
+            }
+        )
+
+        if sort:
+            if sort.upper() == &#34;V&#34;:
+                result_df.sort_values(&#34;VIF&#34;, inplace=True)
+
+        my_pretty_table(result_df)
+
+
+def my_classification_multiclass_report(
+    estimator: any,
+    x: DataFrame = None,
+    y: Series = None,
+    sort: str = None,
+) -&gt; None:
+    &#34;&#34;&#34;다중로지스틱 회귀분석 결과를 출력한다.
+
+    Args:
+        estimator (any): 분류분석 추정기 (모델 객체)
+        x (DataFrame, optional): 독립변수. Defaults to None.
+        y (Series, optional): 종속변수. Defaults to None.
+        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+    &#34;&#34;&#34;
+    class_list = list(estimator.classes_)
+    class_size = len(class_list)
+
+    if estimator.__class__.__name__ == &#34;LogisticRegression&#34;:
+        # 추정 확률
+        y_pred_proba = estimator.predict_proba(x)
+
+        # 추정확률의 길이(=샘플수)
+        n = len(y_pred_proba)
+
+        for i in range(0, class_size):
+            # 계수의 수 + 1(절편)
+            m = len(estimator.coef_[i]) + 1
+
+            # 절편과 계수를 하나의 배열로 결합
+            coefs = np.concatenate([[estimator.intercept_[i]], estimator.coef_[i]])
+
+            # 상수항 추가
+            x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
+
+            # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
+            ans = np.zeros((m, m))
+
+            # 표준오차
+            for j in range(n):
+                ans = (
+                    ans
+                    + np.dot(np.transpose(x_full[j, :]), x_full[j, :])
+                    * y_pred_proba[j, i]
+                )
+
+            vcov = np.linalg.inv(np.matrix(ans))
+            se = np.sqrt(np.diag(vcov))
+
+            # t값
+            t = coefs / se
+
+            # p-value
+            p_values = (1 - norm.cdf(abs(t))) * 2
+
+            # VIF
+            if len(x.columns) &gt; 1:
+                vif = [
+                    variance_inflation_factor(x, list(x.columns).index(v))
+                    for i, v in enumerate(x.columns)
+                ]
+            else:
+                vif = 0
+
+            # 결과표 생성
+            xnames = estimator.feature_names_in_
+
+            result_df = DataFrame(
+                {
+                    &#34;종속변수&#34;: [y.name] * len(xnames),
+                    &#34;CLASS&#34;: [class_list[i]] * len(xnames),
+                    &#34;독립변수&#34;: xnames,
+                    &#34;B(계수)&#34;: np.round(estimator.coef_[i], 4),
+                    &#34;표준오차&#34;: np.round(se[1:], 3),
+                    &#34;t&#34;: np.round(t[1:], 4),
+                    &#34;유의확률&#34;: np.round(p_values[1:], 3),
+                    &#34;VIF&#34;: vif,
+                    &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[i]), 4),
+                }
+            )
+
+            if sort:
+                if sort.upper() == &#34;V&#34;:
+                    result_df.sort_values(&#34;VIF&#34;, inplace=True)
+                elif sort.upper() == &#34;P&#34;:
+                    result_df.sort_values(&#34;유의확률&#34;, inplace=True)
+
+            my_pretty_table(result_df)
+    else:
+        for i in range(0, class_size):
+            # VIF
+            if len(x.columns) &gt; 1:
+                vif = [
+                    variance_inflation_factor(x, list(x.columns).index(v))
+                    for i, v in enumerate(x.columns)
+                ]
+            else:
+                vif = 0
+
+            # 결과표 생성
+            xnames = estimator.feature_names_in_
+
+            result_df = DataFrame(
+                {
+                    &#34;종속변수&#34;: [y.name] * len(xnames),
+                    &#34;CLASS&#34;: [class_list[i]] * len(xnames),
+                    &#34;독립변수&#34;: xnames,
+                    &#34;VIF&#34;: vif,
+                }
+            )
+
+            if sort:
+                if sort.upper() == &#34;V&#34;:
+                    result_df.sort_values(&#34;VIF&#34;, inplace=True)
+
+            my_pretty_table(result_df)
 
 
 def my_logistic_classification(
@@ -679,18 +714,19 @@ def my_logistic_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
     roc: bool = True,
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
-    report: bool = False,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    **params
+    **params,
 ) -&gt; LogisticRegression:
     &#34;&#34;&#34;로지스틱 회귀분석을 수행하고 결과를 출력한다.
 
@@ -699,6 +735,7 @@ def my_logistic_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
         roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
@@ -721,7 +758,7 @@ def my_logistic_classification(
             params = {
                 &#34;penalty&#34;: [&#34;l1&#34;, &#34;l2&#34;, &#34;elasticnet&#34;],
                 &#34;C&#34;: [0.001, 0.01, 0.1, 1, 10, 100],
-                &#34;max_iter&#34;: [500],
+                &#34;max_iter&#34;: [1000],
             }
 
     return __my_classification(
@@ -730,6 +767,7 @@ def my_logistic_classification(
         y_train=y_train,
         x_test=x_test,
         y_test=y_test,
+        conf_matrix=conf_matrix,
         cv=cv,
         hist=hist,
         roc=roc,
@@ -750,16 +788,19 @@ def my_knn_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
     roc: bool = True,
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
+    sort: str = None,
     is_print: bool = True,
-    **params
+    **params,
 ) -&gt; KNeighborsClassifier:
     &#34;&#34;&#34;KNN 분류분석을 수행하고 결과를 출력한다.
 
@@ -768,18 +809,21 @@ def my_knn_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
         roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
         pr (bool, optional): PR Curve를 출력할지 여부. Defaults to True.
         multiclass (str, optional): 다항분류일 경우, 다항분류 방법. Defaults to None.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
-        KNeighborsClassifier: 회귀분석 모델
+        KNeighborsClassifier
     &#34;&#34;&#34;
 
     # 교차검증 설정
@@ -797,14 +841,388 @@ def my_knn_classification(
         y_train=y_train,
         x_test=x_test,
         y_test=y_test,
+        conf_matrix=conf_matrix,
         cv=cv,
         hist=hist,
         roc=roc,
         pr=pr,
         multiclass=multiclass,
         learning_curve=learning_curve,
+        report=report,
         figsize=figsize,
         dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_nb_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -&gt; GaussianNB:
+    &#34;&#34;&#34;나이브베이즈 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        SVC
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                # &#34;priors&#34; : None,
+                &#34;var_smoothing&#34;: [1e-9, 1e-8, 1e-7, 1e-6, 1e-5]
+            }
+
+    return __my_classification(
+        classname=GaussianNB,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_dtree_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    pruning: bool = False,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -&gt; DecisionTreeClassifier:
+    &#34;&#34;&#34;의사결정나무 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        DecisionTreeClassifier
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;criterion&#34;: [&#34;gini&#34;, &#34;entropy&#34;],
+                # &#34;min_samples_split&#34;: [2, 3, 4],
+                # &#34;min_samples_leaf&#34;: [1, 2, 3],
+            }
+
+    return __my_classification(
+        classname=DecisionTreeClassifier,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        pruning=pruning,
+        **params,
+    )
+
+
+def my_linear_svc_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params,
+) -&gt; LinearSVC:
+    &#34;&#34;&#34;선형 SVM 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        LinearSVC
+    &#34;&#34;&#34;
+
+    if &#34;hist&#34; in params:
+        del params[&#34;hist&#34;]
+    if &#34;roc&#34; in params:
+        del params[&#34;roc&#34;]
+    if &#34;pr&#34; in params:
+        del params[&#34;pr&#34;]
+    if &#34;report&#34; in params:
+        del params[&#34;report&#34;]
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;penalty&#34;: [&#34;l1&#34;, &#34;l2&#34;],
+                &#34;loss&#34;: [&#34;squared_hinge&#34;, &#34;hinge&#34;],
+                &#34;C&#34;: [0.01, 0.1, 1, 10],
+                &#34;max_iter&#34;: [1000],
+                &#34;dual&#34;: [True, False],
+            }
+
+    return __my_classification(
+        classname=LinearSVC,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_svc_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    # hist: bool = True,
+    # roc: bool = True,
+    # pr: bool = True,
+    # multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params,
+) -&gt; SVC:
+    &#34;&#34;&#34;SVC 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        SVC
+    &#34;&#34;&#34;
+
+    if &#34;hist&#34; in params:
+        del params[&#34;hist&#34;]
+    if &#34;roc&#34; in params:
+        del params[&#34;roc&#34;]
+    if &#34;pr&#34; in params:
+        del params[&#34;pr&#34;]
+    if &#34;report&#34; in params:
+        del params[&#34;report&#34;]
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;C&#34;: [0.1, 1, 10],
+                # &#34;kernel&#34;: [&#34;rbf&#34;, &#34;linear&#34;, &#34;poly&#34;, &#34;sigmoid&#34;],
+                &#34;kernel&#34;: [&#34;rbf&#34;, &#34;poly&#34;, &#34;sigmoid&#34;],
+                &#34;degree&#34;: [2, 3, 4, 5],
+                # &#34;gamma&#34;: [&#34;scale&#34;, &#34;auto&#34;],
+                # &#34;coef0&#34;: [0.01, 0.1, 1, 10],
+                # &#34;shrinking&#34;: [True, False],
+                # &#34;probability&#34;: [True],  # AUC 값 확인을 위해서는 True로 설정
+            }
+
+    return __my_classification(
+        classname=SVC,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        # hist=hist,
+        # roc=roc,
+        # pr=pr,
+        # multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_sgd_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -&gt; SGDClassifier:
+    &#34;&#34;&#34;SGD 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        SGDClassifier
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                # 손실함수
+                # &#39;log_loss&#39;, &#39;squared_hinge&#39;, &#39;perceptron&#39;, &#39;squared_error&#39;, &#39;hinge&#39;, &#39;huber&#39;, &#39;squared_epsilon_insensitive&#39;, &#39;epsilon_insensitive&#39;, &#39;modified_huber&#39;
+                &#34;loss&#34;: [&#34;hinge&#34;, &#34;log_loss&#34;, &#34;modified_huber&#34;],
+                # 정규화 종류
+                &#34;penalty&#34;: [&#34;l2&#34;, &#34;l1&#34;, &#34;elasticnet&#34;],
+                # 정규화 강도(값이 낮을 수록 약한 정규화)
+                &#34;alpha&#34;: [0.0001, 0.001, 0.01, 0.1],
+                # 최대 반복 수행 횟수
+                &#34;max_iter&#34;: [1000, 2000, 3000, 4000, 5000],
+                # 학습률 스케줄링 전략
+                &#34;learning_rate&#34;: [&#34;optimal&#34;, &#34;constant&#34;, &#34;invscaling&#34;, &#34;adaptive&#34;],
+                # 초기 학습률
+                &#34;eta0&#34;: [0.01, 0.1, 0.5],
+            }
+
+    return __my_classification(
+        classname=SGDClassifier,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
         is_print=is_print,
         **params,
     )
@@ -815,81 +1233,117 @@ def my_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
-    hist: bool = True,
-    roc: bool = True,
-    pr: bool = True,
+    hist: bool = False,
+    roc: bool = False,
+    pr: bool = False,
     multiclass: str = None,
-    learning_curve=True,
+    learning_curve=False,
     report: bool = False,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
-    **params
+    algorithm: list = None,
+    pruning: bool = False,
+    **params,
 ) -&gt; DataFrame:
+    &#34;&#34;&#34;분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 훈련 데이터의 독립변수
+        y_train (Series): 훈련 데이터의 종속변수
+        x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
+        y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to False.
+        roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to False.
+        pr (bool, optional): PR Curve를 출력할지 여부. Defaults to False.
+        multiclass (str, optional): 다항분류일 경우, 다항분류 방법. Defaults to None.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 독립변수 보고를 출력할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        algorithm (list, optional): 사용하고자 하는 분류분석 알고리즘 리스트. None으로 설정할 경우 모든 알고리즘 수행 [&#39;logistic&#39;, &#39;knn&#39;, &#39;dtree&#39;, &#39;svc&#39;, &#39;sgd&#39;]. Defaults to None.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
+
+    Returns:
+        DataFrame: 분류분석 결과
+    &#34;&#34;&#34;
 
     results = []  # 결과값을 저장할 리스트
     processes = []  # 병렬처리를 위한 프로세스 리스트
-    estimators = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
+    estimators = {}  # 분류분석 모델을 저장할 딕셔너리
+    estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
+
+    callstack = []
+
+    if not algorithm or &#34;logistic&#34; in algorithm:
+        callstack.append(my_logistic_classification)
+
+    if not algorithm or &#34;knn&#34; in algorithm:
+        callstack.append(my_knn_classification)
+
+    if not algorithm or &#34;svc&#34; in algorithm:
+        callstack.append(my_svc_classification)
+
+    if not algorithm or &#34;nb&#34; in algorithm:
+        callstack.append(my_nb_classification)
+
+    if not algorithm or &#34;dtree&#34; in algorithm:
+        callstack.append(my_dtree_classification)
+
+    if not algorithm or &#34;sgd&#34; in algorithm:
+        callstack.append(my_sgd_classification)
 
     # 병렬처리를 위한 프로세스 생성 -&gt; 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
-        processes.append(
-            executor.submit(
-                my_logistic_classification,
-                x_train=x_train,
-                y_train=y_train,
-                x_test=x_test,
-                y_test=y_test,
-                cv=cv,
-                hist=hist,
-                roc=roc,
-                pr=pr,
-                multiclass=multiclass,
-                learning_curve=learning_curve,
-                report=report,
-                figsize=figsize,
-                dpi=dpi,
-                sort=sort,
-                is_print=False,
-                **params,
+        for c in callstack:
+            processes.append(
+                executor.submit(
+                    c,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_test=x_test,
+                    y_test=y_test,
+                    conf_matrix=conf_matrix,
+                    cv=cv,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    learning_curve=learning_curve,
+                    report=report,
+                    figsize=figsize,
+                    dpi=dpi,
+                    sort=sort,
+                    is_print=False,
+                    **params,
+                )
             )
-        )
-
-        processes.append(
-            executor.submit(
-                my_knn_classification,
-                x_train=x_train,
-                y_train=y_train,
-                x_test=x_test,
-                y_test=y_test,
-                cv=cv,
-                hist=hist,
-                roc=roc,
-                pr=pr,
-                multiclass=multiclass,
-                learning_curve=learning_curve,
-                figsize=figsize,
-                dpi=dpi,
-                is_print=False,
-                **params,
-            )
-        )
 
         # 병렬처리 결과를 기다린다.
         for p in futures.as_completed(processes):
             # 각 분류 함수의 결과값(분류모형 객체)을 저장한다.
             estimator = p.result()
-            # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
-            scores = estimator.scores
-            # 분류모형의 이름을 저장한다.
-            estimators.append(estimator.__class__.__name__)
-            # 성능평가 지표 딕셔너리를 리스트에 저장
-            results.append(scores)
+
+            if estimator is not None:
+                # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
+                scores = estimator.scores
+                # 분류모형의 이름과 객체를 저장한다.
+                n = estimator.__class__.__name__
+                estimator_names.append(n)
+                estimators[n] = estimator
+                # 성능평가 지표 딕셔너리를 리스트에 저장
+                results.append(scores)
 
         # 결과값을 데이터프레임으로 변환
-        result_df = DataFrame(results, index=estimators)
-        my_pretty_table(result_df)</code></pre>
+        result_df = DataFrame(results, index=estimator_names)
+        my_pretty_table(result_df)
+
+    return estimators</code></pre>
 </details>
 </section>
 <section>
@@ -900,10 +1354,52 @@ def my_classification(
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="hossam.classification.my_classification"><code class="name flex">
-<span>def <span class="ident">my_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, report: bool = False, figsize=(10, 5), dpi: int = 100, sort: str = None, **params) ‑> pandas.core.frame.DataFrame</span>
+<span>def <span class="ident">my_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, cv: int = 5, hist: bool = False, roc: bool = False, pr: bool = False, multiclass: str = None, learning_curve=False, report: bool = False, figsize=(10, 5), dpi: int = 100, sort: str = None, algorithm: list = None, pruning: bool = False, **params) ‑> pandas.core.frame.DataFrame</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>분류분석을 수행하고 결과를 출력한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>훈련 데이터의 독립변수</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code></dt>
+<dd>훈련 데이터의 종속변수</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code>, optional</dt>
+<dd>검증 데이터의 독립변수. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code>, optional</dt>
+<dd>검증 데이터의 종속변수. Defaults to None.</dd>
+<dt><strong><code>conf_matrix</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>혼동행렬을 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>교차검증 횟수. Defaults to 5.</dd>
+<dt><strong><code>hist</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>히스토그램을 출력할지 여부. Defaults to False.</dd>
+<dt><strong><code>roc</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>ROC Curve를 출력할지 여부. Defaults to False.</dd>
+<dt><strong><code>pr</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>PR Curve를 출력할지 여부. Defaults to False.</dd>
+<dt><strong><code>multiclass</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>다항분류일 경우, 다항분류 방법. Defaults to None.</dd>
+<dt><strong><code>learning_curve</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>학습곡선을 출력할지 여부. Defaults to False.</dd>
+<dt><strong><code>report</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>독립변수 보고를 출력할지 여부. Defaults to False.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
+<dt><strong><code>algorithm</code></strong> :&ensp;<code>list</code>, optional</dt>
+<dd>사용하고자 하는 분류분석 알고리즘 리스트. None으로 설정할 경우 모든 알고리즘 수행 ['logistic', 'knn', 'dtree', 'svc', 'sgd']. Defaults to None.</dd>
+<dt><strong><code>pruning</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>DataFrame</code></dt>
+<dd>분류분석 결과</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -913,81 +1409,117 @@ def my_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
-    hist: bool = True,
-    roc: bool = True,
-    pr: bool = True,
+    hist: bool = False,
+    roc: bool = False,
+    pr: bool = False,
     multiclass: str = None,
-    learning_curve=True,
+    learning_curve=False,
     report: bool = False,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
-    **params
+    algorithm: list = None,
+    pruning: bool = False,
+    **params,
 ) -&gt; DataFrame:
+    &#34;&#34;&#34;분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 훈련 데이터의 독립변수
+        y_train (Series): 훈련 데이터의 종속변수
+        x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
+        y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to False.
+        roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to False.
+        pr (bool, optional): PR Curve를 출력할지 여부. Defaults to False.
+        multiclass (str, optional): 다항분류일 경우, 다항분류 방법. Defaults to None.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 독립변수 보고를 출력할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        algorithm (list, optional): 사용하고자 하는 분류분석 알고리즘 리스트. None으로 설정할 경우 모든 알고리즘 수행 [&#39;logistic&#39;, &#39;knn&#39;, &#39;dtree&#39;, &#39;svc&#39;, &#39;sgd&#39;]. Defaults to None.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
+
+    Returns:
+        DataFrame: 분류분석 결과
+    &#34;&#34;&#34;
 
     results = []  # 결과값을 저장할 리스트
     processes = []  # 병렬처리를 위한 프로세스 리스트
-    estimators = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
+    estimators = {}  # 분류분석 모델을 저장할 딕셔너리
+    estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
+
+    callstack = []
+
+    if not algorithm or &#34;logistic&#34; in algorithm:
+        callstack.append(my_logistic_classification)
+
+    if not algorithm or &#34;knn&#34; in algorithm:
+        callstack.append(my_knn_classification)
+
+    if not algorithm or &#34;svc&#34; in algorithm:
+        callstack.append(my_svc_classification)
+
+    if not algorithm or &#34;nb&#34; in algorithm:
+        callstack.append(my_nb_classification)
+
+    if not algorithm or &#34;dtree&#34; in algorithm:
+        callstack.append(my_dtree_classification)
+
+    if not algorithm or &#34;sgd&#34; in algorithm:
+        callstack.append(my_sgd_classification)
 
     # 병렬처리를 위한 프로세스 생성 -&gt; 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
-        processes.append(
-            executor.submit(
-                my_logistic_classification,
-                x_train=x_train,
-                y_train=y_train,
-                x_test=x_test,
-                y_test=y_test,
-                cv=cv,
-                hist=hist,
-                roc=roc,
-                pr=pr,
-                multiclass=multiclass,
-                learning_curve=learning_curve,
-                report=report,
-                figsize=figsize,
-                dpi=dpi,
-                sort=sort,
-                is_print=False,
-                **params,
+        for c in callstack:
+            processes.append(
+                executor.submit(
+                    c,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_test=x_test,
+                    y_test=y_test,
+                    conf_matrix=conf_matrix,
+                    cv=cv,
+                    hist=hist,
+                    roc=roc,
+                    pr=pr,
+                    multiclass=multiclass,
+                    learning_curve=learning_curve,
+                    report=report,
+                    figsize=figsize,
+                    dpi=dpi,
+                    sort=sort,
+                    is_print=False,
+                    **params,
+                )
             )
-        )
-
-        processes.append(
-            executor.submit(
-                my_knn_classification,
-                x_train=x_train,
-                y_train=y_train,
-                x_test=x_test,
-                y_test=y_test,
-                cv=cv,
-                hist=hist,
-                roc=roc,
-                pr=pr,
-                multiclass=multiclass,
-                learning_curve=learning_curve,
-                figsize=figsize,
-                dpi=dpi,
-                is_print=False,
-                **params,
-            )
-        )
 
         # 병렬처리 결과를 기다린다.
         for p in futures.as_completed(processes):
             # 각 분류 함수의 결과값(분류모형 객체)을 저장한다.
             estimator = p.result()
-            # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
-            scores = estimator.scores
-            # 분류모형의 이름을 저장한다.
-            estimators.append(estimator.__class__.__name__)
-            # 성능평가 지표 딕셔너리를 리스트에 저장
-            results.append(scores)
+
+            if estimator is not None:
+                # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
+                scores = estimator.scores
+                # 분류모형의 이름과 객체를 저장한다.
+                n = estimator.__class__.__name__
+                estimator_names.append(n)
+                estimators[n] = estimator
+                # 성능평가 지표 딕셔너리를 리스트에 저장
+                results.append(scores)
 
         # 결과값을 데이터프레임으로 변환
-        result_df = DataFrame(results, index=estimators)
-        my_pretty_table(result_df)</code></pre>
+        result_df = DataFrame(results, index=estimator_names)
+        my_pretty_table(result_df)
+
+    return estimators</code></pre>
 </details>
 </dd>
 <dt id="hossam.classification.my_classification_binary_report"><code class="name flex">
@@ -1021,74 +1553,101 @@ def my_classification(
         y (Series, optional): 종속변수. Defaults to None.
         sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
     &#34;&#34;&#34;
-    # 추정 확률
-    y_pred_proba = estimator.predict_proba(x)
+    if estimator.__class__.__name__ == &#34;LogisticRegression&#34;:
+        # 추정 확률
+        y_pred_proba = estimator.predict_proba(x)
 
-    # 추정확률의 길이(=샘플수)
-    n = len(y_pred_proba)
+        # 추정확률의 길이(=샘플수)
+        n = len(y_pred_proba)
 
-    # 계수의 수 + 1(절편)
-    m = len(estimator.coef_[0]) + 1
+        # 계수의 수 + 1(절편)
+        m = len(estimator.coef_[0]) + 1
 
-    # 절편과 계수를 하나의 배열로 결합
-    coefs = np.concatenate([estimator.intercept_, estimator.coef_[0]])
+        # 절편과 계수를 하나의 배열로 결합
+        coefs = np.concatenate([estimator.intercept_, estimator.coef_[0]])
 
-    # 상수항 추가
-    x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
+        # 상수항 추가
+        x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
 
-    # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
-    ans = np.zeros((m, m))
+        # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
+        ans = np.zeros((m, m))
 
-    # 표준오차
-    for i in range(n):
-        ans = (
-            ans
-            + np.dot(np.transpose(x_full[i, :]), x_full[i, :])
-            * y_pred_proba[i, 1]
-            * y_pred_proba[i, 0]
+        # 표준오차
+        for i in range(n):
+            ans = (
+                ans
+                + np.dot(np.transpose(x_full[i, :]), x_full[i, :])
+                * y_pred_proba[i, 1]
+                * y_pred_proba[i, 0]
+            )
+
+        vcov = np.linalg.inv(np.matrix(ans))
+        se = np.sqrt(np.diag(vcov))
+
+        # t값
+        t = coefs / se
+
+        # p-value
+        p_values = (1 - norm.cdf(abs(t))) * 2
+
+        # VIF
+        if len(x.columns) &gt; 1:
+            vif = [
+                variance_inflation_factor(x, list(x.columns).index(v))
+                for i, v in enumerate(x.columns)
+            ]
+        else:
+            vif = 0
+
+        # 결과표 생성
+        xnames = estimator.feature_names_in_
+
+        result_df = DataFrame(
+            {
+                &#34;종속변수&#34;: [y.name] * len(xnames),
+                &#34;독립변수&#34;: xnames,
+                &#34;B(비표준화 계수)&#34;: np.round(estimator.coef_[0], 4),
+                &#34;표준오차&#34;: np.round(se[1:], 3),
+                &#34;t&#34;: np.round(t[1:], 4),
+                &#34;유의확률&#34;: np.round(p_values[1:], 3),
+                &#34;VIF&#34;: vif,
+                &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[0]), 4),
+            }
         )
 
-    vcov = np.linalg.inv(np.matrix(ans))
-    se = np.sqrt(np.diag(vcov))
+        if sort:
+            if sort.upper() == &#34;V&#34;:
+                result_df.sort_values(&#34;VIF&#34;, inplace=True)
+            elif sort.upper() == &#34;P&#34;:
+                result_df.sort_values(&#34;유의확률&#34;, inplace=True)
 
-    # t값
-    t = coefs / se
-
-    # p-value
-    p_values = (1 - norm.cdf(abs(t))) * 2
-
-    # VIF
-    if len(x.columns) &gt; 1:
-        vif = [
-            variance_inflation_factor(x, list(x.columns).index(v))
-            for i, v in enumerate(x.columns)
-        ]
+        my_pretty_table(result_df)
     else:
-        vif = 0
+        # VIF
+        if len(x.columns) &gt; 1:
+            vif = [
+                variance_inflation_factor(x, list(x.columns).index(v))
+                for i, v in enumerate(x.columns)
+            ]
+        else:
+            vif = 0
 
-    # 결과표 생성
-    xnames = estimator.feature_names_in_
+        # 결과표 생성
+        xnames = estimator.feature_names_in_
 
-    result_df = DataFrame(
-        {
-            &#34;종속변수&#34;: [y.name] * len(xnames),
-            &#34;독립변수&#34;: xnames,
-            &#34;B(비표준화 계수)&#34;: np.round(estimator.coef_[0], 4),
-            &#34;표준오차&#34;: np.round(se[1:], 3),
-            &#34;t&#34;: np.round(t[1:], 4),
-            &#34;유의확률&#34;: np.round(p_values[1:], 3),
-            &#34;VIF&#34;: vif,
-            &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[0]), 4),
-        }
-    )
+        result_df = DataFrame(
+            {
+                &#34;종속변수&#34;: [y.name] * len(xnames),
+                &#34;독립변수&#34;: xnames,
+                &#34;VIF&#34;: vif,
+            }
+        )
 
-    if sort:
-        if sort.upper() == &#34;V&#34;:
-            result_df.sort_values(&#34;VIF&#34;, inplace=True)
-        elif sort.upper() == &#34;P&#34;:
-            result_df.sort_values(&#34;유의확률&#34;, inplace=True)
+        if sort:
+            if sort.upper() == &#34;V&#34;:
+                result_df.sort_values(&#34;VIF&#34;, inplace=True)
 
-    my_pretty_table(result_df)</code></pre>
+        my_pretty_table(result_df)</code></pre>
 </details>
 </dd>
 <dt id="hossam.classification.my_classification_multiclass_report"><code class="name flex">
@@ -1128,75 +1687,104 @@ def my_classification(
     class_list = list(estimator.classes_)
     class_size = len(class_list)
 
-    # 추정 확률
-    y_pred_proba = estimator.predict_proba(x)
+    if estimator.__class__.__name__ == &#34;LogisticRegression&#34;:
+        # 추정 확률
+        y_pred_proba = estimator.predict_proba(x)
 
-    # 추정확률의 길이(=샘플수)
-    n = len(y_pred_proba)
+        # 추정확률의 길이(=샘플수)
+        n = len(y_pred_proba)
 
-    for i in range(0, class_size):
-        # 계수의 수 + 1(절편)
-        m = len(estimator.coef_[i]) + 1
+        for i in range(0, class_size):
+            # 계수의 수 + 1(절편)
+            m = len(estimator.coef_[i]) + 1
 
-        # 절편과 계수를 하나의 배열로 결합
-        coefs = np.concatenate([[estimator.intercept_[i]], estimator.coef_[i]])
+            # 절편과 계수를 하나의 배열로 결합
+            coefs = np.concatenate([[estimator.intercept_[i]], estimator.coef_[i]])
 
-        # 상수항 추가
-        x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
+            # 상수항 추가
+            x_full = np.matrix(np.insert(np.array(x), 0, 1, axis=1))
 
-        # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
-        ans = np.zeros((m, m))
+            # 변수의 길이를 활용하여 모든 값이 0인 행렬 생성
+            ans = np.zeros((m, m))
 
-        # 표준오차
-        for j in range(n):
-            ans = (
-                ans
-                + np.dot(np.transpose(x_full[j, :]), x_full[j, :]) * y_pred_proba[j, i]
+            # 표준오차
+            for j in range(n):
+                ans = (
+                    ans
+                    + np.dot(np.transpose(x_full[j, :]), x_full[j, :])
+                    * y_pred_proba[j, i]
+                )
+
+            vcov = np.linalg.inv(np.matrix(ans))
+            se = np.sqrt(np.diag(vcov))
+
+            # t값
+            t = coefs / se
+
+            # p-value
+            p_values = (1 - norm.cdf(abs(t))) * 2
+
+            # VIF
+            if len(x.columns) &gt; 1:
+                vif = [
+                    variance_inflation_factor(x, list(x.columns).index(v))
+                    for i, v in enumerate(x.columns)
+                ]
+            else:
+                vif = 0
+
+            # 결과표 생성
+            xnames = estimator.feature_names_in_
+
+            result_df = DataFrame(
+                {
+                    &#34;종속변수&#34;: [y.name] * len(xnames),
+                    &#34;CLASS&#34;: [class_list[i]] * len(xnames),
+                    &#34;독립변수&#34;: xnames,
+                    &#34;B(계수)&#34;: np.round(estimator.coef_[i], 4),
+                    &#34;표준오차&#34;: np.round(se[1:], 3),
+                    &#34;t&#34;: np.round(t[1:], 4),
+                    &#34;유의확률&#34;: np.round(p_values[1:], 3),
+                    &#34;VIF&#34;: vif,
+                    &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[i]), 4),
+                }
             )
 
-        vcov = np.linalg.inv(np.matrix(ans))
-        se = np.sqrt(np.diag(vcov))
+            if sort:
+                if sort.upper() == &#34;V&#34;:
+                    result_df.sort_values(&#34;VIF&#34;, inplace=True)
+                elif sort.upper() == &#34;P&#34;:
+                    result_df.sort_values(&#34;유의확률&#34;, inplace=True)
 
-        # t값
-        t = coefs / se
+            my_pretty_table(result_df)
+    else:
+        for i in range(0, class_size):
+            # VIF
+            if len(x.columns) &gt; 1:
+                vif = [
+                    variance_inflation_factor(x, list(x.columns).index(v))
+                    for i, v in enumerate(x.columns)
+                ]
+            else:
+                vif = 0
 
-        # p-value
-        p_values = (1 - norm.cdf(abs(t))) * 2
+            # 결과표 생성
+            xnames = estimator.feature_names_in_
 
-        # VIF
-        if len(x.columns) &gt; 1:
-            vif = [
-                variance_inflation_factor(x, list(x.columns).index(v))
-                for i, v in enumerate(x.columns)
-            ]
-        else:
-            vif = 0
+            result_df = DataFrame(
+                {
+                    &#34;종속변수&#34;: [y.name] * len(xnames),
+                    &#34;CLASS&#34;: [class_list[i]] * len(xnames),
+                    &#34;독립변수&#34;: xnames,
+                    &#34;VIF&#34;: vif,
+                }
+            )
 
-        # 결과표 생성
-        xnames = estimator.feature_names_in_
+            if sort:
+                if sort.upper() == &#34;V&#34;:
+                    result_df.sort_values(&#34;VIF&#34;, inplace=True)
 
-        result_df = DataFrame(
-            {
-                &#34;종속변수&#34;: [y.name] * len(xnames),
-                &#34;CLASS&#34;: [class_list[i]] * len(xnames),
-                &#34;독립변수&#34;: xnames,
-                &#34;B(계수)&#34;: np.round(estimator.coef_[i], 4),
-                &#34;표준오차&#34;: np.round(se[1:], 3),
-                &#34;t&#34;: np.round(t[1:], 4),
-                &#34;유의확률&#34;: np.round(p_values[1:], 3),
-                &#34;VIF&#34;: vif,
-                &#34;OddsRate&#34;: np.round(np.exp(estimator.coef_[i]), 4),
-            }
-        )
-
-        if sort:
-            if sort.upper() == &#34;V&#34;:
-                result_df.sort_values(&#34;VIF&#34;, inplace=True)
-            elif sort.upper() == &#34;P&#34;:
-                result_df.sort_values(&#34;유의확률&#34;, inplace=True)
-                pass
-
-        my_pretty_table(result_df)</code></pre>
+            my_pretty_table(result_df)</code></pre>
 </details>
 </dd>
 <dt id="hossam.classification.my_classification_report"><code class="name flex">
@@ -1534,9 +2122,9 @@ def my_classification(
     # curve
     if is_print:
         if hasattr(estimator, &#34;predict_proba&#34;):
-            print(&#34;\n[Roc Curve]&#34;)
 
             if x_test is None or y_test is None:
+                print(&#34;\n[Roc Curve]&#34;)
                 my_roc_curve(
                     estimator,
                     x_train,
@@ -1548,6 +2136,7 @@ def my_classification(
                     dpi=dpi,
                 )
             else:
+                print(&#34;\n[Roc Curve]&#34;)
                 my_roc_curve(
                     estimator,
                     x_test,
@@ -1581,11 +2170,128 @@ def my_classification(
             else:
                 my_learing_curve(
                     estimator, data=x_df, yname=yname, figsize=figsize, dpi=dpi
-                )</code></pre>
+                )
+
+        if estimator.__class__.__name__ == &#34;DecisionTreeClassifier&#34;:
+            my_tree(estimator)</code></pre>
+</details>
+</dd>
+<dt id="hossam.classification.my_dtree_classification"><code class="name flex">
+<span>def <span class="ident">my_dtree_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, cv: int = 5, pruning: bool = False, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, report: bool = True, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.tree._classes.DecisionTreeClassifier</span>
+</code></dt>
+<dd>
+<div class="desc"><p>의사결정나무 분류분석을 수행하고 결과를 출력한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 훈련 데이터</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 훈련 데이터</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>conf_matrix</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>혼동행렬을 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>교차검증 횟수. Defaults to 5.</dd>
+<dt><strong><code>pruning</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.</dd>
+<dt><strong><code>learning_curve</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>학습곡선을 출력할지 여부. Defaults to True.</dd>
+<dt>report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.</dt>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
+<dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>출력 여부. Defaults to True.</dd>
+<dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>하이퍼파라미터. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>DecisionTreeClassifier</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_dtree_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    pruning: bool = False,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -&gt; DecisionTreeClassifier:
+    &#34;&#34;&#34;의사결정나무 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        DecisionTreeClassifier
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;criterion&#34;: [&#34;gini&#34;, &#34;entropy&#34;],
+                # &#34;min_samples_split&#34;: [2, 3, 4],
+                # &#34;min_samples_leaf&#34;: [1, 2, 3],
+            }
+
+    return __my_classification(
+        classname=DecisionTreeClassifier,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        pruning=pruning,
+        **params,
+    )</code></pre>
 </details>
 </dd>
 <dt id="hossam.classification.my_knn_classification"><code class="name flex">
-<span>def <span class="ident">my_knn_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, figsize=(10, 5), dpi: int = 100, is_print: bool = True, **params) ‑> sklearn.neighbors._classification.KNeighborsClassifier</span>
+<span>def <span class="ident">my_knn_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, report: bool = True, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.neighbors._classification.KNeighborsClassifier</span>
 </code></dt>
 <dd>
 <div class="desc"><p>KNN 분류분석을 수행하고 결과를 출력한다.</p>
@@ -1599,6 +2305,8 @@ def my_classification(
 <dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
 <dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code></dt>
 <dd>종속변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>conf_matrix</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>혼동행렬을 출력할지 여부. Defaults to True.</dd>
 <dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>교차검증 횟수. Defaults to 5.</dd>
 <dt><strong><code>hist</code></strong> :&ensp;<code>bool</code>, optional</dt>
@@ -1611,20 +2319,20 @@ def my_classification(
 <dd>다항분류일 경우, 다항분류 방법. Defaults to None.</dd>
 <dt><strong><code>learning_curve</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>학습곡선을 출력할지 여부. Defaults to True.</dd>
+<dt>report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.</dt>
 <dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
 <dd>그래프의 크기. Defaults to (10, 5).</dd>
 <dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
 <dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>출력 여부. Defaults to True.</dd>
 <dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>하이퍼파라미터. Defaults to None.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><code>KNeighborsClassifier</code></dt>
-<dd>회귀분석 모델</dd>
-</dl></div>
+<p>KNeighborsClassifier</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1634,16 +2342,19 @@ def my_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
     roc: bool = True,
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
+    sort: str = None,
     is_print: bool = True,
-    **params
+    **params,
 ) -&gt; KNeighborsClassifier:
     &#34;&#34;&#34;KNN 분류분석을 수행하고 결과를 출력한다.
 
@@ -1652,18 +2363,21 @@ def my_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
         roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
         pr (bool, optional): PR Curve를 출력할지 여부. Defaults to True.
         multiclass (str, optional): 다항분류일 경우, 다항분류 방법. Defaults to None.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
-        KNeighborsClassifier: 회귀분석 모델
+        KNeighborsClassifier
     &#34;&#34;&#34;
 
     # 교차검증 설정
@@ -1681,12 +2395,120 @@ def my_classification(
         y_train=y_train,
         x_test=x_test,
         y_test=y_test,
+        conf_matrix=conf_matrix,
         cv=cv,
         hist=hist,
         roc=roc,
         pr=pr,
         multiclass=multiclass,
         learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )</code></pre>
+</details>
+</dd>
+<dt id="hossam.classification.my_linear_svc_classification"><code class="name flex">
+<span>def <span class="ident">my_linear_svc_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, cv: int = 5, learning_curve=True, report: bool = True, figsize=(10, 5), dpi: int = 100, is_print: bool = True, **params) ‑> sklearn.svm._classes.LinearSVC</span>
+</code></dt>
+<dd>
+<div class="desc"><p>선형 SVM 분류분석을 수행하고 결과를 출력한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 훈련 데이터</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 훈련 데이터</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>conf_matrix</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>혼동행렬을 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>교차검증 횟수. Defaults to 5.</dd>
+<dt><strong><code>learning_curve</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>학습곡선을 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>출력 여부. Defaults to True.</dd>
+<dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>하이퍼파라미터. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>LinearSVC</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_linear_svc_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params,
+) -&gt; LinearSVC:
+    &#34;&#34;&#34;선형 SVM 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        LinearSVC
+    &#34;&#34;&#34;
+
+    if &#34;hist&#34; in params:
+        del params[&#34;hist&#34;]
+    if &#34;roc&#34; in params:
+        del params[&#34;roc&#34;]
+    if &#34;pr&#34; in params:
+        del params[&#34;pr&#34;]
+    if &#34;report&#34; in params:
+        del params[&#34;report&#34;]
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;penalty&#34;: [&#34;l1&#34;, &#34;l2&#34;],
+                &#34;loss&#34;: [&#34;squared_hinge&#34;, &#34;hinge&#34;],
+                &#34;C&#34;: [0.01, 0.1, 1, 10],
+                &#34;max_iter&#34;: [1000],
+                &#34;dual&#34;: [True, False],
+            }
+
+    return __my_classification(
+        classname=LinearSVC,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
         figsize=figsize,
         dpi=dpi,
         is_print=is_print,
@@ -1695,7 +2517,7 @@ def my_classification(
 </details>
 </dd>
 <dt id="hossam.classification.my_logistic_classification"><code class="name flex">
-<span>def <span class="ident">my_logistic_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, report: bool = False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.linear_model._logistic.LogisticRegression</span>
+<span>def <span class="ident">my_logistic_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, report: bool = True, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.linear_model._logistic.LogisticRegression</span>
 </code></dt>
 <dd>
 <div class="desc"><p>로지스틱 회귀분석을 수행하고 결과를 출력한다.</p>
@@ -1709,6 +2531,8 @@ def my_classification(
 <dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
 <dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code></dt>
 <dd>종속변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>conf_matrix</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>혼동행렬을 출력할지 여부. Defaults to True.</dd>
 <dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>교차검증 횟수. Defaults to 5.</dd>
 <dt><strong><code>hist</code></strong> :&ensp;<code>bool</code>, optional</dt>
@@ -1747,18 +2571,19 @@ def my_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
+    conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
     roc: bool = True,
     pr: bool = True,
     multiclass: str = None,
     learning_curve=True,
-    report: bool = False,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    **params
+    **params,
 ) -&gt; LogisticRegression:
     &#34;&#34;&#34;로지스틱 회귀분석을 수행하고 결과를 출력한다.
 
@@ -1767,6 +2592,7 @@ def my_classification(
         y_train (Series): 종속변수에 대한 훈련 데이터
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to True.
         roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to True.
@@ -1789,11 +2615,119 @@ def my_classification(
             params = {
                 &#34;penalty&#34;: [&#34;l1&#34;, &#34;l2&#34;, &#34;elasticnet&#34;],
                 &#34;C&#34;: [0.001, 0.01, 0.1, 1, 10, 100],
-                &#34;max_iter&#34;: [500],
+                &#34;max_iter&#34;: [1000],
             }
 
     return __my_classification(
         classname=LogisticRegression,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )</code></pre>
+</details>
+</dd>
+<dt id="hossam.classification.my_nb_classification"><code class="name flex">
+<span>def <span class="ident">my_nb_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, report: bool = True, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.naive_bayes.GaussianNB</span>
+</code></dt>
+<dd>
+<div class="desc"><p>나이브베이즈 분류분석을 수행하고 결과를 출력한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 훈련 데이터</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 훈련 데이터</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>conf_matrix</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>혼동행렬을 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>교차검증 횟수. Defaults to 5.</dd>
+<dt><strong><code>learning_curve</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>학습곡선을 출력할지 여부. Defaults to True.</dd>
+<dt>report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.</dt>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
+<dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>출력 여부. Defaults to True.</dd>
+<dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>하이퍼파라미터. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>SVC</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_nb_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -&gt; GaussianNB:
+    &#34;&#34;&#34;나이브베이즈 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        SVC
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                # &#34;priors&#34; : None,
+                &#34;var_smoothing&#34;: [1e-9, 1e-8, 1e-7, 1e-6, 1e-5]
+            }
+
+    return __my_classification(
+        classname=GaussianNB,
         x_train=x_train,
         y_train=y_train,
         x_test=x_test,
@@ -1808,6 +2742,243 @@ def my_classification(
         figsize=figsize,
         dpi=dpi,
         sort=sort,
+        is_print=is_print,
+        **params,
+    )</code></pre>
+</details>
+</dd>
+<dt id="hossam.classification.my_sgd_classification"><code class="name flex">
+<span>def <span class="ident">my_sgd_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, report: bool = True, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.linear_model._stochastic_gradient.SGDClassifier</span>
+</code></dt>
+<dd>
+<div class="desc"><p>SGD 분류분석을 수행하고 결과를 출력한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 훈련 데이터</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 훈련 데이터</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>conf_matrix</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>혼동행렬을 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>교차검증 횟수. Defaults to 5.</dd>
+<dt><strong><code>learning_curve</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>학습곡선을 출력할지 여부. Defaults to True.</dd>
+<dt>report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.</dt>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
+<dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>출력 여부. Defaults to True.</dd>
+<dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>하이퍼파라미터. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>SGDClassifier</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_sgd_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -&gt; SGDClassifier:
+    &#34;&#34;&#34;SGD 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        SGDClassifier
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                # 손실함수
+                # &#39;log_loss&#39;, &#39;squared_hinge&#39;, &#39;perceptron&#39;, &#39;squared_error&#39;, &#39;hinge&#39;, &#39;huber&#39;, &#39;squared_epsilon_insensitive&#39;, &#39;epsilon_insensitive&#39;, &#39;modified_huber&#39;
+                &#34;loss&#34;: [&#34;hinge&#34;, &#34;log_loss&#34;, &#34;modified_huber&#34;],
+                # 정규화 종류
+                &#34;penalty&#34;: [&#34;l2&#34;, &#34;l1&#34;, &#34;elasticnet&#34;],
+                # 정규화 강도(값이 낮을 수록 약한 정규화)
+                &#34;alpha&#34;: [0.0001, 0.001, 0.01, 0.1],
+                # 최대 반복 수행 횟수
+                &#34;max_iter&#34;: [1000, 2000, 3000, 4000, 5000],
+                # 학습률 스케줄링 전략
+                &#34;learning_rate&#34;: [&#34;optimal&#34;, &#34;constant&#34;, &#34;invscaling&#34;, &#34;adaptive&#34;],
+                # 초기 학습률
+                &#34;eta0&#34;: [0.01, 0.1, 0.5],
+            }
+
+    return __my_classification(
+        classname=SGDClassifier,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )</code></pre>
+</details>
+</dd>
+<dt id="hossam.classification.my_svc_classification"><code class="name flex">
+<span>def <span class="ident">my_svc_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, cv: int = 5, learning_curve=True, report: bool = True, figsize=(10, 5), dpi: int = 100, is_print: bool = True, **params) ‑> sklearn.svm._classes.SVC</span>
+</code></dt>
+<dd>
+<div class="desc"><p>SVC 분류분석을 수행하고 결과를 출력한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 훈련 데이터</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 훈련 데이터</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>conf_matrix</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>혼동행렬을 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>교차검증 횟수. Defaults to 5.</dd>
+<dt><strong><code>learning_curve</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>학습곡선을 출력할지 여부. Defaults to True.</dd>
+<dt>report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.</dt>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>출력 여부. Defaults to True.</dd>
+<dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>하이퍼파라미터. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>SVC</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_svc_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    # hist: bool = True,
+    # roc: bool = True,
+    # pr: bool = True,
+    # multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    is_print: bool = True,
+    **params,
+) -&gt; SVC:
+    &#34;&#34;&#34;SVC 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        SVC
+    &#34;&#34;&#34;
+
+    if &#34;hist&#34; in params:
+        del params[&#34;hist&#34;]
+    if &#34;roc&#34; in params:
+        del params[&#34;roc&#34;]
+    if &#34;pr&#34; in params:
+        del params[&#34;pr&#34;]
+    if &#34;report&#34; in params:
+        del params[&#34;report&#34;]
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;C&#34;: [0.1, 1, 10],
+                # &#34;kernel&#34;: [&#34;rbf&#34;, &#34;linear&#34;, &#34;poly&#34;, &#34;sigmoid&#34;],
+                &#34;kernel&#34;: [&#34;rbf&#34;, &#34;poly&#34;, &#34;sigmoid&#34;],
+                &#34;degree&#34;: [2, 3, 4, 5],
+                # &#34;gamma&#34;: [&#34;scale&#34;, &#34;auto&#34;],
+                # &#34;coef0&#34;: [0.01, 0.1, 1, 10],
+                # &#34;shrinking&#34;: [True, False],
+                # &#34;probability&#34;: [True],  # AUC 값 확인을 위해서는 True로 설정
+            }
+
+    return __my_classification(
+        classname=SVC,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        # hist=hist,
+        # roc=roc,
+        # pr=pr,
+        # multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
         is_print=is_print,
         **params,
     )</code></pre>
@@ -1836,8 +3007,13 @@ def my_classification(
 <li><code><a title="hossam.classification.my_classification_multiclass_report" href="#hossam.classification.my_classification_multiclass_report">my_classification_multiclass_report</a></code></li>
 <li><code><a title="hossam.classification.my_classification_report" href="#hossam.classification.my_classification_report">my_classification_report</a></code></li>
 <li><code><a title="hossam.classification.my_classification_result" href="#hossam.classification.my_classification_result">my_classification_result</a></code></li>
+<li><code><a title="hossam.classification.my_dtree_classification" href="#hossam.classification.my_dtree_classification">my_dtree_classification</a></code></li>
 <li><code><a title="hossam.classification.my_knn_classification" href="#hossam.classification.my_knn_classification">my_knn_classification</a></code></li>
+<li><code><a title="hossam.classification.my_linear_svc_classification" href="#hossam.classification.my_linear_svc_classification">my_linear_svc_classification</a></code></li>
 <li><code><a title="hossam.classification.my_logistic_classification" href="#hossam.classification.my_logistic_classification">my_logistic_classification</a></code></li>
+<li><code><a title="hossam.classification.my_nb_classification" href="#hossam.classification.my_nb_classification">my_nb_classification</a></code></li>
+<li><code><a title="hossam.classification.my_sgd_classification" href="#hossam.classification.my_sgd_classification">my_sgd_classification</a></code></li>
+<li><code><a title="hossam.classification.my_svc_classification" href="#hossam.classification.my_svc_classification">my_svc_classification</a></code></li>
 </ul>
 </li>
 </ul>

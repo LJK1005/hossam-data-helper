@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>hossam API documentation</title>
+<title>hossam.core API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -19,48 +19,153 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Package <code>hossam</code></h1>
+<h1 class="title">Module <code>hossam.core</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">__version__ = &#34;0.0.1&#34;</code></pre>
+<pre><code class="python">import inspect
+
+import numpy as np
+from pandas import DataFrame, Series
+from sklearn.model_selection import RandomizedSearchCV
+from .util import my_pretty_table
+
+
+def __ml(
+    classname: any,
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    is_print: bool = True,
+    **params,
+) -&gt; any:
+    &#34;&#34;&#34;머신러닝 분석을 수행하고 결과를 출력한다.
+
+    Args:
+        classname (any): 분류분석 추정기 (모델 객체)
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        is_print (bool, optional): 출력 여부. Defaults to True.
+
+    Returns:
+        any: 분류분석 모델
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {}
+
+        args = {}
+
+        c = str(classname)
+        p = c.rfind(&#34;.&#34;)
+        cn = c[p + 1 : -2]
+
+        if &#34;n_jobs&#34; in dict(inspect.signature(classname.__init__).parameters):
+            args[&#34;n_jobs&#34;] = -1
+            print(f&#34;\033[94m{cn}의 n_jobs 설정됨\033[0m&#34;)
+
+        if &#34;random_state&#34; in dict(inspect.signature(classname.__init__).parameters):
+            args[&#34;random_state&#34;] = 1234
+            print(f&#34;\033[94m{cn}의 random_state 설정됨\033[0m&#34;)
+
+        if &#34;early_stopping&#34; in dict(inspect.signature(classname.__init__).parameters):
+            args[&#34;early_stopping&#34;] = True
+            print(f&#34;\033[94m{cn}의 early_stopping 설정됨\033[0m&#34;)
+
+        prototype_estimator = classname(**args)
+        print(f&#34;\033[92m{cn} {params}\033[0m&#34;.replace(&#34;\n&#34;, &#34;&#34;))
+
+        # grid = GridSearchCV(
+        #     prototype_estimator, param_grid=params, cv=cv, n_jobs=-1
+        # )
+        grid = RandomizedSearchCV(
+            prototype_estimator,
+            param_distributions=params,
+            cv=cv,
+            n_jobs=-1,
+            n_iter=1000,
+        )
+
+        try:
+            grid.fit(x_train, y_train)
+        except Exception as e:
+            print(f&#34;\033[91m{cn}에서 에러발생 ({e})\033[0m&#34;)
+            return None
+
+        result_df = DataFrame(grid.cv_results_[&#34;params&#34;])
+        result_df[&#34;mean_test_score&#34;] = grid.cv_results_[&#34;mean_test_score&#34;]
+
+        estimator = grid.best_estimator_
+        estimator.best_params = grid.best_params_
+
+        if is_print:
+            print(&#34;[교차검증 TOP5]&#34;)
+            my_pretty_table(
+                result_df.dropna(subset=[&#34;mean_test_score&#34;])
+                .sort_values(by=&#34;mean_test_score&#34;, ascending=False)
+                .head()
+            )
+            print(&#34;&#34;)
+
+            print(&#34;[Best Params]&#34;)
+            print(grid.best_params_)
+            print(&#34;&#34;)
+    else:
+        if &#34;n_jobs&#34; in dict(inspect.signature(classname.__init__).parameters):
+            params[&#34;n_jobs&#34;] = -1
+        else:
+            print(&#34;%s는 n_jobs를 허용하지 않음&#34; % classname)
+
+        if &#34;random_state&#34; in dict(inspect.signature(classname.__init__).parameters):
+            params[&#34;random_state&#34;] = 1234
+        else:
+            print(&#34;%s는 random_state를 허용하지 않음&#34; % classname)
+
+        estimator = classname(**params)
+        estimator.fit(x_train, y_train)
+
+    # ------------------------------------------------------
+    # 결과값 생성
+
+    # 훈련 데이터에 대한 추정치 생성
+    y_pred = (
+        estimator.predict(x_test) if x_test is not None else estimator.predict(x_train)
+    )
+
+    if hasattr(estimator, &#34;predict_proba&#34;):
+        y_pred_prob = (
+            estimator.predict_proba(x_test)
+            if x_test is not None
+            else estimator.predict_proba(x_train)
+        )
+
+    # 도출된 결과를 모델 객체에 포함시킴
+    estimator.x = x_test if x_test is not None else x_train
+    estimator.y = y_test if y_test is not None else y_train
+    estimator.y_pred = y_pred if y_test is not None else estimator.predict(x_train)
+    estimator.resid = (
+        y_test - y_pred if y_test is not None else y_train - estimator.predict(x_train)
+    )
+
+    if hasattr(estimator, &#34;predict_proba&#34;):
+        estimator.y_pred_proba = (
+            y_pred_prob if y_test is not None else estimator.predict_proba(x_train)
+        )
+
+    return estimator</code></pre>
 </details>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
-<dl>
-<dt><code class="name"><a title="hossam.analysis" href="analysis.html">hossam.analysis</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="hossam.classification" href="classification.html">hossam.classification</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="hossam.core" href="core.html">hossam.core</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="hossam.plot" href="plot.html">hossam.plot</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="hossam.regression" href="regression.html">hossam.regression</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="hossam.timeserise" href="timeserise.html">hossam.timeserise</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="hossam.util" href="util.html">hossam.util</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 </section>
 <section>
 </section>
@@ -75,15 +180,9 @@
 <ul></ul>
 </div>
 <ul id="index">
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
+<li><h3>Super-module</h3>
 <ul>
-<li><code><a title="hossam.analysis" href="analysis.html">hossam.analysis</a></code></li>
-<li><code><a title="hossam.classification" href="classification.html">hossam.classification</a></code></li>
-<li><code><a title="hossam.core" href="core.html">hossam.core</a></code></li>
-<li><code><a title="hossam.plot" href="plot.html">hossam.plot</a></code></li>
-<li><code><a title="hossam.regression" href="regression.html">hossam.regression</a></code></li>
-<li><code><a title="hossam.timeserise" href="timeserise.html">hossam.timeserise</a></code></li>
-<li><code><a title="hossam.util" href="util.html">hossam.util</a></code></li>
+<li><code><a title="hossam" href="index.html">hossam</a></code></li>
 </ul>
 </li>
 </ul>

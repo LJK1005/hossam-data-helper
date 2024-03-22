@@ -26,7 +26,7 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import logging
+<pre><code class="python"># import logging
 import numpy as np
 import seaborn as sb
 import datetime as dt
@@ -510,10 +510,10 @@ def my_prophet(
         tuple: best_model, best_params, best_score
     &#34;&#34;&#34;
 
-    logger = logging.getLogger(&#34;cmdstanpy&#34;)
-    logger.addHandler(logging.NullHandler())
-    logger.propagate = False
-    logger.setLevel(logging.CRITICAL)
+    # logger = logging.getLogger(&#34;cmdstanpy&#34;)
+    # logger.addHandler(logging.NullHandler())
+    # logger.propagate = False
+    # logger.setLevel(logging.CRITICAL)
 
     # ------------------------------------------------------
     # 분석모델 생성
@@ -1252,10 +1252,10 @@ def get_weekend_df(start: any, end: any = None) -&gt; DataFrame:
         tuple: best_model, best_params, best_score
     &#34;&#34;&#34;
 
-    logger = logging.getLogger(&#34;cmdstanpy&#34;)
-    logger.addHandler(logging.NullHandler())
-    logger.propagate = False
-    logger.setLevel(logging.CRITICAL)
+    # logger = logging.getLogger(&#34;cmdstanpy&#34;)
+    # logger.addHandler(logging.NullHandler())
+    # logger.propagate = False
+    # logger.setLevel(logging.CRITICAL)
 
     # ------------------------------------------------------
     # 분석모델 생성

@@ -904,7 +904,7 @@ def my_knn_regression(
     )
 
 
-def my_knn_regression(
+def my_dtree_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
@@ -920,76 +920,7 @@ def my_knn_regression(
     sort: str = None,
     is_print: bool = True,
     **params,
-) -> KNeighborsRegressor:
-    """KNN 회귀분석을 수행하고 결과를 출력한다.
-
-    Args:
-        x_train (DataFrame): 독립변수에 대한 훈련 데이터
-        y_train (Series): 종속변수에 대한 훈련 데이터
-        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
-        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
-        cv (int, optional): 교차검증 횟수. Defaults to 0.
-        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
-        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
-        plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
-        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
-        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
-        dpi (int, optional): 그래프의 해상도. Defaults to 100.
-        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-        is_print (bool, optional): 출력 여부. Defaults to True.
-        **params (dict, optional): 하이퍼파라미터. Defaults to None.
-
-    Returns:
-        KNeighborsRegressor
-    """
-
-    # 교차검증 설정
-    if cv > 0:
-        if not params:
-            params = {
-                "n_neighbors": [3, 5, 7],
-                "weights": ["uniform", "distance"],
-                "metric": ["euclidean", "manhattan"],
-            }
-
-    return __my_regression(
-        classname=KNeighborsRegressor,
-        x_train=x_train,
-        y_train=y_train,
-        x_test=x_test,
-        y_test=y_test,
-        cv=cv,
-        learning_curve=learning_curve,
-        report=report,
-        plot=plot,
-        degree=degree,
-        resid_test=resid_test,
-        figsize=figsize,
-        dpi=dpi,
-        sort=sort,
-        is_print=is_print,
-        **params,
-    )
-
-
-def my_knn_regression(
-    x_train: DataFrame,
-    y_train: Series,
-    x_test: DataFrame = None,
-    y_test: Series = None,
-    cv: int = 5,
-    learning_curve: bool = True,
-    report=True,
-    plot: bool = False,
-    degree: int = 1,
-    resid_test=False,
-    figsize=(10, 5),
-    dpi: int = 100,
-    sort: str = None,
-    is_print: bool = True,
-    **params,
-) -> KNeighborsRegressor:
+) -> DecisionTreeRegressor:
     """DecisionTree 회귀분석을 수행하고 결과를 출력한다.
 
     Args:

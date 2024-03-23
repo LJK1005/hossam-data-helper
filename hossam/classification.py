@@ -1323,5 +1323,9 @@ def my_classification(
             result_df.sort_values(score_fields, ascending=False, inplace=True)
 
         my_pretty_table(result_df)
+    
+    # 최고 성능의 모델을 선택
+    best_idx = result_df[score_fields[0]].idxmax()
+    estimators['best'] = estimators[best_idx]
 
     return estimators

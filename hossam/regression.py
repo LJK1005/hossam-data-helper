@@ -1093,6 +1093,7 @@ def my_regression(
     sort: str = None,
     algorithm: list = None,
     pruning: bool = False,
+    scoring: list = ["rmse", "mse", "r2", "mae", "mape", "mpe"],
     **params,
 ) -> any:
     """회귀분석을 수행하고 결과를 출력한다.
@@ -1145,6 +1146,29 @@ def my_regression(
 
     if not algorithm or "sgd" in algorithm:
         callstack.append(my_sgd_regression)
+        
+    score_fields = []
+    score_method = []
+    
+    for s in scoring:
+        if s == "r2":
+            score_fields.append("결정계수(R2)")
+            score_method.append(True)
+        elif s == "rmse":
+            score_fields.append("평균오차(RMSE)")
+            score_method.append(False)
+        elif s == "mae":
+            score_fields.append("평균절대오차(MAE)")
+            score_method.append(False)
+        elif s == "mse":
+            score_fields.append("평균제곱오차(MSE)")
+            score_method.append(False)
+        elif s == "mape":
+            score_fields.append("평균 절대 백분오차 비율(MAPE)")
+            score_method.append(False)
+        elif s == "mpe":
+            score_fields.append("평균 비율 오차(MPE) ")
+            score_method.append(False)
 
     # 병렬처리를 위한 프로세스 생성 -> 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
@@ -1188,6 +1212,18 @@ def my_regression(
 
         # 결과값을 데이터프레임으로 변환
         result_df = DataFrame(results, index=estimator_names)
+        
+        if score_fields:
+            result_df.sort_values(score_fields, ascending=score_method, inplace=True)
+            
         my_pretty_table(result_df)
+        
+    # 최고 성능의 모델을 선택
+    if score_fields[0] == "결정계수(R2)":
+        best_idx = result_df[score_fields[0]].idxmax()
+    else:
+        best_idx = result_df[score_fields[0]].idxmin()
+        
+    estimators['best'] = estimators[best_idx]
 
     return estimators

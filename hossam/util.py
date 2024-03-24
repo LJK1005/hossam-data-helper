@@ -581,6 +581,17 @@ def my_labelling(data: DataFrame, *fields: str) -> DataFrame:
         label = {v: i for i, v in enumerate(vc)}
         df[f] = df[f].map(label).astype("int")
 
+        # 라벨링 상황을 출력한다.
+        i = []
+        v = []
+        for k in label:
+            i.append(k)
+            v.append(label[k])
+
+        label_df = DataFrame({"label": v}, index=i)
+        label_df.index.name = f
+        my_pretty_table(label_df)
+
     return df
 
 

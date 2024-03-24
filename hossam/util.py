@@ -518,14 +518,14 @@ def my_trend(x: any, y: any, degree=2, value_count=100) -> tuple:
 
 
 def my_poly_features(
-    data: DataFrame, columns: list = [], ignore: list = [], degree: int = 2
+    data: DataFrame, columns: any = None, ignore: any = None, degree: int = 2
 ) -> DataFrame:
     """전달된 데이터프레임에 대해서 2차항을 추가한 새로온 데이터프레임을 리턴한다.
 
     Args:
         data (DataFrame): 원본 데이터 프레임
-        columns (list, optional): 2차항을 생성할 필드 목록. 전달되지 않을 경우 전체 필드에 대해 처리 Default to [].
-        ignore (list, optional): 2차항을 생성하지 않을 필드 목록. Default to [].
+        columns (any, optional): 2차항을 생성할 필드 목록. 전달되지 않을 경우 전체 필드에 대해 처리 Default to None.
+        ignore (any, optional): 2차항을 생성하지 않을 필드 목록. Default to None.
         degree (int, optional): 차수. Default to 2
 
     Returns:
@@ -536,11 +536,21 @@ def my_poly_features(
     if not columns:
         columns = df.columns
 
+    if not type(columns) == list:
+        columns = [columns]
+
     ignore_df = None
     if ignore:
+        if not type(ignore) == list:
+            ignore = [ignore]
+
         ignore_df = df[ignore]
         df.drop(ignore, axis=1, inplace=True)
-        columns = [c for c in columns if c not in ignore]
+
+        columns = []
+        for c in list(df.columns):
+            if c not in ignore:
+                columns.append(c)
 
     poly = PolynomialFeatures(degree=degree, include_bias=False)
     poly_fit = poly.fit_transform(df[columns])
@@ -603,7 +613,9 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = "smote") -> DataFr
     return xdata, ydata
 
 
-def my_vif_filter(data: DataFrame, yname: str = None, threshold: float = 10) -> DataFrame:
+def my_vif_filter(
+    data: DataFrame, yname: str = None, threshold: float = 10
+) -> DataFrame:
     """독립변수 간 다중공선성을 검사하여 VIF가 threshold 이상인 변수를 제거한다.
 
     Args:
@@ -633,17 +645,16 @@ def my_vif_filter(data: DataFrame, yname: str = None, threshold: float = 10) -> 
     while True:
         xnames = list(df.columns)
         vif = {}
-        
+
         for x in xnames:
             vif[x] = variance_inflation_factor(df, xnames.index(x))
 
         maxkey = max(vif, key=vif.get)
-        
+
         if vif[maxkey] <= threshold:
             break
-        
-        df = df.drop(maxkey, axis=1)
 
+        df = df.drop(maxkey, axis=1)
 
     # 분리했던 명목형 변수를 다시 결합
     if category_fields:
@@ -652,5 +663,5 @@ def my_vif_filter(data: DataFrame, yname: str = None, threshold: float = 10) -> 
     # 분리했던 종속 변수를 다시 결합
     if yname:
         df[yname] = y
-        
+
     return df

@@ -272,6 +272,7 @@ def my_regression_report(
 
     xnames = x.columns
     yname = y.name
+    y_pred = estimator.predict(x)
 
     if estimator.__class__.__name__ in ["LinearRegression", "Lasso", "Ridge"]:
         expr = "{yname} = ".format(yname=yname)
@@ -288,10 +289,6 @@ def my_regression_report(
         if x is None and y is None:
             x = estimator.x
             y = estimator.y
-
-        y_pred = estimator.predict(x)
-        xnames = x.columns
-        yname = y.name
 
         # 잔차
         resid = y - y_pred
@@ -475,7 +472,7 @@ def my_regression_report(
                     label="관측치 추세선",
                 )
 
-                t2 = my_trend(x[v], y_pred, deg=deg)
+                t2 = my_trend(x[v], y_pred, degree=deg)
                 sb.lineplot(
                     x=t2[0], y=t2[1], color="red", linestyle="--", label="추정치 추세선"
                 )
@@ -1083,16 +1080,15 @@ def my_regression(
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
-    learning_curve: bool = False,
-    report=False,
-    plot: bool = False,
+    learning_curve: bool = True,
+    report=True,
+    plot: bool = True,
     deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
     algorithm: list = None,
-    pruning: bool = False,
     scoring: list = ["rmse", "mse", "r2", "mae", "mape", "mpe"],
     **params,
 ) -> any:
@@ -1167,7 +1163,7 @@ def my_regression(
             score_fields.append("평균 절대 백분오차 비율(MAPE)")
             score_method.append(False)
         elif s == "mpe":
-            score_fields.append("평균 비율 오차(MPE) ")
+            score_fields.append("평균 비율 오차(MPE)")
             score_method.append(False)
 
     # 병렬처리를 위한 프로세스 생성 -> 분류 모델을 생성하는 함수를 각각 호출한다.
@@ -1181,14 +1177,14 @@ def my_regression(
                     x_test=x_test,
                     y_test=y_test,
                     cv=cv,
-                    learning_curve=learning_curve,
-                    report=report,
-                    plot=plot,
-                    deg=deg,
-                    resid_test=resid_test,
+                    learning_curve=False,
+                    report=False,
+                    plot=False,
+                    deg=1,
+                    resid_test=False,
                     figsize=figsize,
                     dpi=dpi,
-                    sort=sort,
+                    sort=False,
                     is_print=False,
                     # pruning=pruning,
                     **params,
@@ -1225,5 +1221,10 @@ def my_regression(
         best_idx = result_df[score_fields[0]].idxmin()
         
     estimators['best'] = estimators[best_idx]
+    
+    my_regression_result(estimators['best'], x_train, y_train, x_test, y_test, learning_curve=learning_curve,
+                         cv=cv, figsize=figsize, dpi=dpi, is_print=True)
+    
+    my_regression_report(estimators['best'], x_train, y_train, x_test, y_test, sort=sort, plot=plot, deg=deg, figsize=figsize, dpi=dpi)
 
     return estimators

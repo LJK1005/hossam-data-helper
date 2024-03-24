@@ -1028,6 +1028,7 @@ def my_learing_curve(
                 f"\x1b[31m이 데이터는 학습곡선을 도출하는데 적합하지 않습니다.\x1b[0m"
             )
             print(f"\x1b[31m{e}\x1b[0m")
+            return
 
     # 평가지표가 있는 경우
     else:

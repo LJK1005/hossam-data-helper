@@ -38,6 +38,8 @@ from pandas import DataFrame, Series, concat
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.tree import DecisionTreeRegressor
+from sklearn.svm import SVR
+from sklearn.linear_model import SGDRegressor
 
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import StandardScaler
@@ -64,11 +66,12 @@ def __my_regression(
     report=True,
     plot: bool = True,
     resid_test=True,
-    degree: int = 1,
+    deg: int = 1,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
+    pruning: bool = False,
     **params,
 ) -&gt; LinearRegression:
     &#34;&#34;&#34;회귀분석을 수행하고 결과를 출력한다.
@@ -83,7 +86,7 @@ def __my_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
@@ -109,30 +112,18 @@ def __my_regression(
 
     # ------------------------------------------------------
     # 성능평가
-    if x_test is not None and y_test is not None:
-        my_regression_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            x_test=x_test,
-            y_test=y_test,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-            is_print=is_print,
-        )
-    else:
-        my_regression_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-            is_print=is_print,
-        )
+    my_regression_result(
+        estimator,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        learning_curve=learning_curve,
+        cv=cv,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+    )
 
     # ------------------------------------------------------
     # 보고서 출력
@@ -144,7 +135,7 @@ def __my_regression(
             estimator.y,
             sort,
             plot=plot,
-            degree=degree,
+            deg=deg,
             figsize=figsize,
             dpi=dpi,
         )
@@ -227,7 +218,7 @@ def my_regression_result(
         score_names.append(&#34;검증데이터&#34;)
 
     # 결과값을 모델 객체에 포함시킴
-    estimator.scores = scores[-2]
+    estimator.scores = scores[-1]
 
     if is_print:
         print(&#34;[회귀분석 성능평가]&#34;)
@@ -271,12 +262,14 @@ def my_regression_result(
 
 
 def my_regression_report(
-    estimator: LinearRegression,
-    x: DataFrame = None,
-    y: Series = None,
+    estimator: any,
+    x_train: DataFrame = None,
+    y_train: Series = None,
+    x_test: DataFrame = None,
+    y_test: Series = None,
     sort: str = None,
     plot: bool = False,
-    degree: int = 1,
+    deg: int = 1,
     figsize: tuple = (10, 5),
     dpi: int = 100,
 ) -&gt; None:
@@ -284,19 +277,30 @@ def my_regression_report(
 
     Args:
         estimator (LinearRegression): 선형회귀 객체
-        x (DataFrame): 독립변수에 대한 훈련 데이터
-        y (Series): 종속변수에 대한 훈련 데이터
+        x_train (DataFrame, optional): 훈련 데이터의 독립변수. Defaults to None.
+        y_train (Series, optional): 훈련 데이터의 종속변수. Defaults to None.
+        x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
+        y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
         sort (str, optional): 정렬 기준 (v, p). Defaults to None.
         plot (bool, optional): 시각화 여부. Defaults to False.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
     &#34;&#34;&#34;
 
     # ------------------------------------------------------
     # 회귀식
+
+    if x_test is not None and y_test is not None:
+        x = x_test.copy()
+        y = y_test.copy()
+    else:
+        x = x_train.copy()
+        y = y_train.copy()
+
     xnames = x.columns
     yname = y.name
+    y_pred = estimator.predict(x)
 
     if estimator.__class__.__name__ in [&#34;LinearRegression&#34;, &#34;Lasso&#34;, &#34;Ridge&#34;]:
         expr = &#34;{yname} = &#34;.format(yname=yname)
@@ -313,10 +317,6 @@ def my_regression_report(
         if x is None and y is None:
             x = estimator.x
             y = estimator.y
-
-        y_pred = estimator.predict(x)
-        xnames = x.columns
-        yname = y.name
 
         # 잔차
         resid = y - y_pred
@@ -381,9 +381,11 @@ def my_regression_report(
 
         if sort:
             if sort.upper() == &#34;V&#34;:
-                result_df.sort_values(&#34;VIF&#34;, inplace=True)
+                result_df = result_df.sort_values(&#34;VIF&#34;, ascending=False).reset_index()
             elif sort.upper() == &#34;P&#34;:
-                result_df.sort_values(&#34;유의확률&#34;, inplace=True)
+                result_df = result_df.sort_values(
+                    &#34;유의확률&#34;, ascending=False
+                ).reset_index()
 
         # result_df
         my_pretty_table(result_df)
@@ -469,6 +471,10 @@ def my_regression_report(
             }
         )
 
+        if sort:
+            if sort.upper() == &#34;V&#34;:
+                result_df = result_df.sort_values(&#34;VIF&#34;, ascending=False).reset_index()
+
         # result_df
         my_pretty_table(result_df)
         print(&#34;&#34;)
@@ -478,14 +484,14 @@ def my_regression_report(
         for i, v in enumerate(xnames):
             plt.figure(figsize=figsize, dpi=dpi)
 
-            if degree == 1:
+            if deg == 1:
                 sb.regplot(x=x[v], y=y, ci=95, label=&#34;관측치&#34;)
                 sb.regplot(x=x[v], y=y_pred, ci=0, label=&#34;추정치&#34;)
             else:
                 sb.scatterplot(x=x[v], y=y, label=&#34;관측치&#34;)
                 sb.scatterplot(x=x[v], y=y_pred, label=&#34;추정치&#34;)
 
-                t1 = my_trend(x[v], y, degree=degree)
+                t1 = my_trend(x[v], y, degree=deg)
                 sb.lineplot(
                     x=t1[0],
                     y=t1[1],
@@ -494,7 +500,7 @@ def my_regression_report(
                     label=&#34;관측치 추세선&#34;,
                 )
 
-                t2 = my_trend(x[v], y_pred, degree=degree)
+                t2 = my_trend(x[v], y_pred, degree=deg)
                 sb.lineplot(
                     x=t2[0], y=t2[1], color=&#34;red&#34;, linestyle=&#34;--&#34;, label=&#34;추정치 추세선&#34;
                 )
@@ -612,7 +618,7 @@ def my_linear_regression(
     learning_curve: bool = True,
     report=True,
     plot: bool = False,
-    degree: int = 1,
+    deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
@@ -631,7 +637,7 @@ def my_linear_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
@@ -658,7 +664,7 @@ def my_linear_regression(
         learning_curve=learning_curve,
         report=report,
         plot=plot,
-        degree=degree,
+        deg=deg,
         resid_test=resid_test,
         figsize=figsize,
         dpi=dpi,
@@ -677,7 +683,7 @@ def my_ridge_regression(
     learning_curve: bool = True,
     report=True,
     plot: bool = False,
-    degree: int = 1,
+    deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
@@ -696,7 +702,7 @@ def my_ridge_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
@@ -723,7 +729,7 @@ def my_ridge_regression(
         learning_curve=learning_curve,
         report=report,
         plot=plot,
-        degree=degree,
+        deg=deg,
         resid_test=resid_test,
         figsize=figsize,
         dpi=dpi,
@@ -742,7 +748,7 @@ def my_lasso_regression(
     learning_curve: bool = True,
     report=True,
     plot: bool = False,
-    degree: int = 1,
+    deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
@@ -761,7 +767,7 @@ def my_lasso_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
@@ -788,72 +794,7 @@ def my_lasso_regression(
         learning_curve=learning_curve,
         report=report,
         plot=plot,
-        degree=degree,
-        resid_test=resid_test,
-        figsize=figsize,
-        dpi=dpi,
-        sort=sort,
-        is_print=is_print,
-        **params,
-    )
-
-
-def my_ridge_regression(
-    x_train: DataFrame,
-    y_train: Series,
-    x_test: DataFrame = None,
-    y_test: Series = None,
-    cv: int = 5,
-    learning_curve: bool = True,
-    report=True,
-    plot: bool = False,
-    degree: int = 1,
-    resid_test=False,
-    figsize=(10, 5),
-    dpi: int = 100,
-    sort: str = None,
-    is_print: bool = True,
-    **params,
-) -&gt; Ridge:
-    &#34;&#34;&#34;릿지회귀분석을 수행하고 결과를 출력한다.
-
-    Args:
-        x_train (DataFrame): 독립변수에 대한 훈련 데이터
-        y_train (Series): 종속변수에 대한 훈련 데이터
-        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
-        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
-        cv (int, optional): 교차검증 횟수. Defaults to 0.
-        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
-        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
-        plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
-        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
-        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
-        dpi (int, optional): 그래프의 해상도. Defaults to 100.
-        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-        is_print (bool, optional): 출력 여부. Defaults to True.
-        **params (dict, optional): 하이퍼파라미터. Defaults to None.
-
-    Returns:
-        Ridge: Ridge 모델
-    &#34;&#34;&#34;
-
-    # 교차검증 설정
-    if cv &gt; 0:
-        if not params:
-            params = {&#34;alpha&#34;: [0.01, 0.1, 1, 10, 100]}
-
-    return __my_regression(
-        classname=Ridge,
-        x_train=x_train,
-        y_train=y_train,
-        x_test=x_test,
-        y_test=y_test,
-        cv=cv,
-        learning_curve=learning_curve,
-        report=report,
-        plot=plot,
-        degree=degree,
+        deg=deg,
         resid_test=resid_test,
         figsize=figsize,
         dpi=dpi,
@@ -872,7 +813,7 @@ def my_knn_regression(
     learning_curve: bool = True,
     report=True,
     plot: bool = False,
-    degree: int = 1,
+    deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
@@ -891,7 +832,7 @@ def my_knn_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
@@ -922,7 +863,7 @@ def my_knn_regression(
         learning_curve=learning_curve,
         report=report,
         plot=plot,
-        degree=degree,
+        deg=deg,
         resid_test=resid_test,
         figsize=figsize,
         dpi=dpi,
@@ -932,92 +873,24 @@ def my_knn_regression(
     )
 
 
-def my_knn_regression(
+def my_dtree_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
+    pruning: bool = False,
     learning_curve: bool = True,
     report=True,
     plot: bool = False,
-    degree: int = 1,
+    deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
     **params,
-) -&gt; KNeighborsRegressor:
-    &#34;&#34;&#34;KNN 회귀분석을 수행하고 결과를 출력한다.
-
-    Args:
-        x_train (DataFrame): 독립변수에 대한 훈련 데이터
-        y_train (Series): 종속변수에 대한 훈련 데이터
-        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
-        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
-        cv (int, optional): 교차검증 횟수. Defaults to 0.
-        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
-        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
-        plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
-        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
-        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
-        dpi (int, optional): 그래프의 해상도. Defaults to 100.
-        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-        is_print (bool, optional): 출력 여부. Defaults to True.
-        **params (dict, optional): 하이퍼파라미터. Defaults to None.
-
-    Returns:
-        KNeighborsRegressor
-    &#34;&#34;&#34;
-
-    # 교차검증 설정
-    if cv &gt; 0:
-        if not params:
-            params = {
-                &#34;n_neighbors&#34;: [3, 5, 7],
-                &#34;weights&#34;: [&#34;uniform&#34;, &#34;distance&#34;],
-                &#34;metric&#34;: [&#34;euclidean&#34;, &#34;manhattan&#34;],
-            }
-
-    return __my_regression(
-        classname=KNeighborsRegressor,
-        x_train=x_train,
-        y_train=y_train,
-        x_test=x_test,
-        y_test=y_test,
-        cv=cv,
-        learning_curve=learning_curve,
-        report=report,
-        plot=plot,
-        degree=degree,
-        resid_test=resid_test,
-        figsize=figsize,
-        dpi=dpi,
-        sort=sort,
-        is_print=is_print,
-        **params,
-    )
-
-
-def my_knn_regression(
-    x_train: DataFrame,
-    y_train: Series,
-    x_test: DataFrame = None,
-    y_test: Series = None,
-    cv: int = 5,
-    learning_curve: bool = True,
-    report=True,
-    plot: bool = False,
-    degree: int = 1,
-    resid_test=False,
-    figsize=(10, 5),
-    dpi: int = 100,
-    sort: str = None,
-    is_print: bool = True,
-    **params,
-) -&gt; KNeighborsRegressor:
+) -&gt; DecisionTreeRegressor:
     &#34;&#34;&#34;DecisionTree 회귀분석을 수행하고 결과를 출력한다.
 
     Args:
@@ -1029,12 +902,13 @@ def my_knn_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
@@ -1063,7 +937,162 @@ def my_knn_regression(
         learning_curve=learning_curve,
         report=report,
         plot=plot,
-        degree=degree,
+        deg=deg,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        pruning=pruning,
+        **params,
+    )
+
+
+def my_svr_regression(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=True,
+    plot: bool = False,
+    deg: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -&gt; SVR:
+    &#34;&#34;&#34;Support Vector Machine 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        SVR
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;C&#34;: [0.1, 1, 10],
+                # &#34;kernel&#34;: [&#34;rbf&#34;, &#34;linear&#34;, &#34;poly&#34;, &#34;sigmoid&#34;],
+                &#34;kernel&#34;: [&#34;rbf&#34;, &#34;poly&#34;, &#34;sigmoid&#34;],
+                &#34;degree&#34;: [2, 3, 4, 5],
+                # &#34;gamma&#34;: [&#34;scale&#34;, &#34;auto&#34;],
+                # &#34;coef0&#34;: [0.01, 0.1, 1, 10],
+                # &#34;shrinking&#34;: [True, False],
+                # &#34;probability&#34;: [True],  # AUC 값 확인을 위해서는 True로 설정
+            }
+
+    return __my_regression(
+        classname=SVR,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        deg=deg,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+def my_sgd_regression(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=True,
+    plot: bool = False,
+    deg: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -&gt; SGDRegressor:
+    &#34;&#34;&#34;SGD 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        SGDRegressor
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                # 손실함수
+                &#34;loss&#34;: [&#34;squared_error&#34;, &#34;huber&#34;, &#34;epsilon_insensitive&#34;],
+                # 정규화 종류
+                &#34;penalty&#34;: [&#34;l2&#34;, &#34;l1&#34;, &#34;elasticnet&#34;],
+                # 정규화 강도(값이 낮을 수록 약한 정규화)
+                &#34;alpha&#34;: [0.0001, 0.001, 0.01, 0.1],
+                # 최대 반복 수행 횟수
+                &#34;max_iter&#34;: [1000, 2000, 3000, 4000, 5000],
+                # 학습률 스케줄링 전략
+                &#34;learning_rate&#34;: [&#34;optimal&#34;, &#34;constant&#34;, &#34;invscaling&#34;, &#34;adaptive&#34;],
+                # 초기 학습률
+                &#34;eta0&#34;: [0.01, 0.1, 0.5],
+            }
+
+    return __my_regression(
+        classname=SGDRegressor,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        deg=deg,
         resid_test=resid_test,
         figsize=figsize,
         dpi=dpi,
@@ -1080,14 +1109,15 @@ def my_regression(
     y_test: Series = None,
     cv: int = 5,
     learning_curve: bool = True,
-    report=False,
-    plot: bool = False,
-    degree: int = 1,
+    report=True,
+    plot: bool = True,
+    deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
     algorithm: list = None,
+    scoring: list = [&#34;rmse&#34;, &#34;mse&#34;, &#34;r2&#34;, &#34;mae&#34;, &#34;mape&#34;, &#34;mpe&#34;],
     **params,
 ) -&gt; any:
     &#34;&#34;&#34;회귀분석을 수행하고 결과를 출력한다.
@@ -1101,12 +1131,13 @@ def my_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         algorithm: list = None,
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
@@ -1117,12 +1148,6 @@ def my_regression(
     processes = []  # 병렬처리를 위한 프로세스 리스트
     estimators = {}  # 분류분석 모델을 저장할 딕셔너리
     estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
-
-    # 교차검증 설정
-    if cv &gt; 0:
-        if not params:
-            params = {&#34;alpha&#34;: [0.01, 0.1, 1, 10, 100]}
-
     callstack = []
 
     if not algorithm or &#34;linear&#34; in algorithm:
@@ -1140,6 +1165,35 @@ def my_regression(
     if not algorithm or &#34;dtree&#34; in algorithm:
         callstack.append(my_dtree_regression)
 
+    if not algorithm or &#34;svr&#34; in algorithm:
+        callstack.append(my_svr_regression)
+
+    if not algorithm or &#34;sgd&#34; in algorithm:
+        callstack.append(my_sgd_regression)
+        
+    score_fields = []
+    score_method = []
+    
+    for s in scoring:
+        if s == &#34;r2&#34;:
+            score_fields.append(&#34;결정계수(R2)&#34;)
+            score_method.append(True)
+        elif s == &#34;rmse&#34;:
+            score_fields.append(&#34;평균오차(RMSE)&#34;)
+            score_method.append(False)
+        elif s == &#34;mae&#34;:
+            score_fields.append(&#34;평균절대오차(MAE)&#34;)
+            score_method.append(False)
+        elif s == &#34;mse&#34;:
+            score_fields.append(&#34;평균제곱오차(MSE)&#34;)
+            score_method.append(False)
+        elif s == &#34;mape&#34;:
+            score_fields.append(&#34;평균 절대 백분오차 비율(MAPE)&#34;)
+            score_method.append(False)
+        elif s == &#34;mpe&#34;:
+            score_fields.append(&#34;평균 비율 오차(MPE)&#34;)
+            score_method.append(False)
+
     # 병렬처리를 위한 프로세스 생성 -&gt; 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
         for c in callstack:
@@ -1151,15 +1205,16 @@ def my_regression(
                     x_test=x_test,
                     y_test=y_test,
                     cv=cv,
-                    learning_curve=learning_curve,
-                    report=report,
-                    plot=plot,
-                    degree=degree,
-                    resid_test=resid_test,
+                    learning_curve=False,
+                    report=False,
+                    plot=False,
+                    deg=1,
+                    resid_test=False,
                     figsize=figsize,
                     dpi=dpi,
-                    sort=sort,
+                    sort=False,
                     is_print=False,
+                    # pruning=pruning,
                     **params,
                 )
             )
@@ -1181,7 +1236,24 @@ def my_regression(
 
         # 결과값을 데이터프레임으로 변환
         result_df = DataFrame(results, index=estimator_names)
+        
+        if score_fields:
+            result_df.sort_values(score_fields, ascending=score_method, inplace=True)
+            
         my_pretty_table(result_df)
+        
+    # 최고 성능의 모델을 선택
+    if score_fields[0] == &#34;결정계수(R2)&#34;:
+        best_idx = result_df[score_fields[0]].idxmax()
+    else:
+        best_idx = result_df[score_fields[0]].idxmin()
+        
+    estimators[&#39;best&#39;] = estimators[best_idx]
+    
+    my_regression_result(estimators[&#39;best&#39;], x_train, y_train, x_test, y_test, learning_curve=learning_curve,
+                         cv=cv, figsize=figsize, dpi=dpi, is_print=True)
+    
+    my_regression_report(estimators[&#39;best&#39;], x_train, y_train, x_test, y_test, sort=sort, plot=plot, deg=deg, figsize=figsize, dpi=dpi)
 
     return estimators</code></pre>
 </details>
@@ -1193,8 +1265,8 @@ def my_regression(
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="hossam.regression.my_knn_regression"><code class="name flex">
-<span>def <span class="ident">my_knn_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=True, plot: bool = False, degree: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.neighbors._regression.KNeighborsRegressor</span>
+<dt id="hossam.regression.my_dtree_regression"><code class="name flex">
+<span>def <span class="ident">my_dtree_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, pruning: bool = False, learning_curve: bool = True, report=True, plot: bool = False, deg: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.tree._classes.DecisionTreeRegressor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>DecisionTree 회귀분석을 수행하고 결과를 출력한다.</p>
@@ -1216,7 +1288,7 @@ def my_regression(
 <dd>회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.</dd>
 <dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>시각화 여부. Defaults to True.</dd>
-<dt><strong><code>degree</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dt><strong><code>deg</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>다항회귀분석의 차수. Defaults to 1.</dd>
 <dt><strong><code>resid_test</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>잔차의 가정을 확인할지 여부. Defaults to False.</dd>
@@ -1228,6 +1300,8 @@ def my_regression(
 <dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
 <dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>출력 여부. Defaults to True.</dd>
+<dt><strong><code>pruning</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.</dd>
 <dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>하이퍼파라미터. Defaults to None.</dd>
 </dl>
@@ -1237,23 +1311,24 @@ def my_regression(
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def my_knn_regression(
+<pre><code class="python">def my_dtree_regression(
     x_train: DataFrame,
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
+    pruning: bool = False,
     learning_curve: bool = True,
     report=True,
     plot: bool = False,
-    degree: int = 1,
+    deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
     **params,
-) -&gt; KNeighborsRegressor:
+) -&gt; DecisionTreeRegressor:
     &#34;&#34;&#34;DecisionTree 회귀분석을 수행하고 결과를 출력한다.
 
     Args:
@@ -1265,12 +1340,13 @@ def my_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
@@ -1299,7 +1375,121 @@ def my_regression(
         learning_curve=learning_curve,
         report=report,
         plot=plot,
-        degree=degree,
+        deg=deg,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        pruning=pruning,
+        **params,
+    )</code></pre>
+</details>
+</dd>
+<dt id="hossam.regression.my_knn_regression"><code class="name flex">
+<span>def <span class="ident">my_knn_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=True, plot: bool = False, deg: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.neighbors._regression.KNeighborsRegressor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>KNN 회귀분석을 수행하고 결과를 출력한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 훈련 데이터</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 훈련 데이터</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>교차검증 횟수. Defaults to 0.</dd>
+<dt><strong><code>learning_curve</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>학습곡선을 출력할지 여부. Defaults to False.</dd>
+<dt><strong><code>report</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>시각화 여부. Defaults to True.</dd>
+<dt><strong><code>deg</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>다항회귀분석의 차수. Defaults to 1.</dd>
+<dt><strong><code>resid_test</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>잔차의 가정을 확인할지 여부. Defaults to False.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
+<dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>출력 여부. Defaults to True.</dd>
+<dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>하이퍼파라미터. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>KNeighborsRegressor</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_knn_regression(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=True,
+    plot: bool = False,
+    deg: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -&gt; KNeighborsRegressor:
+    &#34;&#34;&#34;KNN 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        KNeighborsRegressor
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;n_neighbors&#34;: [3, 5, 7],
+                &#34;weights&#34;: [&#34;uniform&#34;, &#34;distance&#34;],
+                &#34;metric&#34;: [&#34;euclidean&#34;, &#34;manhattan&#34;],
+            }
+
+    return __my_regression(
+        classname=KNeighborsRegressor,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        deg=deg,
         resid_test=resid_test,
         figsize=figsize,
         dpi=dpi,
@@ -1310,7 +1500,7 @@ def my_regression(
 </details>
 </dd>
 <dt id="hossam.regression.my_lasso_regression"><code class="name flex">
-<span>def <span class="ident">my_lasso_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=True, plot: bool = False, degree: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.linear_model._coordinate_descent.Lasso</span>
+<span>def <span class="ident">my_lasso_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=True, plot: bool = False, deg: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.linear_model._coordinate_descent.Lasso</span>
 </code></dt>
 <dd>
 <div class="desc"><p>라쏘회귀분석을 수행하고 결과를 출력한다.</p>
@@ -1332,7 +1522,7 @@ def my_regression(
 <dd>회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.</dd>
 <dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>시각화 여부. Defaults to True.</dd>
-<dt><strong><code>degree</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dt><strong><code>deg</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>다항회귀분석의 차수. Defaults to 1.</dd>
 <dt><strong><code>resid_test</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>잔차의 가정을 확인할지 여부. Defaults to False.</dd>
@@ -1365,7 +1555,7 @@ def my_regression(
     learning_curve: bool = True,
     report=True,
     plot: bool = False,
-    degree: int = 1,
+    deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
@@ -1384,7 +1574,7 @@ def my_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
@@ -1411,7 +1601,7 @@ def my_regression(
         learning_curve=learning_curve,
         report=report,
         plot=plot,
-        degree=degree,
+        deg=deg,
         resid_test=resid_test,
         figsize=figsize,
         dpi=dpi,
@@ -1422,7 +1612,7 @@ def my_regression(
 </details>
 </dd>
 <dt id="hossam.regression.my_linear_regression"><code class="name flex">
-<span>def <span class="ident">my_linear_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=True, plot: bool = False, degree: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.linear_model._base.LinearRegression</span>
+<span>def <span class="ident">my_linear_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=True, plot: bool = False, deg: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.linear_model._base.LinearRegression</span>
 </code></dt>
 <dd>
 <div class="desc"><p>선형회귀분석을 수행하고 결과를 출력한다.</p>
@@ -1444,7 +1634,7 @@ def my_regression(
 <dd>회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.</dd>
 <dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>시각화 여부. Defaults to True.</dd>
-<dt><strong><code>degree</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dt><strong><code>deg</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>다항회귀분석의 차수. Defaults to 1.</dd>
 <dt><strong><code>resid_test</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>잔차의 가정을 확인할지 여부. Defaults to False.</dd>
@@ -1477,7 +1667,7 @@ def my_regression(
     learning_curve: bool = True,
     report=True,
     plot: bool = False,
-    degree: int = 1,
+    deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
@@ -1496,7 +1686,7 @@ def my_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
@@ -1523,7 +1713,7 @@ def my_regression(
         learning_curve=learning_curve,
         report=report,
         plot=plot,
-        degree=degree,
+        deg=deg,
         resid_test=resid_test,
         figsize=figsize,
         dpi=dpi,
@@ -1534,7 +1724,7 @@ def my_regression(
 </details>
 </dd>
 <dt id="hossam.regression.my_regression"><code class="name flex">
-<span>def <span class="ident">my_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=False, plot: bool = False, degree: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, algorithm: list = None, **params) ‑> <built-in function any></span>
+<span>def <span class="ident">my_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=True, plot: bool = True, deg: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, algorithm: list = None, scoring: list = ['rmse', 'mse', 'r2', 'mae', 'mape', 'mpe'], **params) ‑> <built-in function any></span>
 </code></dt>
 <dd>
 <div class="desc"><p>회귀분석을 수행하고 결과를 출력한다.</p>
@@ -1556,7 +1746,7 @@ def my_regression(
 <dd>회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.</dd>
 <dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>시각화 여부. Defaults to True.</dd>
-<dt><strong><code>degree</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dt><strong><code>deg</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>다항회귀분석의 차수. Defaults to 1.</dd>
 <dt><strong><code>resid_test</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>잔차의 가정을 확인할지 여부. Defaults to False.</dd>
@@ -1568,6 +1758,8 @@ def my_regression(
 <dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
 <dt><strong><code>algorithm</code></strong></dt>
 <dd>list = None,</dd>
+<dt><strong><code>pruning</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.</dd>
 <dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>하이퍼파라미터. Defaults to None.</dd>
 </dl>
@@ -1584,14 +1776,15 @@ def my_regression(
     y_test: Series = None,
     cv: int = 5,
     learning_curve: bool = True,
-    report=False,
-    plot: bool = False,
-    degree: int = 1,
+    report=True,
+    plot: bool = True,
+    deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = None,
     algorithm: list = None,
+    scoring: list = [&#34;rmse&#34;, &#34;mse&#34;, &#34;r2&#34;, &#34;mae&#34;, &#34;mape&#34;, &#34;mpe&#34;],
     **params,
 ) -&gt; any:
     &#34;&#34;&#34;회귀분석을 수행하고 결과를 출력한다.
@@ -1605,12 +1798,13 @@ def my_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         algorithm: list = None,
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
@@ -1621,12 +1815,6 @@ def my_regression(
     processes = []  # 병렬처리를 위한 프로세스 리스트
     estimators = {}  # 분류분석 모델을 저장할 딕셔너리
     estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
-
-    # 교차검증 설정
-    if cv &gt; 0:
-        if not params:
-            params = {&#34;alpha&#34;: [0.01, 0.1, 1, 10, 100]}
-
     callstack = []
 
     if not algorithm or &#34;linear&#34; in algorithm:
@@ -1644,6 +1832,35 @@ def my_regression(
     if not algorithm or &#34;dtree&#34; in algorithm:
         callstack.append(my_dtree_regression)
 
+    if not algorithm or &#34;svr&#34; in algorithm:
+        callstack.append(my_svr_regression)
+
+    if not algorithm or &#34;sgd&#34; in algorithm:
+        callstack.append(my_sgd_regression)
+        
+    score_fields = []
+    score_method = []
+    
+    for s in scoring:
+        if s == &#34;r2&#34;:
+            score_fields.append(&#34;결정계수(R2)&#34;)
+            score_method.append(True)
+        elif s == &#34;rmse&#34;:
+            score_fields.append(&#34;평균오차(RMSE)&#34;)
+            score_method.append(False)
+        elif s == &#34;mae&#34;:
+            score_fields.append(&#34;평균절대오차(MAE)&#34;)
+            score_method.append(False)
+        elif s == &#34;mse&#34;:
+            score_fields.append(&#34;평균제곱오차(MSE)&#34;)
+            score_method.append(False)
+        elif s == &#34;mape&#34;:
+            score_fields.append(&#34;평균 절대 백분오차 비율(MAPE)&#34;)
+            score_method.append(False)
+        elif s == &#34;mpe&#34;:
+            score_fields.append(&#34;평균 비율 오차(MPE)&#34;)
+            score_method.append(False)
+
     # 병렬처리를 위한 프로세스 생성 -&gt; 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
         for c in callstack:
@@ -1655,15 +1872,16 @@ def my_regression(
                     x_test=x_test,
                     y_test=y_test,
                     cv=cv,
-                    learning_curve=learning_curve,
-                    report=report,
-                    plot=plot,
-                    degree=degree,
-                    resid_test=resid_test,
+                    learning_curve=False,
+                    report=False,
+                    plot=False,
+                    deg=1,
+                    resid_test=False,
                     figsize=figsize,
                     dpi=dpi,
-                    sort=sort,
+                    sort=False,
                     is_print=False,
+                    # pruning=pruning,
                     **params,
                 )
             )
@@ -1685,13 +1903,30 @@ def my_regression(
 
         # 결과값을 데이터프레임으로 변환
         result_df = DataFrame(results, index=estimator_names)
+        
+        if score_fields:
+            result_df.sort_values(score_fields, ascending=score_method, inplace=True)
+            
         my_pretty_table(result_df)
+        
+    # 최고 성능의 모델을 선택
+    if score_fields[0] == &#34;결정계수(R2)&#34;:
+        best_idx = result_df[score_fields[0]].idxmax()
+    else:
+        best_idx = result_df[score_fields[0]].idxmin()
+        
+    estimators[&#39;best&#39;] = estimators[best_idx]
+    
+    my_regression_result(estimators[&#39;best&#39;], x_train, y_train, x_test, y_test, learning_curve=learning_curve,
+                         cv=cv, figsize=figsize, dpi=dpi, is_print=True)
+    
+    my_regression_report(estimators[&#39;best&#39;], x_train, y_train, x_test, y_test, sort=sort, plot=plot, deg=deg, figsize=figsize, dpi=dpi)
 
     return estimators</code></pre>
 </details>
 </dd>
 <dt id="hossam.regression.my_regression_report"><code class="name flex">
-<span>def <span class="ident">my_regression_report</span></span>(<span>estimator: sklearn.linear_model._base.LinearRegression, x: pandas.core.frame.DataFrame = None, y: pandas.core.series.Series = None, sort: str = None, plot: bool = False, degree: int = 1, figsize: tuple = (10, 5), dpi: int = 100) ‑> None</span>
+<span>def <span class="ident">my_regression_report</span></span>(<span>estimator: <built-in function any>, x_train: pandas.core.frame.DataFrame = None, y_train: pandas.core.series.Series = None, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, sort: str = None, plot: bool = False, deg: int = 1, figsize: tuple = (10, 5), dpi: int = 100) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>선형회귀분석 결과를 보고한다.</p>
@@ -1699,15 +1934,19 @@ def my_regression(
 <dl>
 <dt><strong><code>estimator</code></strong> :&ensp;<code>LinearRegression</code></dt>
 <dd>선형회귀 객체</dd>
-<dt><strong><code>x</code></strong> :&ensp;<code>DataFrame</code></dt>
-<dd>독립변수에 대한 훈련 데이터</dd>
-<dt><strong><code>y</code></strong> :&ensp;<code>Series</code></dt>
-<dd>종속변수에 대한 훈련 데이터</dd>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code>, optional</dt>
+<dd>훈련 데이터의 독립변수. Defaults to None.</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code>, optional</dt>
+<dd>훈련 데이터의 종속변수. Defaults to None.</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code>, optional</dt>
+<dd>검증 데이터의 독립변수. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code>, optional</dt>
+<dd>검증 데이터의 종속변수. Defaults to None.</dd>
 <dt><strong><code>sort</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>정렬 기준 (v, p). Defaults to None.</dd>
 <dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>시각화 여부. Defaults to False.</dd>
-<dt><strong><code>degree</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dt><strong><code>deg</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>다항회귀분석의 차수. Defaults to 1.</dd>
 <dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
 <dd>그래프의 크기. Defaults to (10, 5).</dd>
@@ -1719,12 +1958,14 @@ def my_regression(
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def my_regression_report(
-    estimator: LinearRegression,
-    x: DataFrame = None,
-    y: Series = None,
+    estimator: any,
+    x_train: DataFrame = None,
+    y_train: Series = None,
+    x_test: DataFrame = None,
+    y_test: Series = None,
     sort: str = None,
     plot: bool = False,
-    degree: int = 1,
+    deg: int = 1,
     figsize: tuple = (10, 5),
     dpi: int = 100,
 ) -&gt; None:
@@ -1732,19 +1973,30 @@ def my_regression(
 
     Args:
         estimator (LinearRegression): 선형회귀 객체
-        x (DataFrame): 독립변수에 대한 훈련 데이터
-        y (Series): 종속변수에 대한 훈련 데이터
+        x_train (DataFrame, optional): 훈련 데이터의 독립변수. Defaults to None.
+        y_train (Series, optional): 훈련 데이터의 종속변수. Defaults to None.
+        x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
+        y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
         sort (str, optional): 정렬 기준 (v, p). Defaults to None.
         plot (bool, optional): 시각화 여부. Defaults to False.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
     &#34;&#34;&#34;
 
     # ------------------------------------------------------
     # 회귀식
+
+    if x_test is not None and y_test is not None:
+        x = x_test.copy()
+        y = y_test.copy()
+    else:
+        x = x_train.copy()
+        y = y_train.copy()
+
     xnames = x.columns
     yname = y.name
+    y_pred = estimator.predict(x)
 
     if estimator.__class__.__name__ in [&#34;LinearRegression&#34;, &#34;Lasso&#34;, &#34;Ridge&#34;]:
         expr = &#34;{yname} = &#34;.format(yname=yname)
@@ -1761,10 +2013,6 @@ def my_regression(
         if x is None and y is None:
             x = estimator.x
             y = estimator.y
-
-        y_pred = estimator.predict(x)
-        xnames = x.columns
-        yname = y.name
 
         # 잔차
         resid = y - y_pred
@@ -1829,9 +2077,11 @@ def my_regression(
 
         if sort:
             if sort.upper() == &#34;V&#34;:
-                result_df.sort_values(&#34;VIF&#34;, inplace=True)
+                result_df = result_df.sort_values(&#34;VIF&#34;, ascending=False).reset_index()
             elif sort.upper() == &#34;P&#34;:
-                result_df.sort_values(&#34;유의확률&#34;, inplace=True)
+                result_df = result_df.sort_values(
+                    &#34;유의확률&#34;, ascending=False
+                ).reset_index()
 
         # result_df
         my_pretty_table(result_df)
@@ -1917,6 +2167,10 @@ def my_regression(
             }
         )
 
+        if sort:
+            if sort.upper() == &#34;V&#34;:
+                result_df = result_df.sort_values(&#34;VIF&#34;, ascending=False).reset_index()
+
         # result_df
         my_pretty_table(result_df)
         print(&#34;&#34;)
@@ -1926,14 +2180,14 @@ def my_regression(
         for i, v in enumerate(xnames):
             plt.figure(figsize=figsize, dpi=dpi)
 
-            if degree == 1:
+            if deg == 1:
                 sb.regplot(x=x[v], y=y, ci=95, label=&#34;관측치&#34;)
                 sb.regplot(x=x[v], y=y_pred, ci=0, label=&#34;추정치&#34;)
             else:
                 sb.scatterplot(x=x[v], y=y, label=&#34;관측치&#34;)
                 sb.scatterplot(x=x[v], y=y_pred, label=&#34;추정치&#34;)
 
-                t1 = my_trend(x[v], y, degree=degree)
+                t1 = my_trend(x[v], y, degree=deg)
                 sb.lineplot(
                     x=t1[0],
                     y=t1[1],
@@ -1942,7 +2196,7 @@ def my_regression(
                     label=&#34;관측치 추세선&#34;,
                 )
 
-                t2 = my_trend(x[v], y_pred, degree=degree)
+                t2 = my_trend(x[v], y_pred, degree=deg)
                 sb.lineplot(
                     x=t2[0], y=t2[1], color=&#34;red&#34;, linestyle=&#34;--&#34;, label=&#34;추정치 추세선&#34;
                 )
@@ -2054,7 +2308,7 @@ def my_regression(
         score_names.append(&#34;검증데이터&#34;)
 
     # 결과값을 모델 객체에 포함시킴
-    estimator.scores = scores[-2]
+    estimator.scores = scores[-1]
 
     if is_print:
         print(&#34;[회귀분석 성능평가]&#34;)
@@ -2262,7 +2516,7 @@ def my_regression(
 </details>
 </dd>
 <dt id="hossam.regression.my_ridge_regression"><code class="name flex">
-<span>def <span class="ident">my_ridge_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=True, plot: bool = False, degree: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.linear_model._ridge.Ridge</span>
+<span>def <span class="ident">my_ridge_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=True, plot: bool = False, deg: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.linear_model._ridge.Ridge</span>
 </code></dt>
 <dd>
 <div class="desc"><p>릿지회귀분석을 수행하고 결과를 출력한다.</p>
@@ -2284,7 +2538,7 @@ def my_regression(
 <dd>회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.</dd>
 <dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>시각화 여부. Defaults to True.</dd>
-<dt><strong><code>degree</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dt><strong><code>deg</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>다항회귀분석의 차수. Defaults to 1.</dd>
 <dt><strong><code>resid_test</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>잔차의 가정을 확인할지 여부. Defaults to False.</dd>
@@ -2317,7 +2571,7 @@ def my_regression(
     learning_curve: bool = True,
     report=True,
     plot: bool = False,
-    degree: int = 1,
+    deg: int = 1,
     resid_test=False,
     figsize=(10, 5),
     dpi: int = 100,
@@ -2336,7 +2590,7 @@ def my_regression(
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
         plot (bool, optional): 시각화 여부. Defaults to True.
-        degree (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
         resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
@@ -2363,7 +2617,253 @@ def my_regression(
         learning_curve=learning_curve,
         report=report,
         plot=plot,
-        degree=degree,
+        deg=deg,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )</code></pre>
+</details>
+</dd>
+<dt id="hossam.regression.my_sgd_regression"><code class="name flex">
+<span>def <span class="ident">my_sgd_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=True, plot: bool = False, deg: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.linear_model._stochastic_gradient.SGDRegressor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>SGD 회귀분석을 수행하고 결과를 출력한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 훈련 데이터</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 훈련 데이터</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>교차검증 횟수. Defaults to 0.</dd>
+<dt><strong><code>learning_curve</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>학습곡선을 출력할지 여부. Defaults to False.</dd>
+<dt><strong><code>report</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>시각화 여부. Defaults to True.</dd>
+<dt><strong><code>deg</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>다항회귀분석의 차수. Defaults to 1.</dd>
+<dt><strong><code>resid_test</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>잔차의 가정을 확인할지 여부. Defaults to False.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
+<dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>출력 여부. Defaults to True.</dd>
+<dt><strong><code>pruning</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.</dd>
+<dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>하이퍼파라미터. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>SGDRegressor</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_sgd_regression(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=True,
+    plot: bool = False,
+    deg: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -&gt; SGDRegressor:
+    &#34;&#34;&#34;SGD 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        SGDRegressor
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                # 손실함수
+                &#34;loss&#34;: [&#34;squared_error&#34;, &#34;huber&#34;, &#34;epsilon_insensitive&#34;],
+                # 정규화 종류
+                &#34;penalty&#34;: [&#34;l2&#34;, &#34;l1&#34;, &#34;elasticnet&#34;],
+                # 정규화 강도(값이 낮을 수록 약한 정규화)
+                &#34;alpha&#34;: [0.0001, 0.001, 0.01, 0.1],
+                # 최대 반복 수행 횟수
+                &#34;max_iter&#34;: [1000, 2000, 3000, 4000, 5000],
+                # 학습률 스케줄링 전략
+                &#34;learning_rate&#34;: [&#34;optimal&#34;, &#34;constant&#34;, &#34;invscaling&#34;, &#34;adaptive&#34;],
+                # 초기 학습률
+                &#34;eta0&#34;: [0.01, 0.1, 0.5],
+            }
+
+    return __my_regression(
+        classname=SGDRegressor,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        deg=deg,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )</code></pre>
+</details>
+</dd>
+<dt id="hossam.regression.my_svr_regression"><code class="name flex">
+<span>def <span class="ident">my_svr_regression</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, cv: int = 5, learning_curve: bool = True, report=True, plot: bool = False, deg: int = 1, resid_test=False, figsize=(10, 5), dpi: int = 100, sort: str = None, is_print: bool = True, **params) ‑> sklearn.svm._classes.SVR</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Support Vector Machine 회귀분석을 수행하고 결과를 출력한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 훈련 데이터</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 훈련 데이터</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>독립변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Series</code></dt>
+<dd>종속변수에 대한 검증 데이터. Defaults to None.</dd>
+<dt><strong><code>cv</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>교차검증 횟수. Defaults to 0.</dd>
+<dt><strong><code>learning_curve</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>학습곡선을 출력할지 여부. Defaults to False.</dd>
+<dt><strong><code>report</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.</dd>
+<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>시각화 여부. Defaults to True.</dd>
+<dt><strong><code>deg</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>다항회귀분석의 차수. Defaults to 1.</dd>
+<dt><strong><code>resid_test</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>잔차의 가정을 확인할지 여부. Defaults to False.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>그래프의 크기. Defaults to (10, 5).</dd>
+<dt><strong><code>dpi</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>그래프의 해상도. Defaults to 100.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>독립변수 결과 보고 표의 정렬 기준 (v, p)</dd>
+<dt><strong><code>is_print</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>출력 여부. Defaults to True.</dd>
+<dt><strong><code>pruning</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.</dd>
+<dt><strong><code>**params</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>하이퍼파라미터. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>SVR</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_svr_regression(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=True,
+    plot: bool = False,
+    deg: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -&gt; SVR:
+    &#34;&#34;&#34;Support Vector Machine 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        SVR
+    &#34;&#34;&#34;
+
+    # 교차검증 설정
+    if cv &gt; 0:
+        if not params:
+            params = {
+                &#34;C&#34;: [0.1, 1, 10],
+                # &#34;kernel&#34;: [&#34;rbf&#34;, &#34;linear&#34;, &#34;poly&#34;, &#34;sigmoid&#34;],
+                &#34;kernel&#34;: [&#34;rbf&#34;, &#34;poly&#34;, &#34;sigmoid&#34;],
+                &#34;degree&#34;: [2, 3, 4, 5],
+                # &#34;gamma&#34;: [&#34;scale&#34;, &#34;auto&#34;],
+                # &#34;coef0&#34;: [0.01, 0.1, 1, 10],
+                # &#34;shrinking&#34;: [True, False],
+                # &#34;probability&#34;: [True],  # AUC 값 확인을 위해서는 True로 설정
+            }
+
+    return __my_regression(
+        classname=SVR,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        deg=deg,
         resid_test=resid_test,
         figsize=figsize,
         dpi=dpi,
@@ -2391,6 +2891,7 @@ def my_regression(
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="hossam.regression.my_dtree_regression" href="#hossam.regression.my_dtree_regression">my_dtree_regression</a></code></li>
 <li><code><a title="hossam.regression.my_knn_regression" href="#hossam.regression.my_knn_regression">my_knn_regression</a></code></li>
 <li><code><a title="hossam.regression.my_lasso_regression" href="#hossam.regression.my_lasso_regression">my_lasso_regression</a></code></li>
 <li><code><a title="hossam.regression.my_linear_regression" href="#hossam.regression.my_linear_regression">my_linear_regression</a></code></li>
@@ -2402,6 +2903,8 @@ def my_regression(
 <li><code><a title="hossam.regression.my_resid_normality" href="#hossam.regression.my_resid_normality">my_resid_normality</a></code></li>
 <li><code><a title="hossam.regression.my_resid_test" href="#hossam.regression.my_resid_test">my_resid_test</a></code></li>
 <li><code><a title="hossam.regression.my_ridge_regression" href="#hossam.regression.my_ridge_regression">my_ridge_regression</a></code></li>
+<li><code><a title="hossam.regression.my_sgd_regression" href="#hossam.regression.my_sgd_regression">my_sgd_regression</a></code></li>
+<li><code><a title="hossam.regression.my_svr_regression" href="#hossam.regression.my_svr_regression">my_svr_regression</a></code></li>
 </ul>
 </li>
 </ul>

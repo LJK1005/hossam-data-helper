@@ -31,6 +31,7 @@
 import numpy as np
 from pandas import DataFrame, Series
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from .util import my_pretty_table
 
 
@@ -42,6 +43,7 @@ def __ml(
     y_test: Series = None,
     cv: int = 5,
     is_print: bool = True,
+    pruning: bool = False,
     **params,
 ) -&gt; any:
     &#34;&#34;&#34;머신러닝 분석을 수행하고 결과를 출력한다.
@@ -72,18 +74,29 @@ def __ml(
 
         if &#34;n_jobs&#34; in dict(inspect.signature(classname.__init__).parameters):
             args[&#34;n_jobs&#34;] = -1
-            print(f&#34;\033[94m{cn}의 n_jobs 설정됨\033[0m&#34;)
+            # print(f&#34;\033[94m{cn}의 n_jobs 설정됨\033[0m&#34;)
 
         if &#34;random_state&#34; in dict(inspect.signature(classname.__init__).parameters):
             args[&#34;random_state&#34;] = 1234
-            print(f&#34;\033[94m{cn}의 random_state 설정됨\033[0m&#34;)
+            # print(f&#34;\033[94m{cn}의 random_state 설정됨\033[0m&#34;)
 
         if &#34;early_stopping&#34; in dict(inspect.signature(classname.__init__).parameters):
             args[&#34;early_stopping&#34;] = True
-            print(f&#34;\033[94m{cn}의 early_stopping 설정됨\033[0m&#34;)
+            # print(f&#34;\033[94m{cn}의 early_stopping 설정됨\033[0m&#34;)
 
         prototype_estimator = classname(**args)
-        print(f&#34;\033[92m{cn} {params}\033[0m&#34;.replace(&#34;\n&#34;, &#34;&#34;))
+        print(f&#34;\033[92m{cn}({args}) {params}\033[0m&#34;.replace(&#34;\n&#34;, &#34;&#34;))
+
+        if pruning and (
+            classname == DecisionTreeClassifier or classname == DecisionTreeRegressor
+        ):
+            try:
+                dtree = classname(**args)
+                path = dtree.cost_complexity_pruning_path(x_train, y_train)
+                ccp_alphas = path.ccp_alphas[1:-1]
+                params[&#34;ccp_alpha&#34;] = ccp_alphas
+            except Exception as e:
+                print(f&#34;\033[91m{cn}의 가지치기 실패 ({e})\033[0m&#34;)
 
         # grid = GridSearchCV(
         #     prototype_estimator, param_grid=params, cv=cv, n_jobs=-1

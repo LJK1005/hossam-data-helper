@@ -36,6 +36,7 @@ from scipy.stats import normaltest
 
 from imblearn.over_sampling import SMOTE, RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 
 def my_normalize_data(
@@ -545,14 +546,14 @@ def my_trend(x: any, y: any, degree=2, value_count=100) -&gt; tuple:
 
 
 def my_poly_features(
-    data: DataFrame, columns: list = [], ignore: list = [], degree: int = 2
+    data: DataFrame, columns: any = None, ignore: any = None, degree: int = 2
 ) -&gt; DataFrame:
     &#34;&#34;&#34;전달된 데이터프레임에 대해서 2차항을 추가한 새로온 데이터프레임을 리턴한다.
 
     Args:
         data (DataFrame): 원본 데이터 프레임
-        columns (list, optional): 2차항을 생성할 필드 목록. 전달되지 않을 경우 전체 필드에 대해 처리 Default to [].
-        ignore (list, optional): 2차항을 생성하지 않을 필드 목록. Default to [].
+        columns (any, optional): 2차항을 생성할 필드 목록. 전달되지 않을 경우 전체 필드에 대해 처리 Default to None.
+        ignore (any, optional): 2차항을 생성하지 않을 필드 목록. Default to None.
         degree (int, optional): 차수. Default to 2
 
     Returns:
@@ -563,11 +564,21 @@ def my_poly_features(
     if not columns:
         columns = df.columns
 
+    if not type(columns) == list:
+        columns = [columns]
+
     ignore_df = None
     if ignore:
+        if not type(ignore) == list:
+            ignore = [ignore]
+
         ignore_df = df[ignore]
         df.drop(ignore, axis=1, inplace=True)
-        columns = [c for c in columns if c not in ignore]
+
+        columns = []
+        for c in list(df.columns):
+            if c not in ignore:
+                columns.append(c)
 
     poly = PolynomialFeatures(degree=degree, include_bias=False)
     poly_fit = poly.fit_transform(df[columns])
@@ -598,6 +609,17 @@ def my_labelling(data: DataFrame, *fields: str) -&gt; DataFrame:
         label = {v: i for i, v in enumerate(vc)}
         df[f] = df[f].map(label).astype(&#34;int&#34;)
 
+        # 라벨링 상황을 출력한다.
+        i = []
+        v = []
+        for k in label:
+            i.append(k)
+            v.append(label[k])
+
+        label_df = DataFrame({&#34;label&#34;: v}, index=i)
+        label_df.index.name = f
+        my_pretty_table(label_df)
+
     return df
 
 
@@ -627,7 +649,71 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = &#34;smote&#34;) -
             f&#34;\x1b[31m지원하지 않는 방법입니다.(smote, over, under중 하나를 지정해야 합니다.) ({method})\x1b[0m&#34;
         )
 
-    return xdata, ydata</code></pre>
+    return xdata, ydata
+
+
+def my_vif_filter(
+    data: DataFrame, yname: str = None, ignore: list = [], threshold: float = 10
+) -&gt; DataFrame:
+    &#34;&#34;&#34;독립변수 간 다중공선성을 검사하여 VIF가 threshold 이상인 변수를 제거한다.
+
+    Args:
+        data (DataFrame): 데이터프레임
+        yname (str, optional): 종속변수 컬럼명. Defaults to None.
+        ignore (list, optional): 제외할 컬럼 목록. Defaults to [].
+        threshold (float, optional): VIF 임계값. Defaults to 10.
+
+    Returns:
+        DataFrame: VIF가 threshold 이하인 변수만 남은 데이터프레임
+    &#34;&#34;&#34;
+    df = data.copy()
+
+    if yname:
+        y = df[yname]
+        df = df.drop(yname, axis=1)
+
+    # 카테고리 타입만 골라냄
+    category_fields = []
+    for f in df.columns:
+        if df[f].dtypes not in [&#34;int&#34;, &#34;int32&#34;, &#34;int64&#34;, &#34;float&#34;, &#34;float32&#34;, &#34;float64&#34;]:
+            category_fields.append(f)
+
+    cate = df[category_fields]
+    df = df.drop(category_fields, axis=1)
+
+    # 제외할 필드를 제거
+    if ignore:
+        ignore_df = df[ignore]
+        df = df.drop(ignore, axis=1)
+
+    # VIF 계산
+    while True:
+        xnames = list(df.columns)
+        vif = {}
+
+        for x in xnames:
+            vif[x] = variance_inflation_factor(df, xnames.index(x))
+
+        maxkey = max(vif, key=vif.get)
+
+        if vif[maxkey] &lt;= threshold:
+            break
+
+        df = df.drop(maxkey, axis=1)
+
+    # 분리했던 명목형 변수를 다시 결합
+    if category_fields:
+        df[category_fields] = cate
+
+    # 분리했던 제외할 필드를 다시 결합
+    if ignore:
+        df[ignore] = ignore_df
+
+    # 분리했던 종속 변수를 다시 결합
+    if yname:
+        df[yname] = y
+
+    return df</code></pre>
 </details>
 </section>
 <section>
@@ -845,6 +931,17 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = &#34;smote&#34;) -
         label = {v: i for i, v in enumerate(vc)}
         df[f] = df[f].map(label).astype(&#34;int&#34;)
 
+        # 라벨링 상황을 출력한다.
+        i = []
+        v = []
+        for k in label:
+            i.append(k)
+            v.append(label[k])
+
+        label_df = DataFrame({&#34;label&#34;: v}, index=i)
+        label_df.index.name = f
+        my_pretty_table(label_df)
+
     return df</code></pre>
 </details>
 </dd>
@@ -1017,7 +1114,7 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = &#34;smote&#34;) -
 </details>
 </dd>
 <dt id="hossam.util.my_poly_features"><code class="name flex">
-<span>def <span class="ident">my_poly_features</span></span>(<span>data: pandas.core.frame.DataFrame, columns: list = [], ignore: list = [], degree: int = 2) ‑> pandas.core.frame.DataFrame</span>
+<span>def <span class="ident">my_poly_features</span></span>(<span>data: pandas.core.frame.DataFrame, columns: <built-in function any> = None, ignore: <built-in function any> = None, degree: int = 2) ‑> pandas.core.frame.DataFrame</span>
 </code></dt>
 <dd>
 <div class="desc"><p>전달된 데이터프레임에 대해서 2차항을 추가한 새로온 데이터프레임을 리턴한다.</p>
@@ -1025,10 +1122,10 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = &#34;smote&#34;) -
 <dl>
 <dt><strong><code>data</code></strong> :&ensp;<code>DataFrame</code></dt>
 <dd>원본 데이터 프레임</dd>
-<dt><strong><code>columns</code></strong> :&ensp;<code>list</code>, optional</dt>
-<dd>2차항을 생성할 필드 목록. 전달되지 않을 경우 전체 필드에 대해 처리 Default to [].</dd>
-<dt><strong><code>ignore</code></strong> :&ensp;<code>list</code>, optional</dt>
-<dd>2차항을 생성하지 않을 필드 목록. Default to [].</dd>
+<dt><strong><code>columns</code></strong> :&ensp;<code>any</code>, optional</dt>
+<dd>2차항을 생성할 필드 목록. 전달되지 않을 경우 전체 필드에 대해 처리 Default to None.</dd>
+<dt><strong><code>ignore</code></strong> :&ensp;<code>any</code>, optional</dt>
+<dd>2차항을 생성하지 않을 필드 목록. Default to None.</dd>
 <dt><strong><code>degree</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>차수. Default to 2</dd>
 </dl>
@@ -1042,14 +1139,14 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = &#34;smote&#34;) -
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def my_poly_features(
-    data: DataFrame, columns: list = [], ignore: list = [], degree: int = 2
+    data: DataFrame, columns: any = None, ignore: any = None, degree: int = 2
 ) -&gt; DataFrame:
     &#34;&#34;&#34;전달된 데이터프레임에 대해서 2차항을 추가한 새로온 데이터프레임을 리턴한다.
 
     Args:
         data (DataFrame): 원본 데이터 프레임
-        columns (list, optional): 2차항을 생성할 필드 목록. 전달되지 않을 경우 전체 필드에 대해 처리 Default to [].
-        ignore (list, optional): 2차항을 생성하지 않을 필드 목록. Default to [].
+        columns (any, optional): 2차항을 생성할 필드 목록. 전달되지 않을 경우 전체 필드에 대해 처리 Default to None.
+        ignore (any, optional): 2차항을 생성하지 않을 필드 목록. Default to None.
         degree (int, optional): 차수. Default to 2
 
     Returns:
@@ -1060,11 +1157,21 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = &#34;smote&#34;) -
     if not columns:
         columns = df.columns
 
+    if not type(columns) == list:
+        columns = [columns]
+
     ignore_df = None
     if ignore:
+        if not type(ignore) == list:
+            ignore = [ignore]
+
         ignore_df = df[ignore]
         df.drop(ignore, axis=1, inplace=True)
-        columns = [c for c in columns if c not in ignore]
+
+        columns = []
+        for c in list(df.columns):
+            if c not in ignore:
+                columns.append(c)
 
     poly = PolynomialFeatures(degree=degree, include_bias=False)
     poly_fit = poly.fit_transform(df[columns])
@@ -1638,6 +1745,95 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = &#34;smote&#34;) -
     return DataFrame(mydict)</code></pre>
 </details>
 </dd>
+<dt id="hossam.util.my_vif_filter"><code class="name flex">
+<span>def <span class="ident">my_vif_filter</span></span>(<span>data: pandas.core.frame.DataFrame, yname: str = None, ignore: list = [], threshold: float = 10) ‑> pandas.core.frame.DataFrame</span>
+</code></dt>
+<dd>
+<div class="desc"><p>독립변수 간 다중공선성을 검사하여 VIF가 threshold 이상인 변수를 제거한다.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>data</code></strong> :&ensp;<code>DataFrame</code></dt>
+<dd>데이터프레임</dd>
+<dt><strong><code>yname</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>종속변수 컬럼명. Defaults to None.</dd>
+<dt><strong><code>ignore</code></strong> :&ensp;<code>list</code>, optional</dt>
+<dd>제외할 컬럼 목록. Defaults to [].</dd>
+<dt><strong><code>threshold</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>VIF 임계값. Defaults to 10.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>DataFrame</code></dt>
+<dd>VIF가 threshold 이하인 변수만 남은 데이터프레임</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def my_vif_filter(
+    data: DataFrame, yname: str = None, ignore: list = [], threshold: float = 10
+) -&gt; DataFrame:
+    &#34;&#34;&#34;독립변수 간 다중공선성을 검사하여 VIF가 threshold 이상인 변수를 제거한다.
+
+    Args:
+        data (DataFrame): 데이터프레임
+        yname (str, optional): 종속변수 컬럼명. Defaults to None.
+        ignore (list, optional): 제외할 컬럼 목록. Defaults to [].
+        threshold (float, optional): VIF 임계값. Defaults to 10.
+
+    Returns:
+        DataFrame: VIF가 threshold 이하인 변수만 남은 데이터프레임
+    &#34;&#34;&#34;
+    df = data.copy()
+
+    if yname:
+        y = df[yname]
+        df = df.drop(yname, axis=1)
+
+    # 카테고리 타입만 골라냄
+    category_fields = []
+    for f in df.columns:
+        if df[f].dtypes not in [&#34;int&#34;, &#34;int32&#34;, &#34;int64&#34;, &#34;float&#34;, &#34;float32&#34;, &#34;float64&#34;]:
+            category_fields.append(f)
+
+    cate = df[category_fields]
+    df = df.drop(category_fields, axis=1)
+
+    # 제외할 필드를 제거
+    if ignore:
+        ignore_df = df[ignore]
+        df = df.drop(ignore, axis=1)
+
+    # VIF 계산
+    while True:
+        xnames = list(df.columns)
+        vif = {}
+
+        for x in xnames:
+            vif[x] = variance_inflation_factor(df, xnames.index(x))
+
+        maxkey = max(vif, key=vif.get)
+
+        if vif[maxkey] &lt;= threshold:
+            break
+
+        df = df.drop(maxkey, axis=1)
+
+    # 분리했던 명목형 변수를 다시 결합
+    if category_fields:
+        df[category_fields] = cate
+
+    # 분리했던 제외할 필드를 다시 결합
+    if ignore:
+        df[ignore] = ignore_df
+
+    # 분리했던 종속 변수를 다시 결합
+    if yname:
+        df[yname] = y
+
+    return df</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
@@ -1675,6 +1871,7 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = &#34;smote&#34;) -
 <li><code><a title="hossam.util.my_train_test_split" href="#hossam.util.my_train_test_split">my_train_test_split</a></code></li>
 <li><code><a title="hossam.util.my_trend" href="#hossam.util.my_trend">my_trend</a></code></li>
 <li><code><a title="hossam.util.my_unmelt" href="#hossam.util.my_unmelt">my_unmelt</a></code></li>
+<li><code><a title="hossam.util.my_vif_filter" href="#hossam.util.my_vif_filter">my_vif_filter</a></code></li>
 </ul>
 </li>
 </ul>

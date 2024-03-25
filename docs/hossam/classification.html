@@ -118,40 +118,23 @@ def __my_classification(
 
     # ------------------------------------------------------
     # 성능평가
-    if x_test is not None and y_test is not None:
-        my_classification_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            x_test=x_test,
-            y_test=y_test,
-            conf_matrix=conf_matrix,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-            is_print=is_print,
-        )
-    else:
-        my_classification_result(
-            estimator,
-            x_train=x_train,
-            y_train=y_train,
-            conf_matrix=conf_matrix,
-            hist=hist,
-            roc=roc,
-            pr=pr,
-            multiclass=multiclass,
-            learning_curve=learning_curve,
-            cv=cv,
-            figsize=figsize,
-            dpi=dpi,
-            is_print=is_print,
-        )
+    my_classification_result(
+        estimator,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        cv=cv,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=is_print,
+    )
 
     # ------------------------------------------------------
     # 보고서 출력
@@ -559,9 +542,11 @@ def my_classification_binary_report(
 
         if sort:
             if sort.upper() == &#34;V&#34;:
-                result_df.sort_values(&#34;VIF&#34;, inplace=True)
+                result_df = result_df.sort_values(&#34;VIF&#34;, ascending=False).reset_index()
             elif sort.upper() == &#34;P&#34;:
-                result_df.sort_values(&#34;유의확률&#34;, inplace=True)
+                result_df = result_df.sort_values(
+                    &#34;유의확률&#34;, ascending=False
+                ).reset_index()
 
         my_pretty_table(result_df)
     else:
@@ -587,7 +572,7 @@ def my_classification_binary_report(
 
         if sort:
             if sort.upper() == &#34;V&#34;:
-                result_df.sort_values(&#34;VIF&#34;, inplace=True)
+                result_df = result_df.sort_values(&#34;VIF&#34;, ascending=False).reset_index()
 
         my_pretty_table(result_df)
 
@@ -893,7 +878,7 @@ def my_nb_classification(
         is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
-        SVC
+        GaussianNB
     &#34;&#34;&#34;
 
     # 교차검증 설정
@@ -1192,7 +1177,6 @@ def my_sgd_classification(
         if not params:
             params = {
                 # 손실함수
-                # &#39;log_loss&#39;, &#39;squared_hinge&#39;, &#39;perceptron&#39;, &#39;squared_error&#39;, &#39;hinge&#39;, &#39;huber&#39;, &#39;squared_epsilon_insensitive&#39;, &#39;epsilon_insensitive&#39;, &#39;modified_huber&#39;
                 &#34;loss&#34;: [&#34;hinge&#34;, &#34;log_loss&#34;, &#34;modified_huber&#34;],
                 # 정규화 종류
                 &#34;penalty&#34;: [&#34;l2&#34;, &#34;l1&#34;, &#34;elasticnet&#34;],
@@ -1235,17 +1219,18 @@ def my_classification(
     y_test: Series = None,
     conf_matrix: bool = True,
     cv: int = 5,
-    hist: bool = False,
-    roc: bool = False,
-    pr: bool = False,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
     multiclass: str = None,
-    learning_curve=False,
-    report: bool = False,
+    learning_curve=True,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
-    sort: str = None,
+    sort: str = &#39;v&#39;,
     algorithm: list = None,
     pruning: bool = False,
+    scoring: list = [&#34;accuracy&#34;, &#34;precision&#34;, &#34;recall&#34;, &#34;f1&#34;, &#34;auc&#34;],
     **params,
 ) -&gt; DataFrame:
     &#34;&#34;&#34;분류분석을 수행하고 결과를 출력한다.
@@ -1277,7 +1262,6 @@ def my_classification(
     processes = []  # 병렬처리를 위한 프로세스 리스트
     estimators = {}  # 분류분석 모델을 저장할 딕셔너리
     estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
-
     callstack = []
 
     if not algorithm or &#34;logistic&#34; in algorithm:
@@ -1298,6 +1282,26 @@ def my_classification(
     if not algorithm or &#34;sgd&#34; in algorithm:
         callstack.append(my_sgd_classification)
 
+    score_fields = []
+
+    for s in scoring:
+        if s == &#34;r2&#34;:
+            score_fields.append(&#34;의사결정계수(Pseudo R2)&#34;)
+        elif s == &#34;accuracy&#34;:
+            score_fields.append(&#34;정확도(Accuracy)&#34;)
+        elif s == &#34;precision&#34;:
+            score_fields.append(&#34;정밀도(Precision)&#34;)
+        elif s == &#34;recall&#34;:
+            score_fields.append(&#34;재현율(Recall)&#34;)
+        elif s == &#34;fallout&#34;:
+            score_fields.append(&#34;위양성율(Fallout)&#34;)
+        elif s == &#34;tnr&#34;:
+            score_fields.append(&#34;특이성(TNR)&#34;)
+        elif s == &#34;f1&#34;:
+            score_fields.append(&#34;F1 Score&#34;)
+        elif s == &#34;auc&#34;:
+            score_fields.append(&#34;AUC&#34;)
+
     # 병렬처리를 위한 프로세스 생성 -&gt; 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
         for c in callstack:
@@ -1310,16 +1314,27 @@ def my_classification(
                     y_test=y_test,
                     conf_matrix=conf_matrix,
                     cv=cv,
-                    hist=hist,
-                    roc=roc,
-                    pr=pr,
-                    multiclass=multiclass,
-                    learning_curve=learning_curve,
-                    report=report,
-                    figsize=figsize,
-                    dpi=dpi,
-                    sort=sort,
+                    # hist=hist,
+                    # roc=roc,
+                    # pr=pr,
+                    # multiclass=multiclass,
+                    # learning_curve=learning_curve,
+                    # report=report,
+                    # figsize=figsize,
+                    # dpi=dpi,
+                    # sort=sort,
+                    hist=False,
+                    roc=False,
+                    pr=False,
+                    multiclass=None,
+                    learning_curve=False,
+                    report=False,
+                    figsize=None,
+                    dpi=100,
+                    sort=None,
+                    # pruning=pruning,
                     is_print=False,
+                    # pruning=pruning,
                     **params,
                 )
             )
@@ -1341,7 +1356,20 @@ def my_classification(
 
         # 결과값을 데이터프레임으로 변환
         result_df = DataFrame(results, index=estimator_names)
+
+        if score_fields:
+            result_df.sort_values(score_fields, ascending=False, inplace=True)
+
         my_pretty_table(result_df)
+    
+    # 최고 성능의 모델을 선택
+    best_idx = result_df[score_fields[0]].idxmax()
+    estimators[&#39;best&#39;] = estimators[best_idx]
+    
+    print(&#34;\n\n==================== 최고 성능 모델: %s ====================&#34; % best_idx)
+    my_classification_result(estimators[&#39;best&#39;], x_train, y_train, x_test, y_test, conf_matrix=conf_matrix, hist=hist, roc=roc, pr=pr, multiclass=multiclass, learning_curve=learning_curve, figsize=figsize, dpi=dpi, is_print=True)
+    
+    my_classification_report(estimators[&#39;best&#39;], x_train, y_train, x_test, y_test, sort=sort)
 
     return estimators</code></pre>
 </details>
@@ -1354,7 +1382,7 @@ def my_classification(
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="hossam.classification.my_classification"><code class="name flex">
-<span>def <span class="ident">my_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, cv: int = 5, hist: bool = False, roc: bool = False, pr: bool = False, multiclass: str = None, learning_curve=False, report: bool = False, figsize=(10, 5), dpi: int = 100, sort: str = None, algorithm: list = None, pruning: bool = False, **params) ‑> pandas.core.frame.DataFrame</span>
+<span>def <span class="ident">my_classification</span></span>(<span>x_train: pandas.core.frame.DataFrame, y_train: pandas.core.series.Series, x_test: pandas.core.frame.DataFrame = None, y_test: pandas.core.series.Series = None, conf_matrix: bool = True, cv: int = 5, hist: bool = True, roc: bool = True, pr: bool = True, multiclass: str = None, learning_curve=True, report: bool = True, figsize=(10, 5), dpi: int = 100, sort: str = 'v', algorithm: list = None, pruning: bool = False, scoring: list = ['accuracy', 'precision', 'recall', 'f1', 'auc'], **params) ‑> pandas.core.frame.DataFrame</span>
 </code></dt>
 <dd>
 <div class="desc"><p>분류분석을 수행하고 결과를 출력한다.</p>
@@ -1411,17 +1439,18 @@ def my_classification(
     y_test: Series = None,
     conf_matrix: bool = True,
     cv: int = 5,
-    hist: bool = False,
-    roc: bool = False,
-    pr: bool = False,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
     multiclass: str = None,
-    learning_curve=False,
-    report: bool = False,
+    learning_curve=True,
+    report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
-    sort: str = None,
+    sort: str = &#39;v&#39;,
     algorithm: list = None,
     pruning: bool = False,
+    scoring: list = [&#34;accuracy&#34;, &#34;precision&#34;, &#34;recall&#34;, &#34;f1&#34;, &#34;auc&#34;],
     **params,
 ) -&gt; DataFrame:
     &#34;&#34;&#34;분류분석을 수행하고 결과를 출력한다.
@@ -1453,7 +1482,6 @@ def my_classification(
     processes = []  # 병렬처리를 위한 프로세스 리스트
     estimators = {}  # 분류분석 모델을 저장할 딕셔너리
     estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
-
     callstack = []
 
     if not algorithm or &#34;logistic&#34; in algorithm:
@@ -1474,6 +1502,26 @@ def my_classification(
     if not algorithm or &#34;sgd&#34; in algorithm:
         callstack.append(my_sgd_classification)
 
+    score_fields = []
+
+    for s in scoring:
+        if s == &#34;r2&#34;:
+            score_fields.append(&#34;의사결정계수(Pseudo R2)&#34;)
+        elif s == &#34;accuracy&#34;:
+            score_fields.append(&#34;정확도(Accuracy)&#34;)
+        elif s == &#34;precision&#34;:
+            score_fields.append(&#34;정밀도(Precision)&#34;)
+        elif s == &#34;recall&#34;:
+            score_fields.append(&#34;재현율(Recall)&#34;)
+        elif s == &#34;fallout&#34;:
+            score_fields.append(&#34;위양성율(Fallout)&#34;)
+        elif s == &#34;tnr&#34;:
+            score_fields.append(&#34;특이성(TNR)&#34;)
+        elif s == &#34;f1&#34;:
+            score_fields.append(&#34;F1 Score&#34;)
+        elif s == &#34;auc&#34;:
+            score_fields.append(&#34;AUC&#34;)
+
     # 병렬처리를 위한 프로세스 생성 -&gt; 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
         for c in callstack:
@@ -1486,16 +1534,27 @@ def my_classification(
                     y_test=y_test,
                     conf_matrix=conf_matrix,
                     cv=cv,
-                    hist=hist,
-                    roc=roc,
-                    pr=pr,
-                    multiclass=multiclass,
-                    learning_curve=learning_curve,
-                    report=report,
-                    figsize=figsize,
-                    dpi=dpi,
-                    sort=sort,
+                    # hist=hist,
+                    # roc=roc,
+                    # pr=pr,
+                    # multiclass=multiclass,
+                    # learning_curve=learning_curve,
+                    # report=report,
+                    # figsize=figsize,
+                    # dpi=dpi,
+                    # sort=sort,
+                    hist=False,
+                    roc=False,
+                    pr=False,
+                    multiclass=None,
+                    learning_curve=False,
+                    report=False,
+                    figsize=None,
+                    dpi=100,
+                    sort=None,
+                    # pruning=pruning,
                     is_print=False,
+                    # pruning=pruning,
                     **params,
                 )
             )
@@ -1517,7 +1576,20 @@ def my_classification(
 
         # 결과값을 데이터프레임으로 변환
         result_df = DataFrame(results, index=estimator_names)
+
+        if score_fields:
+            result_df.sort_values(score_fields, ascending=False, inplace=True)
+
         my_pretty_table(result_df)
+    
+    # 최고 성능의 모델을 선택
+    best_idx = result_df[score_fields[0]].idxmax()
+    estimators[&#39;best&#39;] = estimators[best_idx]
+    
+    print(&#34;\n\n==================== 최고 성능 모델: %s ====================&#34; % best_idx)
+    my_classification_result(estimators[&#39;best&#39;], x_train, y_train, x_test, y_test, conf_matrix=conf_matrix, hist=hist, roc=roc, pr=pr, multiclass=multiclass, learning_curve=learning_curve, figsize=figsize, dpi=dpi, is_print=True)
+    
+    my_classification_report(estimators[&#39;best&#39;], x_train, y_train, x_test, y_test, sort=sort)
 
     return estimators</code></pre>
 </details>
@@ -1617,9 +1689,11 @@ def my_classification(
 
         if sort:
             if sort.upper() == &#34;V&#34;:
-                result_df.sort_values(&#34;VIF&#34;, inplace=True)
+                result_df = result_df.sort_values(&#34;VIF&#34;, ascending=False).reset_index()
             elif sort.upper() == &#34;P&#34;:
-                result_df.sort_values(&#34;유의확률&#34;, inplace=True)
+                result_df = result_df.sort_values(
+                    &#34;유의확률&#34;, ascending=False
+                ).reset_index()
 
         my_pretty_table(result_df)
     else:
@@ -1645,7 +1719,7 @@ def my_classification(
 
         if sort:
             if sort.upper() == &#34;V&#34;:
-                result_df.sort_values(&#34;VIF&#34;, inplace=True)
+                result_df = result_df.sort_values(&#34;VIF&#34;, ascending=False).reset_index()
 
         my_pretty_table(result_df)</code></pre>
 </details>
@@ -2674,7 +2748,7 @@ def my_classification(
 <dd>하이퍼파라미터. Defaults to None.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>SVC</p></div>
+<p>GaussianNB</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2715,7 +2789,7 @@ def my_classification(
         is_print (bool, optional): 출력 여부. Defaults to True.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
-        SVC
+        GaussianNB
     &#34;&#34;&#34;
 
     # 교차검증 설정
@@ -2830,7 +2904,6 @@ def my_classification(
         if not params:
             params = {
                 # 손실함수
-                # &#39;log_loss&#39;, &#39;squared_hinge&#39;, &#39;perceptron&#39;, &#39;squared_error&#39;, &#39;hinge&#39;, &#39;huber&#39;, &#39;squared_epsilon_insensitive&#39;, &#39;epsilon_insensitive&#39;, &#39;modified_huber&#39;
                 &#34;loss&#34;: [&#34;hinge&#34;, &#34;log_loss&#34;, &#34;modified_huber&#34;],
                 # 정규화 종류
                 &#34;penalty&#34;: [&#34;l2&#34;, &#34;l1&#34;, &#34;elasticnet&#34;],

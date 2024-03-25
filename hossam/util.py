@@ -625,13 +625,14 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = "smote") -> DataFr
 
 
 def my_vif_filter(
-    data: DataFrame, yname: str = None, threshold: float = 10
+    data: DataFrame, yname: str = None, ignore: list = [], threshold: float = 10
 ) -> DataFrame:
     """독립변수 간 다중공선성을 검사하여 VIF가 threshold 이상인 변수를 제거한다.
 
     Args:
         data (DataFrame): 데이터프레임
         yname (str, optional): 종속변수 컬럼명. Defaults to None.
+        ignore (list, optional): 제외할 컬럼 목록. Defaults to [].
         threshold (float, optional): VIF 임계값. Defaults to 10.
 
     Returns:
@@ -652,6 +653,11 @@ def my_vif_filter(
     cate = df[category_fields]
     df = df.drop(category_fields, axis=1)
 
+    # 제외할 필드를 제거
+    if ignore:
+        ignore_df = df[ignore]
+        df = df.drop(ignore, axis=1)
+
     # VIF 계산
     while True:
         xnames = list(df.columns)
@@ -670,6 +676,10 @@ def my_vif_filter(
     # 분리했던 명목형 변수를 다시 결합
     if category_fields:
         df[category_fields] = cate
+
+    # 분리했던 제외할 필드를 다시 결합
+    if ignore:
+        df[ignore] = ignore_df
 
     # 분리했던 종속 변수를 다시 결합
     if yname:

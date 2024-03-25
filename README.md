@@ -3,10 +3,10 @@
 이광호 강사 데이터 분석 유틸리티 
 
 
-![Generic badge](https://img.shields.io/badge/version-0.0.1-critical.svg?style=flat-square&logo=appveyor) &nbsp;
-[![The MIT License](https://img.shields.io/badge/license-MIT-orange.svg?style=flat-square&logo=appveyor)](http://opensource.org/licenses/MIT) &nbsp;
 ![Badge](https://img.shields.io/badge/Author-Lee%20KwangHo-blue.svg?style=flat-square&logo=appveyor) &nbsp;
 ![Badge](https://img.shields.io/badge/Author-Ju%20YoungA-pink.svg?style=flat-square&logo=appveyor) &nbsp;
+![Generic badge](https://img.shields.io/badge/version-0.0.1-critical.svg?style=flat-square&logo=appveyor) &nbsp;
+[![The MIT License](https://img.shields.io/badge/license-MIT-orange.svg?style=flat-square&logo=appveyor)](http://opensource.org/licenses/MIT) &nbsp;
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=appveyor) &nbsp;
 ![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=appveyor) &nbsp;
 ![SciPy](https://img.shields.io/badge/SciPy-8CAAE6?style=flat-square&logo=appveyor) &nbsp;

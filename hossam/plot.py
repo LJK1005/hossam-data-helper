@@ -18,11 +18,12 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import learning_curve
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_samples, silhouette_score
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.tree import export_graphviz
 import graphviz
-
+import matplotlib.cm as cm
 import sys
 
 plt.rcParams["font.family"] = (
@@ -48,7 +49,9 @@ def my_lineplot(
     plt.figure(figsize=figsize, dpi=dpi)
     ax = plt.gca()
 
-    sb.lineplot(data=df, x=xname, y=yname, hue=hue, marker=marker, palette=palette, ax=ax)
+    sb.lineplot(
+        data=df, x=xname, y=yname, hue=hue, marker=marker, palette=palette, ax=ax
+    )
     ax.grid()
 
     if callback:
@@ -1838,14 +1841,19 @@ def my_scatter_by_class(
         for i, v in enumerate(xnames):
             j = (i + 1) % len(xnames)
 
-            if v == hue or xnames[j] == hue or data[v].dtype not in [
-                "int",
-                "int32",
-                "int64",
-                "float",
-                "float32",
-                "float64",
-            ]:
+            if (
+                v == hue
+                or xnames[j] == hue
+                or data[v].dtype
+                not in [
+                    "int",
+                    "int32",
+                    "int64",
+                    "float",
+                    "float32",
+                    "float64",
+                ]
+            ):
                 continue
 
             group.append([v, xnames[j]])

@@ -39,6 +39,7 @@ def my_lineplot(
     xname: str = None,
     yname: str = None,
     hue: str = None,
+    marker: str = None,
     palette: str = None,
     figsize: tuple = (10, 5),
     dpi: int = 100,
@@ -47,7 +48,7 @@ def my_lineplot(
     plt.figure(figsize=figsize, dpi=dpi)
     ax = plt.gca()
 
-    sb.lineplot(data=df, x=xname, y=yname, hue=hue, palette=palette, ax=ax)
+    sb.lineplot(data=df, x=xname, y=yname, hue=hue, marker=marker, palette=palette, ax=ax)
     ax.grid()
 
     if callback:
@@ -1828,13 +1829,16 @@ def my_scatter_by_class(
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
     """
+
     if group == None:
         group = []
 
         xnames = data.columns
 
         for i, v in enumerate(xnames):
-            if v == hue or data[v].dtype not in [
+            j = (i + 1) % len(xnames)
+
+            if v == hue or xnames[j] == hue or data[v].dtype not in [
                 "int",
                 "int32",
                 "int64",
@@ -1844,7 +1848,6 @@ def my_scatter_by_class(
             ]:
                 continue
 
-            j = (i + 1) % len(xnames)
             group.append([v, xnames[j]])
 
     if outline:

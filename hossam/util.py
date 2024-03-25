@@ -2,7 +2,7 @@ import numpy as np
 from tabulate import tabulate
 from pandas import DataFrame, Series, read_excel, get_dummies, DatetimeIndex
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, PolynomialFeatures
 from sklearn.impute import SimpleImputer
 from scipy.stats import normaltest
 
@@ -132,7 +132,7 @@ def my_read_excel(
 
 
 def my_standard_scaler(data: DataFrame, yname: str = None) -> DataFrame:
-    """데이터프레임의 연속형 변수에 대해 표준화를 수행한다.
+    """데이터프레임의 연속형 변수에 대해 Standard Scaling을 수행한다.
 
     Args:
         data (DataFrame): 데이터프레임 객체
@@ -160,6 +160,48 @@ def my_standard_scaler(data: DataFrame, yname: str = None) -> DataFrame:
 
     # 표준화 수행
     scaler = StandardScaler()
+    std_df = DataFrame(scaler.fit_transform(df), index=data.index, columns=df.columns)
+
+    # 분리했던 명목형 변수를 다시 결합
+    if category_fields:
+        std_df[category_fields] = cate
+
+    # 분리했던 종속 변수를 다시 결합
+    if yname:
+        std_df[yname] = y
+
+    return std_df
+
+
+def my_minmax_scaler(data: DataFrame, yname: str = None) -> DataFrame:
+    """데이터프레임의 연속형 변수에 대해 MinMax Scaling을 수행한다.
+
+    Args:
+        data (DataFrame): 데이터프레임 객체
+        yname (str, optional): 종속변수의 컬럼명. Defaults to None.
+
+    Returns:
+        DataFrame: 표준화된 데이터프레임
+    """
+    # 원본 데이터 프레임 복사
+    df = data.copy()
+
+    # 종속변수만 별도로 분리
+    if yname:
+        y = df[yname]
+        df = df.drop(yname, axis=1)
+
+    # 카테고리 타입만 골라냄
+    category_fields = []
+    for f in df.columns:
+        if df[f].dtypes not in ["int", "int32", "int64", "float", "float32", "float64"]:
+            category_fields.append(f)
+
+    cate = df[category_fields]
+    df = df.drop(category_fields, axis=1)
+
+    # 표준화 수행
+    scaler = MinMaxScaler()
     std_df = DataFrame(scaler.fit_transform(df), index=data.index, columns=df.columns)
 
     # 분리했던 명목형 변수를 다시 결합

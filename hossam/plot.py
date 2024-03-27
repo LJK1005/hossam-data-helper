@@ -412,12 +412,12 @@ def my_lmplot(
 
 def my_pairplot(
     df: DataFrame,
-    diag_kind: str = "hist",
+    diag_kind: str = "kde",
     hue=None,
     palette: str = None,
     figsize: tuple = (3.5, 2.7),
     dpi: int = 100,
-    **params,
+    **params
 ) -> None:
     """데이터프레임 내의 모든 컬럼에 대해 쌍별 관계를 시각화한다.
 
@@ -431,11 +431,11 @@ def my_pairplot(
     w = figsize[0] * len(df.columns)
     h = figsize[1] * len(df.columns)
 
-    g = sb.pairplot(df, hue=hue, diag_kind=diag_kind, palette=palette, **params)
-    g.fig.set_size_inches(w, h)
-    g.fig.set_dpi(dpi)
-    g.map_lower(sb.kdeplot, fill=True, alpha=0.3)
-    g.map_upper(sb.scatterplot)
+    g = sb.pairplot(data=df, hue=hue, diag_kind=diag_kind, palette=palette, **params)
+    g.fig.set_size_inches(w=w, h=h)
+    g.fig.set_dpi(val=dpi)
+    g.map_lower(func=sb.kdeplot, fill=True, alpha=0.3)
+    g.map_upper(func=sb.scatterplot)
     plt.tight_layout()
     plt.show()
     plt.close()

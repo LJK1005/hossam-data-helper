@@ -417,7 +417,7 @@ def my_pairplot(
     palette: str = None,
     figsize: tuple = (3.5, 2.7),
     dpi: int = 100,
-    **params
+    **params,
 ) -> None:
     """데이터프레임 내의 모든 컬럼에 대해 쌍별 관계를 시각화한다.
 
@@ -726,6 +726,9 @@ def my_convex_hull(
 
     # 군집별 값의 종류별로 반복 수행
     for c in data[hue].unique():
+        if c == -1:
+            continue
+
         # 한 종류만 필터링한 결과에서 두 변수만 선택
         df_c = data.loc[data[hue] == c, [xname, yname]]
 

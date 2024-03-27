@@ -109,10 +109,11 @@ def my_read_excel(
     if info:
         print(data.info())
 
-        print("\n데이터프레임 상위 5개 행")
-        my_pretty_table(data.head())
+    print("\n상위 5개 행")
+    my_pretty_table(data.head())
 
-        print("\n데이터프레임 하위 5개 행")
+    if info:
+        print("\n하위 5개 행")
         my_pretty_table(data.tail())
 
         print("\n기술통계")

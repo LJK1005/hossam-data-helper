@@ -1199,7 +1199,7 @@ def my_classification(
     report: bool = True,
     figsize=(10, 5),
     dpi: int = 100,
-    sort: str = 'v',
+    sort: str = "v",
     algorithm: list = None,
     pruning: bool = False,
     scoring: list = ["accuracy", "precision", "recall", "f1", "auc"],
@@ -1271,8 +1271,8 @@ def my_classification(
             score_fields.append("특이성(TNR)")
         elif s == "f1":
             score_fields.append("F1 Score")
-        elif s == "auc":
-            score_fields.append("AUC")
+        # elif s == "auc":
+        #     score_fields.append("AUC")
 
     # 병렬처리를 위한 프로세스 생성 -> 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
@@ -1333,14 +1333,31 @@ def my_classification(
             result_df.sort_values(score_fields, ascending=False, inplace=True)
 
         my_pretty_table(result_df)
-    
+
     # 최고 성능의 모델을 선택
     best_idx = result_df[score_fields[0]].idxmax()
-    estimators['best'] = estimators[best_idx]
-    
+    estimators["best"] = estimators[best_idx]
+
     print("\n\n==================== 최고 성능 모델: %s ====================" % best_idx)
-    my_classification_result(estimators['best'], x_train, y_train, x_test, y_test, conf_matrix=conf_matrix, hist=hist, roc=roc, pr=pr, multiclass=multiclass, learning_curve=learning_curve, figsize=figsize, dpi=dpi, is_print=True)
-    
-    my_classification_report(estimators['best'], x_train, y_train, x_test, y_test, sort=sort)
+    my_classification_result(
+        estimators["best"],
+        x_train,
+        y_train,
+        x_test,
+        y_test,
+        conf_matrix=conf_matrix,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=True,
+    )
+
+    my_classification_report(
+        estimators["best"], x_train, y_train, x_test, y_test, sort=sort
+    )
 
     return estimators

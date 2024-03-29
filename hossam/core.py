@@ -83,6 +83,7 @@ def __ml(
                 n_iter=1000,
             )
         else:
+            print(scoring)
             grid = RandomizedSearchCV(
                 estimator=prototype_estimator,
                 param_distributions=params,
@@ -98,19 +99,22 @@ def __ml(
             print(f"\033[91m{cn}에서 에러발생 ({e})\033[0m")
             return None
 
+        print(grid.cv_results_)
+
         result_df = DataFrame(grid.cv_results_["params"])
-        result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
+        # result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
 
         estimator = grid.best_estimator_
         estimator.best_params = grid.best_params_
 
         if is_print:
             print("[교차검증 TOP5]")
-            my_pretty_table(
-                result_df.dropna(subset=["mean_test_score"])
-                .sort_values(by="mean_test_score", ascending=False)
-                .head()
-            )
+            # my_pretty_table(
+            #     result_df.dropna(subset=["mean_test_score"])
+            #     .sort_values(by="mean_test_score", ascending=False)
+            #     .head()
+            # )
+            my_pretty_table(result_df)
             print("")
 
             print("[Best Params]")

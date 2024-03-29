@@ -27,6 +27,7 @@ def __my_clustering(
         classname=classname,
         x_train=x,
         cv=cv,
+        scoring=make_scorer(silhouette_score),
         is_print=is_print,
         **params,
     )

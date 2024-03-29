@@ -27,7 +27,6 @@ def __my_clustering(
         classname=classname,
         x_train=x,
         cv=cv,
-        scoring=make_scorer(score_func=silhouette_score),
         is_print=is_print,
         **params,
     )
@@ -82,7 +81,7 @@ def my_kmeans(
         classname=KMeans,
         x=x,
         cv=cv,
-        eport=report,
+        report=report,
         figsize=figsize,
         dpi=dpi,
         sort=sort,

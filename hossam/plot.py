@@ -18,7 +18,6 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import learning_curve
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import silhouette_samples, silhouette_score
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.tree import export_graphviz

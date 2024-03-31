@@ -1,91 +1,159 @@
-import inspect
+from pandas import DataFrame
+from typing import Literal
+import concurrent.futures as futures
 
-import numpy as np
+from kneed import KneeLocator
 
-from pandas import DataFrame, Series
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_samples, silhouette_score, make_scorer
-from .util import my_pretty_table
-from .core import __ml
+
+from hossam.plot import my_lineplot
 
 
-def __my_clustering(
-    classname: any,
-    x: DataFrame,
-    cv: int = 5,
-    report: bool = False,
-    figsize=(10, 5),
-    dpi: int = 100,
-    sort: str = None,
-    is_print: bool = True,
-    **params,
-) -> any:
-
-    # ------------------------------------------------------
-    # 분류모델 생성
-    estimator = __ml(
-        classname=classname,
-        x_train=x,
-        cv=cv,
-        scoring=make_scorer(silhouette_score),
-        is_print=is_print,
-        **params,
-    )
-
-    # ------------------------------------------------------
-    # 성능평가
-
-    # ------------------------------------------------------
-    # 보고서 출력
-
-    return estimator
-
-
-def my_kmeans(
-    x: DataFrame,
-    n_clusters: any = [2, 3, 4, 5, 6, 7, 8, 9, 10],
-    cv: int = 5,
-    report: bool = False,
-    figsize=(10, 5),
-    dpi: int = 100,
-    sort: str = None,
-    is_print: bool = True,
-    **params,
-) -> KMeans:
-    """KMeans 클러스터링을 수행하고 결과를 출력한다.
+def _get_inertia(
+    data: DataFrame,
+    n_clusters: int,
+    init: Literal["k-means++", "random"] = "k-means++",
+    max_iter: int = 500,
+    random_state=0,
+    algorithm: Literal["lloyd", "elkan", "auto", "full"] = "lloyd",
+) -> float:
+    """이너셔 값을 계산한다.
 
     Args:
-        x (DataFrame): 독립변수에 대한 데이터
-        n_clusters (int, optional): 클러스터의 개수. Defaults to 8.
-        cv (int, optional): 교차검증 횟수. Defaults to 5.
-        report (bool, optional): 보고서 출력 여부. Defaults to False.
-        figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
-        dpi (int, optional): 그래프 해상도. Defaults to 100.
-        sort (str, optional): 정렬 기준. Defaults to None.
-        is_print (bool, optional): 출력 여부. Defaults to True.
+        data (DataFrame): 원본 데이터
+        n_clusters (int): 클러스터 개수
+        init (Literal["k-means++", "random"], optional): 초기화 방법. Defaults to "k-means++".
+        max_iter (int, optional): 최대 반복 횟수. Defaults to 500.
+        random_state (int, optional): 난수 시드. Defaults to 0.
+        algorithm (Literal["lloyd", "elkan", "auto", "full"], optional): 알고리즘. Defaults to "lloyd".
 
     Returns:
-        KMeans: 클러스터링 모델
+        float
     """
-    if type(n_clusters) is not list:
-        n_clusters = [n_clusters]
-
-    if params:
-        params["n_clusters"] = n_clusters
-    else:
-        params = {
-            "n_clusters": n_clusters,
-            "algorithm": ["lloyd", "elkan"],
-        }
-
-    return __my_clustering(
-        classname=KMeans,
-        x=x,
-        cv=cv,
-        report=report,
-        figsize=figsize,
-        dpi=dpi,
-        sort=sort,
-        is_print=is_print,
-        **params,
+    kmeans = KMeans(
+        n_clusters=n_clusters,
+        init=init,
+        max_iter=max_iter,
+        random_state=random_state,
+        algorithm=algorithm,
     )
+    kmeans.fit(data)
+    return (kmeans.inertia_, n_clusters)
+
+
+def my_inertia(
+    data: DataFrame,
+    max_clusters: int | list = 10,
+    init: Literal["k-means++", "random"] = "k-means++",
+    max_iter: int = 500,
+    random_state=0,
+    algorithm: Literal["lloyd", "elkan", "auto", "full"] = "lloyd",
+) -> DataFrame:
+    """클러스터 개수에 따른 이너셔 값을 계산한다.
+
+    Args:
+        data (DataFrame): 원본 데이터
+        max_clusters (int | list, optional): 최대 클러스터 개수. 정수로 전달할 경우 `2`부터 주어진 개수까지 반복 수행한다. Defaults to 10.
+        init (Literal["k-means++", "random"], optional): 초기화 방법. Defaults to "k-means++".
+        max_iter (int, optional): 최대 반복 횟수. Defaults to 500.
+        random_state (int, optional): 난수 시드. Defaults to 0.
+        algorithm (Literal["lloyd", "elkan", "auto", "full"], optional): _description_. Defaults to "lloyd".
+
+    Returns:
+        DataFrame: _description_
+    """
+    with futures.ThreadPoolExecutor() as executor:
+        results = []
+        for n_clusters in range(2, max_clusters + 1):
+            results.append(
+                executor.submit(
+                    _get_inertia,
+                    data,
+                    n_clusters,
+                    init,
+                    max_iter,
+                    random_state,
+                    algorithm,
+                )
+            )
+
+        return_values = [r.result() for r in futures.as_completed(results)]
+        df = DataFrame(return_values, columns=["inertia", "n_clusters"])
+        df.set_index("n_clusters", inplace=True)
+        df.sort_index(inplace=True)
+        return df
+
+
+def my_knn_elbow(
+    data: DataFrame,
+    max_clusters: int | list = 10,
+    init: Literal["k-means++", "random"] = "k-means++",
+    max_iter: int = 500,
+    random_state=0,
+    algorithm: Literal["lloyd", "elkan", "auto", "full"] = "lloyd",
+    plot: bool = True,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+) -> float:
+    """KNN을 이용한 최적 클러스터 개수를 찾는다.
+
+    Args:
+        data (DataFrame): 원본 데이터
+        max_clusters (int | list, optional): 최대 클러스터 개수. 정수로 전달할 경우 `2`부터 주어진 개수까지 반복 수행한다. Defaults to 10.
+        init (Literal["k-means++", "random"], optional): 초기화 방법. Defaults to "k-means++".
+        max_iter (int, optional): 최대 반복 횟수. Defaults to 500.
+        random_state (int, optional): 난수 시드. Defaults to 0.
+        algorithm (Literal["lloyd", "elkan", "auto", "full"], optional): 알고리즘. Defaults to "lloyd".
+        plot (bool, optional): 엘보우포인트 그래프 표시 여부. Defaults to True.
+        figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프 해상도. Defaults to 100.
+
+    Returns:
+        float: _description_
+    """
+    inertia = my_inertia(
+        data=data,
+        max_clusters=max_clusters,
+        init=init,
+        max_iter=max_iter,
+        random_state=random_state,
+        algorithm=algorithm,
+    )
+    kn = KneeLocator(
+        x=inertia.index, y=inertia.inertia, curve="convex", direction="decreasing"
+    )
+    best_k = kn.elbow
+    best_y = kn.elbow_y
+
+    if plot:
+
+        def hvline(ax):
+            ax.set_ylabel("inertia")
+            ax.set_xlabel("cluster count")
+            ax.set_title("Elbow Method")
+            ax.axhline(best_y, color="red", linestyle="--", linewidth=0.7)
+            ax.axvline(best_k, color="red", linestyle="--", linewidth=0.7)
+            ax.text(
+                best_k + 0.2,
+                best_y + 0.2,
+                f"k={best_k}",
+                fontsize=20,
+                color="red",
+                va="bottom",
+                ha="left",
+            )
+
+        my_lineplot(
+            df=inertia,
+            xname=inertia.index,
+            marker="o",
+            linewidth=2,
+            yname="inertia",
+            figsize=figsize,
+            dpi=dpi,
+            callback=hvline,
+        )
+
+    inertia["best"] = False
+    inertia.loc[best_k, "best"] = True
+    return inertia

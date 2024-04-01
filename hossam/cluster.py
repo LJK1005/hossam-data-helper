@@ -6,8 +6,10 @@ import concurrent.futures as futures
 from typing import Literal
 from pandas import DataFrame
 from kneed import KneeLocator
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
 from sklearn.metrics import silhouette_score, silhouette_samples
+from sklearn.neighbors import NearestNeighbors
+
 from scipy.spatial import ConvexHull
 
 from hossam.plot import my_lineplot, my_convex_hull
@@ -93,6 +95,8 @@ def my_elbow_point(
     plot: bool = True,
     figsize: tuple = (10, 5),
     dpi: int = 100,
+    marker: str = None,
+    linewidth: int = 1,
 ) -> tuple:
     """엘보우 포인트를 찾는다.
 
@@ -148,22 +152,18 @@ def my_elbow_point(
 
             ax.axvline(best_x, color="red", linestyle="--", linewidth=0.7)
             ax.axhline(best_y, color="red", linestyle="--", linewidth=0.7)
-            ax.text(
-                best_x + 0.2,
-                best_y + 0.2,
-                "(%.1f, %.1f)" % (best_x, best_y),
-                fontsize=20,
-                color="red",
-                va="bottom",
-                ha="left",
-            )
+
+        if title:
+            title = title + " (Elbow Point : %.1f x %.1f)" % (best_x, best_y)
+        else:
+            title = "Elbow Method (Elbow Point : %.1f x %.1f)" % (best_x, best_y)
 
         my_lineplot(
             df=None,
             xname=x,
             yname=y,
-            marker="o",
-            linewidth=2,
+            marker=marker,
+            linewidth=linewidth,
             figsize=figsize,
             dpi=dpi,
             callback=hvline,
@@ -265,22 +265,24 @@ def my_cluster_plot(
 
     sb.scatterplot(data=df, x=xname, y=yname, hue="cluster", ax=ax2)
 
-    # Labeling the clusters
-    centers = estimator.cluster_centers_
-    # Draw white circles at cluster centers
-    sb.scatterplot(
-        x=centers[:, 0],
-        y=centers[:, 1],
-        marker="o",
-        color="white",
-        alpha=1,
-        s=200,
-        edgecolor="r",
-        ax=ax2,
-    )
+    # 중심점이 있을 경우 중심점 표시 --> KMeans
+    if hasattr(estimator, "cluster_centers_"):
+        # Labeling the clusters
+        centers = estimator.cluster_centers_
+        # Draw white circles at cluster centers
+        sb.scatterplot(
+            x=centers[:, 0],
+            y=centers[:, 1],
+            marker="o",
+            color="white",
+            alpha=1,
+            s=200,
+            edgecolor="r",
+            ax=ax2,
+        )
 
-    for i, c in enumerate(centers):
-        ax2.scatter(c[0], c[1], marker="$%d$" % i, alpha=1, s=50, edgecolor="k")
+        for i, c in enumerate(centers):
+            ax2.scatter(c[0], c[1], marker="$%d$" % i, alpha=1, s=50, edgecolor="k")
 
     ax2.set_title("The visualization of the clustered data.")
     ax2.set_xlabel("Feature space for the 1st feature")
@@ -391,6 +393,8 @@ def my_kmeans(
                 yname="inertia",
                 title="Elbow Method",
                 plot=plot,
+                marker="o",
+                linewidth=2,
                 figsize=figsize,
                 dpi=dpi,
             )
@@ -407,3 +411,143 @@ def my_kmeans(
             my_cluster_plot(best_model, data, figsize=figsize, dpi=dpi)
 
         return best_model
+
+
+def __dbscan(
+    data: DataFrame,
+    eps: float = 0.5,
+    min_samples: int = 5,
+    metric: Literal["euclidean", "manhattan", "cosine", "jaccard"] = "euclidean",
+    algorithm: Literal["auto", "ball_tree", "kd_tree", "brute"] = "auto",
+) -> DBSCAN:
+    """DBSCAN 알고리즘을 수행한다.
+
+    Args:
+        data (DataFrame): 원본 데이터
+        eps (float, optional): 최대 이웃 거리. Defaults to 0.5.
+        min_samples (int, optional): eps 내 최소 이웃 수. 일반적으로 minPts라고 함. Defaults to 5.
+        metric (Literal["euclidean", "manhattan", "cosine", "jaccard"], optional): 거리 측정 방법.	. Defaults to "euclidean".
+        algorithm (Literal["auto", "ball_tree", "kd_tree", "brute"], optional): 이웃 검색 알고리즘.. Defaults to "auto".
+
+    Returns:
+        DBSCAN
+    """
+
+    estimator = DBSCAN(
+        eps=eps, min_samples=min_samples, metric=metric, algorithm=algorithm, n_jobs=-1
+    )
+    estimator.fit(X=data)
+
+    # 속성 확장
+    estimator.n_clusters = len(list(set(estimator.labels_))) - 1
+    estimator.silhouette = silhouette_score(data, estimator.labels_)
+    return estimator
+
+
+def my_single_dbscan(
+    data: DataFrame,
+    eps: float = 0.5,
+    min_samples: int = 5,
+    metric: Literal["euclidean", "manhattan", "cosine", "jaccard"] = "euclidean",
+    algorithm: Literal["auto", "ball_tree", "kd_tree", "brute"] = "auto",
+) -> DBSCAN:
+    """DBSCAN 알고리즘을 수행한다.
+
+    Args:
+        data (DataFrame): 원본 데이터
+        eps (float, optional): 최대 이웃 거리. Defaults to 0.5.
+        min_samples (int, optional): eps 내 최소 이웃 수. 일반적으로 minPts라고 함. Defaults to 5.
+        metric (Literal["euclidean", "manhattan", "cosine", "jaccard"], optional): 거리 측정 방법.	. Defaults to "euclidean".
+        algorithm (Literal["auto", "ball_tree", "kd_tree", "brute"], optional): 이웃 검색 알고리즘.. Defaults to "auto".
+
+    Returns:
+        DBSCAN
+    """
+    return __dbscan(
+        data=data, eps=eps, min_samples=min_samples, metric=metric, algorithm=algorithm
+    )
+
+
+def my_n_neighbors(
+    data: DataFrame,
+    k: int = 3,
+    plot: bool = True,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+):
+    """KNN 알고리즘을 시각화한다.
+
+    Args:
+        data (DataFrame): 원본 데이터
+        k (int, optional): 이웃 수. Defaults to 3.
+        plot (bool, optional): 그래프 표시 여부. Defaults to True.
+        figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
+        dpi (int, optional): 해상도. Defaults to 100.
+    """
+    neighbors = NearestNeighbors(n_neighbors=k)
+    neighbors_fit = neighbors.fit(X=data)
+
+    # 한 점의 최근접 이웃 찾기
+    distance, indices = neighbors_fit.kneighbors(X=data)
+
+    # 가까운 순서대로 정렬
+    s_distance = np.sort(distance, axis=0)
+
+    # 마지막 데이터와의 거리(k−1번째)만을 추출해서 1차원 리스트로 재구성하여 그래프의 y으로 삼음
+    target = s_distance[:, k - 1]
+
+    # 엘보우 포인트 계산
+    best_k, best_y = my_elbow_point(
+        x=list(range(1, len(target) + 1)),
+        y=target,
+        dir="right,down",
+        title="KNN Method",
+        xname="Points sorted by distance",
+        yname="distance",
+        plot=plot,
+        figsize=figsize,
+        dpi=dpi,
+    )
+
+    return best_y
+
+
+def my_dbscan(
+    data: DataFrame,
+    k: int = 3,
+    metric: Literal["euclidean", "manhattan", "cosine", "jaccard"] = "euclidean",
+    algorithm: Literal["auto", "ball_tree", "kd_tree", "brute"] = "auto",
+    plot: bool = True,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+) -> DBSCAN:
+    """주어진 k값에 대한 eps와 minPts를 구한 후 이를 토대로 DBSCAN 알고리즘을 수행한다.
+
+    Args:
+        data (DataFrame):
+        k (int, optional): _description_. Defaults to 3.
+        metric (Literal[&quot;euclidean&quot;, &quot;manhattan&quot;, &quot;cosine&quot;, &quot;jaccard&quot;], optional): _description_. Defaults to "euclidean".
+        algorithm (Literal[&quot;auto&quot;, &quot;ball_tree&quot;, &quot;kd_tree&quot;, &quot;brute&quot;], optional): _description_. Defaults to "auto".
+        plot (bool, optional): _description_. Defaults to True.
+        figsize (tuple, optional): _description_. Defaults to (10, 5).
+        dpi (int, optional): _description_. Defaults to 100.
+
+    Returns:
+        DBSCAN: _description_
+    """
+
+    eps = my_n_neighbors(data, k=k, plot=plot, figsize=figsize, dpi=dpi)
+
+    try:
+        estimator = __dbscan(
+            data=data, eps=eps, min_samples=k, metric=metric, algorithm=algorithm
+        )
+    except Exception as e:
+        print(f"\x1b[31m클러스터링에 실패했습니다.\x1b[0m")
+        print(f"\x1b[31m({e})\x1b[0m")
+        return None
+
+    if plot:
+        my_cluster_plot(estimator, data, figsize=figsize, dpi=dpi)
+
+    return estimator

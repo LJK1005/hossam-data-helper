@@ -66,7 +66,7 @@ def my_elbow_point(
     Args:
         x (list): x축 데이터
         y (list): y축 데이터
-        dir (str, optional): 방향. Defaults to "left,down".
+        dir (str, optional): 그래프가 볼록한 방향. Defaults to "left,down".
         title (str, optional): 그래프 제목. Defaults to "Elbow Method".
         xname (str, optional): x축 이름. Defaults to "n_clusters".
         yname (str, optional): y축 이름. Defaults to "inertia".
@@ -78,7 +78,7 @@ def my_elbow_point(
     Returns:
         int: _description_
     """
-    #     left,down  convex, decresing
+    # left,down  convex, decresing
     # left,up concave, increasing
     # right,down convex, increasing
     # right,up  concave, decresing

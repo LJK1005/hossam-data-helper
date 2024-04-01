@@ -99,7 +99,7 @@ def __ml(
             print(f"\033[91m{cn}에서 에러발생 ({e})\033[0m")
             return None
 
-        print(grid.cv_results_)
+        # print(grid.cv_results_)
 
         result_df = DataFrame(grid.cv_results_["params"])
         # result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]

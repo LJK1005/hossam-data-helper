@@ -233,6 +233,31 @@ def my_regression_result(
                 )
 
 
+def __regression_report_plot(ax: plt.Axes, x, y, xname, yname, y_pred, deg) -> None:
+    if deg == 1:
+        sb.regplot(x=x, y=y, ci=95, label="관측치", ax=ax)
+        sb.regplot(x=x, y=y_pred, ci=0, label="추정치", ax=ax)
+    else:
+        sb.scatterplot(x=x, y=y, label="관측치", ax=ax)
+        sb.scatterplot(x=x, y=y_pred, label="추정치", ax=ax)
+
+        t1 = my_trend(x, y, degree=deg)
+        sb.lineplot(
+            x=t1[0], y=t1[1], color="blue", linestyle="--", label="관측치 추세선", ax=ax
+        )
+
+        t2 = my_trend(x, y_pred, degree=deg)
+        sb.lineplot(
+            x=t2[0], y=t2[1], color="red", linestyle="--", label="추정치 추세선", ax=ax
+        )
+
+        ax.set_xlabel(xname)
+        ax.set_ylabel(yname)
+
+    ax.legend()
+    ax.grid()
+
+
 def my_regression_report(
     estimator: any,
     x_train: DataFrame = None,
@@ -453,36 +478,38 @@ def my_regression_report(
 
     # 시각화
     if plot:
-        for i, v in enumerate(xnames):
-            plt.figure(figsize=figsize, dpi=dpi)
+        size = len(xnames)
+        cols = 2
+        rows = (size + cols - 1) // cols
 
-            if deg == 1:
-                sb.regplot(x=x[v], y=y, ci=95, label="관측치")
-                sb.regplot(x=x[v], y=y_pred, ci=0, label="추정치")
-            else:
-                sb.scatterplot(x=x[v], y=y, label="관측치")
-                sb.scatterplot(x=x[v], y=y_pred, label="추정치")
+        fig, ax = plt.subplots(
+            nrows=rows,
+            ncols=cols,
+            squeeze=False,
+            figsize=(figsize[0] * cols, figsize[1] * rows),
+            dpi=dpi,
+        )
 
-                t1 = my_trend(x[v], y, degree=deg)
-                sb.lineplot(
-                    x=t1[0],
-                    y=t1[1],
-                    color="blue",
-                    linestyle="--",
-                    label="관측치 추세선",
+        fig.subplots_adjust(wspace=0.1, hspace=0.3)
+
+        with futures.ThreadPoolExecutor() as executor:
+            for i, v in enumerate(xnames):
+                r = i // cols
+                c = i % cols
+
+                executor.submit(
+                    __regression_report_plot,
+                    ax=ax[r, c],
+                    x=x[v],
+                    y=y,
+                    xname=v,
+                    yname=yname,
+                    y_pred=y_pred,
+                    deg=deg,
                 )
 
-                t2 = my_trend(x[v], y_pred, degree=deg)
-                sb.lineplot(
-                    x=t2[0], y=t2[1], color="red", linestyle="--", label="추정치 추세선"
-                )
-
-            plt.title(f"{yname} vs {v}")
-            plt.legend()
-            plt.grid()
-
-            plt.show()
-            plt.close()
+        plt.show()
+        plt.close()
 
 
 def my_resid_normality(y: Series, y_pred: Series) -> None:
@@ -1142,10 +1169,10 @@ def my_regression(
 
     if not algorithm or "sgd" in algorithm:
         callstack.append(my_sgd_regression)
-        
+
     score_fields = []
     score_method = []
-    
+
     for s in scoring:
         if s == "r2":
             score_fields.append("결정계수(R2)")
@@ -1208,23 +1235,44 @@ def my_regression(
 
         # 결과값을 데이터프레임으로 변환
         result_df = DataFrame(results, index=estimator_names)
-        
+
         if score_fields:
             result_df.sort_values(score_fields, ascending=score_method, inplace=True)
-            
+
         my_pretty_table(result_df)
-        
+
     # 최고 성능의 모델을 선택
     if score_fields[0] == "결정계수(R2)":
         best_idx = result_df[score_fields[0]].idxmax()
     else:
         best_idx = result_df[score_fields[0]].idxmin()
-        
-    estimators['best'] = estimators[best_idx]
-    
-    my_regression_result(estimators['best'], x_train, y_train, x_test, y_test, learning_curve=learning_curve,
-                         cv=cv, figsize=figsize, dpi=dpi, is_print=True)
-    
-    my_regression_report(estimators['best'], x_train, y_train, x_test, y_test, sort=sort, plot=plot, deg=deg, figsize=figsize, dpi=dpi)
+
+    estimators["best"] = estimators[best_idx]
+
+    my_regression_result(
+        estimators["best"],
+        x_train,
+        y_train,
+        x_test,
+        y_test,
+        learning_curve=learning_curve,
+        cv=cv,
+        figsize=figsize,
+        dpi=dpi,
+        is_print=True,
+    )
+
+    my_regression_report(
+        estimators["best"],
+        x_train,
+        y_train,
+        x_test,
+        y_test,
+        sort=sort,
+        plot=plot,
+        deg=deg,
+        figsize=figsize,
+        dpi=dpi,
+    )
 
     return estimators

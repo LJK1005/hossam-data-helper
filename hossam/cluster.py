@@ -167,11 +167,11 @@ def my_cluster_plot(
         if isinstance(estimator, KMeans):
             ax.set_title(f"KMeans (k={estimator.n_clusters})")
 
-        ax.scatter(
-            estimator.cluster_centers_[:, 0],
-            estimator.cluster_centers_[:, 1],
+        sb.scatterplot(
+            x=estimator.cluster_centers_[:, 0],
+            y=estimator.cluster_centers_[:, 1],
             marker="o",
-            c="black",
+            color="black",
             alpha=1,
             s=50,
             edgecolor="red",
@@ -278,7 +278,7 @@ def my_cluster_plot(
         x=centers[:, 0],
         y=centers[:, 1],
         marker="o",
-        c="white",
+        color="white",
         alpha=1,
         s=200,
         edgecolor="r",
@@ -382,7 +382,7 @@ def my_kmeans(
     max_iter: int = 500,
     random_state=__RANDOM_STATE__,
     algorithm: Literal["lloyd", "elkan", "auto", "full"] = "lloyd",
-    scoring: Literal["inertia", "silhouette"] = "inertia",
+    scoring: Literal["elbow", "e", "silhouette", "s"] = "elbow",
     plot: bool = True,
     figsize: tuple = (10, 5),
     dpi: int = 100,
@@ -423,7 +423,7 @@ def my_kmeans(
         cluster_list = [k.n_clusters for k in kmeans_list]
         best_model = None
 
-        if scoring == "inertia":
+        if scoring == "elbow" or scoring == "e":
             inertia = [k.inertia_ for k in kmeans_list]
 
             best_k, best_y = my_elbow_point(
@@ -439,7 +439,7 @@ def my_kmeans(
             )
 
             best_model = next(filter(lambda x: x.n_clusters == best_k, kmeans_list))
-        else:
+        elif scoring == "silhouette" or scoring == "s":
             best_model = max(kmeans_list, key=lambda x: x.silhouette)
 
             if plot:

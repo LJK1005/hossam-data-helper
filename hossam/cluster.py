@@ -22,7 +22,7 @@ def __kmeans(
     max_iter: int = 500,
     random_state=__RANDOM_STATE__,
     algorithm: Literal["lloyd", "elkan", "auto", "full"] = "lloyd",
-) -> float:
+) -> KMeans:
     """KMmeans 알고리즘을 수행한다.
 
     Args:
@@ -44,15 +44,48 @@ def __kmeans(
         algorithm=algorithm,
     )
     estimator.fit(data)
+
+    # 속성 확장
     estimator.n_clusters = n_clusters
     estimator.silhouette = silhouette_score(data, estimator.labels_)
     return estimator
 
 
+def my_single_kmeans(
+    data: DataFrame,
+    n_clusters: int,
+    init: Literal["k-means++", "random"] = "k-means++",
+    max_iter: int = 500,
+    random_state=__RANDOM_STATE__,
+    algorithm: Literal["lloyd", "elkan", "auto", "full"] = "lloyd",
+) -> KMeans:
+    """kmeans 알고리즘을 수행한다.
+
+    Args:
+        data (DataFrame): 원본 데이터
+        n_clusters (int): 클러스터 개수
+        init (Literal["k-means++", "random"], optional): 초기화 방법. Defaults to "k-means++".
+        max_iter (int, optional): 최대 반복 횟수. Defaults to 500.
+        random_state (int, optional): 난수 시드. Defaults to 0.
+        algorithm (Literal["lloyd", "elkan", "auto", "full"], optional): 알고리즘. Defaults to "lloyd".
+
+    Returns:
+        KMeans
+    """
+    return __kmeans(
+        data=data,
+        n_clusters=n_clusters,
+        init=init,
+        max_iter=max_iter,
+        random_state=random_state,
+        algorithm=algorithm,
+    )
+
+
 def my_elbow_point(
     x: list,
     y: list,
-    dir: str = "left,down",
+    dir: Literal["left,down", "left,up", "right,down", "right,up"] = "left,down",
     title: str = None,
     xname: str = None,
     yname: str = None,
@@ -139,55 +172,48 @@ def my_elbow_point(
     return (best_x, best_y)
 
 
-def my_cluster_plot(
-    estimator: any,
-    data: DataFrame,
-    figsize: tuple = (10, 5),
-    dpi: int = 100,
-    palette="Set2",
-    **params,
-) -> None:
-    """클러스터링 결과를 시각화한다.
+def __silhouette_plot(cluster: any, data: DataFrame, ax: plt.Axes) -> None:
+    """실루엣 계수를 파라미터로 전달받은 ax에 시각화 한다.
 
     Args:
-        estimator (any): 클러스터링 객체
+        clusters (list): 클러스터 개수 리스트
         data (DataFrame): 원본 데이터
-        figsize (tuple, optional): 그래프 크기. Defaults to (10, 5).
-        dpi (int, optional): 해상도. Defaults to 100.
-        palette (str, optional): 색상 팔레트. Defaults to "Set2".
+        ax (plt.Axes): 그래프 객체
     """
-    df = data.copy()
-    df["cluster"] = estimator.labels_
-    xname, yname = df.columns[:2]
+    sil_avg = silhouette_score(X=data, labels=cluster.labels_)
+    sil_values = silhouette_samples(X=data, labels=cluster.labels_)
 
-    def cluster_callback(ax):
-        ax.set_xlabel(xname)
-        ax.set_ylabel(yname)
-
-        if isinstance(estimator, KMeans):
-            ax.set_title(f"KMeans (k={estimator.n_clusters})")
-
-        sb.scatterplot(
-            x=estimator.cluster_centers_[:, 0],
-            y=estimator.cluster_centers_[:, 1],
-            marker="o",
-            color="black",
-            alpha=1,
-            s=50,
-            edgecolor="red",
-        )
-
-    my_convex_hull(
-        data=df,
-        xname=xname,
-        yname=yname,
-        hue="cluster",
-        palette=palette,
-        figsize=figsize,
-        dpi=dpi,
-        callback=cluster_callback,
-        **params,
+    y_lower = 10
+    ax.set_title(
+        "Number of Cluster : " + str(cluster.n_clusters) + ", "
+        "Silhouette Score :" + str(round(sil_avg, 3))
     )
+    ax.set_xlabel("The silhouette coefficient values")
+    ax.set_ylabel("Cluster label")
+    ax.set_xlim([-0.1, 1])
+    ax.set_ylim([0, len(data) + (cluster.n_clusters + 1) * 10])
+    ax.set_yticks([])  # Clear the yaxis labels / ticks
+    ax.set_xticks([0, 0.2, 0.4, 0.6, 0.8, 1])
+    ax.grid()
+
+    # 클러스터링 갯수별로 fill_betweenx( )형태의 막대 그래프 표현.
+    for i in range(cluster.n_clusters):
+        ith_cluster_sil_values = sil_values[cluster.labels_ == i]
+        ith_cluster_sil_values.sort()
+
+        size_cluster_i = ith_cluster_sil_values.shape[0]
+        y_upper = y_lower + size_cluster_i
+
+        ax.fill_betweenx(
+            np.arange(y_lower, y_upper),
+            0,
+            ith_cluster_sil_values,
+            alpha=0.7,
+        )
+        ax.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+        y_lower = y_upper + 10
+
+    ax.axvline(x=sil_avg, color="red", linestyle="--")
 
 
 def my_cluster_plot(
@@ -209,40 +235,8 @@ def my_cluster_plot(
     )
     fig.subplots_adjust(wspace=0.1)
 
-    sil_avg = silhouette_score(X=data, labels=estimator.labels_)
-    sil_values = silhouette_samples(X=data, labels=estimator.labels_)
-
-    y_lower = 10
-    ax1.set_title(
-        "Number of Cluster : " + str(estimator.n_clusters) + ", "
-        "Silhouette Score :" + str(round(sil_avg, 3))
-    )
-    ax1.set_xlabel("The silhouette coefficient values")
-    ax1.set_ylabel("Cluster label")
-    ax1.set_xlim([-0.1, 1])
-    ax1.set_ylim([0, len(data) + (estimator.n_clusters + 1) * 10])
-    ax1.set_yticks([])  # Clear the yaxis labels / ticks
-    ax1.set_xticks([0, 0.2, 0.4, 0.6, 0.8, 1])
-    ax1.grid()
-
-    # 클러스터링 갯수별로 fill_betweenx( )형태의 막대 그래프 표현.
-    for i in range(estimator.n_clusters):
-        ith_cluster_sil_values = sil_values[estimator.labels_ == i]
-        ith_cluster_sil_values.sort()
-
-        size_cluster_i = ith_cluster_sil_values.shape[0]
-        y_upper = y_lower + size_cluster_i
-
-        ax1.fill_betweenx(
-            np.arange(y_lower, y_upper),
-            0,
-            ith_cluster_sil_values,
-            alpha=0.7,
-        )
-        ax1.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
-        y_lower = y_upper + 10
-
-    ax1.axvline(x=sil_avg, color="red", linestyle="--")
+    # 1st Plot showing the silhouette plot
+    __silhouette_plot(cluster=estimator, data=data, ax=ax1)
 
     # 2nd Plot showing the actual clusters formed
     xname = data.columns[0]
@@ -295,50 +289,6 @@ def my_cluster_plot(
 
     plt.show()
     plt.close()
-
-
-def __silhouette_plot(cluster: any, data: DataFrame, ax: plt.Axes) -> None:
-    """실루엣 계수를 파라미터로 전달받은 ax에 시각화 한다.
-
-    Args:
-        clusters (list): 클러스터 개수 리스트
-        data (DataFrame): 원본 데이터
-        ax (plt.Axes): 그래프 객체
-    """
-    sil_avg = silhouette_score(X=data, labels=cluster.labels_)
-    sil_values = silhouette_samples(X=data, labels=cluster.labels_)
-
-    y_lower = 10
-    ax.set_title(
-        "Number of Cluster : " + str(cluster.n_clusters) + ", "
-        "Silhouette Score :" + str(round(sil_avg, 3))
-    )
-    ax.set_xlabel("The silhouette coefficient values")
-    ax.set_ylabel("Cluster label")
-    ax.set_xlim([-0.1, 1])
-    ax.set_ylim([0, len(data) + (cluster.n_clusters + 1) * 10])
-    ax.set_yticks([])  # Clear the yaxis labels / ticks
-    ax.set_xticks([0, 0.2, 0.4, 0.6, 0.8, 1])
-    ax.grid()
-
-    # 클러스터링 갯수별로 fill_betweenx( )형태의 막대 그래프 표현.
-    for i in range(cluster.n_clusters):
-        ith_cluster_sil_values = sil_values[cluster.labels_ == i]
-        ith_cluster_sil_values.sort()
-
-        size_cluster_i = ith_cluster_sil_values.shape[0]
-        y_upper = y_lower + size_cluster_i
-
-        ax.fill_betweenx(
-            np.arange(y_lower, y_upper),
-            0,
-            ith_cluster_sil_values,
-            alpha=0.7,
-        )
-        ax.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
-        y_lower = y_upper + 10
-
-    ax.axvline(x=sil_avg, color="red", linestyle="--")
 
 
 def my_silhouette_plot(
@@ -418,9 +368,16 @@ def my_kmeans(
                 )
             )
 
+        # 비동기처리로 생성된 군집객체들을 수집 --> 비동기이므로 먼저 종료된 순서대로 수집된다.
         kmeans_list = [r.result() for r in futures.as_completed(results)]
+
+        # 클러스터 개수로 정렬
         kmeans_list = sorted(kmeans_list, key=lambda x: x.n_clusters)
+
+        # 클러스터 개수만 별도로 추출
         cluster_list = [k.n_clusters for k in kmeans_list]
+
+        # 최적 모델을 저장할 객체
         best_model = None
 
         if scoring == "elbow" or scoring == "e":
@@ -445,6 +402,7 @@ def my_kmeans(
             if plot:
                 my_silhouette_plot(kmeans_list, data, figsize=(8, 6), dpi=dpi)
 
+        # 최종 군집 결과를 시각화 한다.
         if plot:
             my_cluster_plot(best_model, data, figsize=figsize, dpi=dpi)
 

@@ -439,7 +439,12 @@ def __dbscan(
     estimator.fit(X=data)
 
     # 속성 확장
-    estimator.n_clusters = len(list(set(estimator.labels_))) - 1
+    estimator.n_clusters = len(list(set(estimator.labels_)))
+
+    # 노이즈가 포함된 경우
+    if -1 in estimator.labels_:
+        estimator.n_clusters -= 1
+
     estimator.silhouette = silhouette_score(data, estimator.labels_)
     return estimator
 
@@ -512,7 +517,7 @@ def my_n_neighbors(
     return best_y
 
 
-def my_dbscan(
+def my_knn_dbscan(
     data: DataFrame,
     k: int = 3,
     metric: Literal["euclidean", "manhattan", "cosine", "jaccard"] = "euclidean",
@@ -533,7 +538,7 @@ def my_dbscan(
         dpi (int, optional): _description_. Defaults to 100.
 
     Returns:
-        DBSCAN: _description_
+        DBSCAN
     """
 
     eps = my_n_neighbors(data, k=k, plot=plot, figsize=figsize, dpi=dpi)
@@ -551,3 +556,49 @@ def my_dbscan(
         my_cluster_plot(estimator, data, figsize=figsize, dpi=dpi)
 
     return estimator
+
+
+def my_dbscan(
+    data: DataFrame,
+    k: int | list = 3,
+    metric: Literal["euclidean", "manhattan", "cosine", "jaccard"] = "euclidean",
+    algorithm: Literal["auto", "ball_tree", "kd_tree", "brute"] = "auto",
+    plot: bool = True,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+) -> DBSCAN:
+    """주어진 k값에 대한 eps와 minPts를 구한 후 이를 토대로 DBSCAN 알고리즘을 수행한다.
+
+    Args:
+        data (DataFrame):
+        k (int, optional): _description_. Defaults to 3.
+        metric (Literal[&quot;euclidean&quot;, &quot;manhattan&quot;, &quot;cosine&quot;, &quot;jaccard&quot;], optional): _description_. Defaults to "euclidean".
+        algorithm (Literal[&quot;auto&quot;, &quot;ball_tree&quot;, &quot;kd_tree&quot;, &quot;brute&quot;], optional): _description_. Defaults to "auto".
+        plot (bool, optional): _description_. Defaults to True.
+        figsize (tuple, optional): _description_. Defaults to (10, 5).
+        dpi (int, optional): _description_. Defaults to 100.
+
+    Returns:
+        DBSCAN List
+    """
+
+    if isinstance(k, int):
+        k = list(range(2, k + 1))
+
+    for i in range(len(k)):
+        try:
+            k[i] = my_knn_dbscan(
+                data=data,
+                k=k[i],
+                metric=metric,
+                algorithm=algorithm,
+                plot=plot,
+                figsize=figsize,
+                dpi=dpi,
+            )
+        except Exception as e:
+            print(f"\x1b[31m클러스터링에 실패했습니다.\x1b[0m")
+            print(f"\x1b[31m({e})\x1b[0m")
+            k[i] = None
+
+    return k

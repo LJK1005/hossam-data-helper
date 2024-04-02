@@ -1345,8 +1345,8 @@ def my_voting_classification(
     knn: bool = True,
     nb: bool = True,
     dtree: bool = True,
-    # svc: bool = True,
-    # sgd: bool = True,
+    svc: bool = True,
+    sgd: bool = True,
     conf_matrix: bool = True,
     hist: bool = True,
     roc: bool = True,
@@ -1409,13 +1409,13 @@ def my_voting_classification(
         estimators.append(("dtree", get_estimator(DecisionTreeClassifier)))
         params.update(get_hyper_params(classname=DecisionTreeClassifier, key="dtree"))
 
-    # if svc:
-    #     estimators.append(("svc", get_estimator(SVC)))
-    #     params.update(get_hyper_params(classname=SVC, key="svc"))
+    if svc:
+        estimators.append(("svc", get_estimator(SVC)))
+        params.update(get_hyper_params(classname=SVC, key="svc"))
 
-    # if sgd and soft == False:
-    #     estimators.append(("sgd", get_estimator(SGDClassifier)))
-    #     params.update(get_hyper_params(classname=SGDClassifier, key="sgd"))
+    if sgd and soft == False:
+        estimators.append(("sgd", get_estimator(SGDClassifier)))
+        params.update(get_hyper_params(classname=SGDClassifier, key="sgd"))
 
     return __my_classification(
         classname=VotingClassifier,

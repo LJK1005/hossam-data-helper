@@ -12,7 +12,7 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import SGDClassifier
 
-from .util import *
+# from .util import *
 
 __RANDOM_STATE__ = 0
 
@@ -168,13 +168,13 @@ def __ml(
         estimator.best_params = grid.best_params_
 
         if is_print:
-            print("[교차검증 TOP5]")
+            # print("[교차검증 TOP5]")
             # my_pretty_table(
             #     result_df.dropna(subset=["mean_test_score"])
             #     .sort_values(by="mean_test_score", ascending=False)
             #     .head()
             # )
-            my_pretty_table(result_df)
+            # my_pretty_table(result_df)
             print("")
 
             print("[Best Params]")

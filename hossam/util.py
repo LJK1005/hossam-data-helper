@@ -14,7 +14,7 @@ import sys
 from pca import pca
 from matplotlib import pyplot as plt
 
-from .core import get_random_state
+from .core import *
 
 
 def my_normalize_data(

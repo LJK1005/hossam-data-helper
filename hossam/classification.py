@@ -26,7 +26,7 @@ from scipy.stats import norm
 
 from .util import my_pretty_table
 from .plot import my_learing_curve, my_confusion_matrix, my_roc_curve, my_tree
-from .core import __ml
+from .core import *
 
 
 def __my_classification(
@@ -712,11 +712,7 @@ def my_logistic_classification(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {
-                "penalty": ["l1", "l2", "elasticnet"],
-                "C": [0.001, 0.01, 0.1, 1, 10, 100],
-                "max_iter": [1000],
-            }
+            params = get_hyper_params(classname=LogisticRegression)
 
     return __my_classification(
         classname=LogisticRegression,
@@ -786,11 +782,7 @@ def my_knn_classification(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {
-                "n_neighbors": [3, 5, 7],
-                "weights": ["uniform", "distance"],
-                "metric": ["euclidean", "manhattan"],
-            }
+            params = get_hyper_params(classname=KNeighborsClassifier)
 
     return __my_classification(
         classname=KNeighborsClassifier,
@@ -856,10 +848,7 @@ def my_nb_classification(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {
-                # "priors" : None,
-                "var_smoothing": [1e-9, 1e-8, 1e-7, 1e-6, 1e-5]
-            }
+            params = get_hyper_params(classname=GaussianNB)
 
     return __my_classification(
         classname=GaussianNB,
@@ -926,11 +915,7 @@ def my_dtree_classification(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {
-                "criterion": ["gini", "entropy"],
-                # "min_samples_split": [2, 3, 4],
-                # "min_samples_leaf": [1, 2, 3],
-            }
+            params = get_hyper_params(classname=DecisionTreeClassifier)
 
     return __my_classification(
         classname=DecisionTreeClassifier,
@@ -999,13 +984,7 @@ def my_linear_svc_classification(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {
-                "penalty": ["l1", "l2"],
-                "loss": ["squared_hinge", "hinge"],
-                "C": [0.01, 0.1, 1, 10],
-                "max_iter": [1000],
-                "dual": [True, False],
-            }
+            params = get_hyper_params(classname=LinearSVC)
 
     return __my_classification(
         classname=LinearSVC,
@@ -1073,16 +1052,7 @@ def my_svc_classification(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {
-                "C": [0.1, 1, 10],
-                # "kernel": ["rbf", "linear", "poly", "sigmoid"],
-                "kernel": ["rbf", "poly", "sigmoid"],
-                "degree": [2, 3, 4, 5],
-                # "gamma": ["scale", "auto"],
-                # "coef0": [0.01, 0.1, 1, 10],
-                # "shrinking": [True, False],
-                # "probability": [True],  # AUC 값 확인을 위해서는 True로 설정
-            }
+            params = get_hyper_params(classname=SVC)
 
     return __my_classification(
         classname=SVC,
@@ -1147,20 +1117,7 @@ def my_sgd_classification(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {
-                # 손실함수
-                "loss": ["hinge", "log_loss", "modified_huber"],
-                # 정규화 종류
-                "penalty": ["l2", "l1", "elasticnet"],
-                # 정규화 강도(값이 낮을 수록 약한 정규화)
-                "alpha": [0.0001, 0.001, 0.01, 0.1],
-                # 최대 반복 수행 횟수
-                "max_iter": [1000, 2000, 3000, 4000, 5000],
-                # 학습률 스케줄링 전략
-                "learning_rate": ["optimal", "constant", "invscaling", "adaptive"],
-                # 초기 학습률
-                "eta0": [0.01, 0.1, 0.5],
-            }
+            params = get_hyper_params(classname=SGDClassifier)
 
     return __my_classification(
         classname=SGDClassifier,

@@ -14,7 +14,7 @@ import sys
 from pca import pca
 from matplotlib import pyplot as plt
 
-__RANDOM_STATE__ = 0
+from .core import get_random_state
 
 
 def my_normalize_data(
@@ -226,7 +226,7 @@ def my_train_test_split(
     data: DataFrame,
     yname: str = None,
     test_size: float = 0.2,
-    random_state: int = __RANDOM_STATE__,
+    random_state: int = get_random_state(),
     scalling: bool = False,
 ) -> tuple:
     """데이터프레임을 학습용 데이터와 테스트용 데이터로 나눈다.
@@ -657,13 +657,13 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = "smote") -> DataFr
     """
 
     if method == "smote":
-        smote = SMOTE(random_state=__RANDOM_STATE__)
+        smote = SMOTE(random_state=get_random_state())
         xdata, ydata = smote.fit_resample(xdata, ydata)
     elif method == "over":
-        ros = RandomOverSampler(random_state=__RANDOM_STATE__)
+        ros = RandomOverSampler(random_state=get_random_state())
         xdata, ydata = ros.fit_resample(xdata, ydata)
     elif method == "under":
-        rus = RandomUnderSampler(random_state=__RANDOM_STATE__)
+        rus = RandomUnderSampler(random_state=get_random_state())
         xdata, ydata = rus.fit_resample(xdata, ydata)
     else:
         raise Exception(
@@ -760,7 +760,7 @@ def my_pca(
     else:
         df = data.copy()
 
-    model = pca(n_components=n_components, random_state=__RANDOM_STATE__)
+    model = pca(n_components=n_components, random_state=get_random_state())
     result = model.fit_transform(X=df)
 
     my_pretty_table(result["loadings"])

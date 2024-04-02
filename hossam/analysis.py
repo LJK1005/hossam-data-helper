@@ -24,6 +24,7 @@ from statsmodels.sandbox.stats.multicomp import MultiComparison
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 from .util import my_pretty_table, my_unmelt
 from .plot import my_heatmap
+from .core import *
 
 
 def my_normal_test(data: DataFrame, method: str = "n") -> None:

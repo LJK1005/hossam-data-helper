@@ -6,12 +6,12 @@ from pandas import DataFrame, Series
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import LinearSVC, SVC
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, LogisticRegression
+from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
+from sklearn.svm import SVR, LinearSVC, SVC
 from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.linear_model import SGDClassifier
+from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
+from sklearn.linear_model import SGDRegressor, SGDClassifier
 from tabulate import tabulate
 
 __RANDOM_STATE__ = 1000
@@ -19,6 +19,52 @@ __RANDOM_STATE__ = 1000
 __MAX_ITER__ = 1000
 
 __N_JOBS__ = -1
+
+__LINEAR_REGRESSION_HYPER_PARAMS__ = {"fit_intercept": [True, False]}
+
+__RIDGE_HYPER_PARAMS__ = {
+    "alpha": [0.001, 0.01, 0.1, 1, 10, 100],
+    "solver": ["auto", "svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga"],
+}
+
+__LASSO_HYPER_PARAMS__ = {
+    "alpha": [0.001, 0.01, 0.1, 1, 10, 100],
+    "selection": ["cyclic", "random"],
+}
+
+__KNN_REGRESSION_HYPER_PARAMS__ = {
+    "n_neighbors": np.arange(2, stop=10),
+    "weights": ["uniform", "distance"],
+    "metric": ["euclidean", "manhattan", "minkowski"],
+}
+
+__DTREE_REGRESSION_HYPER_PARAMS__ = {
+    "criterion": ["squared_error", "friedman_mse", "absolute_error", "poisson"],
+    "splitter": ["best", "random"],
+    # "min_samples_split": np.arange(2, stop=10),
+    # "min_samples_leaf": np.arange(1, stop=10),
+    # "max_features": ["auto", "sqrt", "log2"]
+}
+
+__SVR_HYPER_PARAMS__ = {
+    "kernel": ["linear", "poly", "rbf", "sigmoid"],
+    "C": [0.001, 0.01, 0.1, 1, 10],
+    "epsilon": [0.1, 0.2, 0.3, 0.4, 0.5],
+    "gamma": ["scale", "auto"],
+}
+
+__SGD_REGRESSION_HYPER_PARAMS__ = {
+    "loss": [
+        "squared_loss",
+        "huber",
+        "epsilon_insensitive",
+        "squared_epsilon_insensitive",
+    ],
+    "penalty": ["l2", "l1", "elasticnet"],
+    "alpha": [0.001, 0.01, 0.1],
+    "learning_rate": ["constant", "optimal", "invscaling", "adaptive"],
+}
+
 
 __LOGISTIC_REGRESSION_HYPER_PARAMS__ = {
     "penalty": ["l1", "l2", "elasticnet"],
@@ -41,8 +87,7 @@ __DTREE_HYPER_PARAMS__ = {
     "max_depth": np.arange(1, stop=10),
     "min_samples_split": np.arange(2, stop=10),
     "min_samples_leaf": np.arange(1, stop=10),
-    "max_features": ["auto", "sqrt", "log2"],
-    "ccp_alpha": [0.0],
+    "max_features": ["auto", "sqrt", "log2"]
 }
 
 __LINEAR_SVC_HYPER_PARAMS__ = {
@@ -57,7 +102,7 @@ __SVC_HYPER_PARAMS__ = {
     "gamma": ["scale", "auto"],
 }
 
-__SGD_HYPER_PARAMS__ = {
+__SGD_CLASSFICATION_HYPER_PARAMS__ = {
     "loss": ["hinge", "log", "modified_huber", "squared_hinge", "perceptron"],
     "penalty": ["l2", "l1", "elasticnet"],
     "alpha": [0.001, 0.01, 0.1],
@@ -283,7 +328,19 @@ def get_hyper_params(classname: any, key: str = None) -> dict:
 
     params = {}
 
-    if classname == LogisticRegression:
+    if classname == LinearRegression:
+        params = __LINEAR_REGRESSION_HYPER_PARAMS__.copy()
+    elif classname == Ridge:
+        params = __RIDGE_HYPER_PARAMS__.copy()
+    elif classname == Lasso:
+        params = __LASSO_HYPER_PARAMS__.copy()
+    elif classname == SVR:
+        params = __SVR_HYPER_PARAMS__.copy()
+    elif classname == DecisionTreeRegressor:
+        params = __DTREE_REGRESSION_HYPER_PARAMS__.copy()
+    elif classname == SGDRegressor:
+        params = __SGD_REGRESSION_HYPER_PARAMS__.copy()
+    elif classname == LogisticRegression:
         params = __LOGISTIC_REGRESSION_HYPER_PARAMS__.copy()
     elif classname == KNeighborsClassifier:
         params = __KNN_CLASSFICATION_HYPER_PARAMS__.copy()
@@ -296,7 +353,7 @@ def get_hyper_params(classname: any, key: str = None) -> dict:
     elif classname == SVC:
         params = __SVC_HYPER_PARAMS__.copy()
     elif classname == SGDClassifier:
-        params = __SGD_HYPER_PARAMS__.copy()
+        params = __SGD_CLASSFICATION_HYPER_PARAMS__.copy()
 
     key_list = list(params.keys())
 

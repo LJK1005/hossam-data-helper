@@ -651,7 +651,7 @@ def my_linear_regression(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {}
+            params = get_hyper_params(LinearRegression)
 
     return __my_regression(
         classname=LinearRegression,
@@ -716,7 +716,7 @@ def my_ridge_regression(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {"alpha": [0.01, 0.1, 1, 10, 100]}
+            params = get_hyper_params(classname=Ridge)
 
     return __my_regression(
         classname=Ridge,
@@ -781,7 +781,7 @@ def my_lasso_regression(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {"alpha": [0.01, 0.1, 1, 10, 100]}
+            params = get_hyper_params(classname=Lasso)
 
     return __my_regression(
         classname=Lasso,
@@ -846,11 +846,7 @@ def my_knn_regression(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {
-                "n_neighbors": [3, 5, 7],
-                "weights": ["uniform", "distance"],
-                "metric": ["euclidean", "manhattan"],
-            }
+            params = get_hyper_params(classname=KNeighborsRegressor)
 
     return __my_regression(
         classname=KNeighborsRegressor,
@@ -917,14 +913,7 @@ def my_dtree_regression(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {
-                "criterion": [
-                    "squared_error",
-                    "friedman_mse",
-                    "absolute_error",
-                    "poisson",
-                ]
-            }
+            params = get_hyper_params(classname=DecisionTreeRegressor)
 
     return __my_regression(
         classname=DecisionTreeRegressor,
@@ -991,16 +980,7 @@ def my_svr_regression(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {
-                "C": [0.1, 1, 10],
-                # "kernel": ["rbf", "linear", "poly", "sigmoid"],
-                "kernel": ["rbf", "poly", "sigmoid"],
-                "degree": [2, 3, 4, 5],
-                # "gamma": ["scale", "auto"],
-                # "coef0": [0.01, 0.1, 1, 10],
-                # "shrinking": [True, False],
-                # "probability": [True],  # AUC 값 확인을 위해서는 True로 설정
-            }
+            params = get_hyper_params(classname=SVR)
 
     return __my_regression(
         classname=SVR,
@@ -1066,20 +1046,7 @@ def my_sgd_regression(
     # 교차검증 설정
     if cv > 0:
         if not params:
-            params = {
-                # 손실함수
-                "loss": ["squared_error", "huber", "epsilon_insensitive"],
-                # 정규화 종류
-                "penalty": ["l2", "l1", "elasticnet"],
-                # 정규화 강도(값이 낮을 수록 약한 정규화)
-                "alpha": [0.0001, 0.001, 0.01, 0.1],
-                # 최대 반복 수행 횟수
-                "max_iter": [1000, 2000, 3000, 4000, 5000],
-                # 학습률 스케줄링 전략
-                "learning_rate": ["optimal", "constant", "invscaling", "adaptive"],
-                # 초기 학습률
-                "eta0": [0.01, 0.1, 0.5],
-            }
+            params = get_hyper_params(classname=SGDRegressor)
 
     return __my_regression(
         classname=SGDRegressor,
@@ -1250,11 +1217,11 @@ def my_regression(
     estimators["best"] = estimators[best_idx]
 
     my_regression_result(
-        estimators["best"],
-        x_train,
-        y_train,
-        x_test,
-        y_test,
+        estimator=estimators["best"],
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
         learning_curve=learning_curve,
         cv=cv,
         figsize=figsize,
@@ -1262,17 +1229,27 @@ def my_regression(
         is_print=True,
     )
 
-    my_regression_report(
-        estimators["best"],
-        x_train,
-        y_train,
-        x_test,
-        y_test,
-        sort=sort,
-        plot=plot,
-        deg=deg,
-        figsize=figsize,
-        dpi=dpi,
-    )
+    if report:
+        my_regression_report(
+            estimator=estimators["best"],
+            x_train=x_train,
+            y_train=y_train,
+            x_test=x_test,
+            y_test=y_test,
+            sort=sort,
+            plot=plot,
+            deg=deg,
+            figsize=figsize,
+            dpi=dpi,
+        )
+
+    if resid_test:
+        my_resid_test(
+            x=x_train,
+            y=y_train,
+            y_pred=estimators["best"].predict(x_train),
+            figsize=figsize,
+            dpi=dpi,
+        )
 
     return estimators

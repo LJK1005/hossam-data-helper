@@ -1311,11 +1311,11 @@ def my_classification(
 
     print("\n\n==================== 최고 성능 모델: %s ====================" % best_idx)
     my_classification_result(
-        estimators["best"],
-        x_train,
-        y_train,
-        x_test,
-        y_test,
+        estimator=estimators["best"],
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
         conf_matrix=conf_matrix,
         hist=hist,
         roc=roc,
@@ -1327,9 +1327,10 @@ def my_classification(
         is_print=True,
     )
 
-    my_classification_report(
-        estimators["best"], x_train, y_train, x_test, y_test, sort=sort
-    )
+    if report:
+        my_classification_report(
+            estimator=estimators["best"], x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test, sort=sort
+        )
 
     return estimators
 

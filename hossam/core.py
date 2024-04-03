@@ -25,26 +25,12 @@ __LINEAR_REGRESSION_HYPER_PARAMS__ = {
 }
 
 __RIDGE_HYPER_PARAMS__ = {
-    "alpha": [
-        # 0.001,
-        0.01,
-        0.1,
-        1,
-        10,
-        # , 100
-    ],
+    # "alpha": [0.001, 0.01, 0.1, 1, 10, 100],
     # "solver": ["auto", "svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga"],
 }
 
 __LASSO_HYPER_PARAMS__ = {
-    "alpha": [
-        # 0.001,
-        0.01,
-        0.1,
-        1,
-        10,
-        # , 100
-    ],
+    # "alpha": [0.001, 0.01, 0.1, 1, 10, 100],
     # "selection": ["cyclic", "random"],
 }
 
@@ -64,14 +50,7 @@ __DTREE_REGRESSION_HYPER_PARAMS__ = {
 
 __SVR_HYPER_PARAMS__ = {
     "kernel": ["linear", "poly", "rbf", "sigmoid"],
-    "C": [
-        # 0.001,
-        0.01,
-        0.1,
-        1,
-        10,
-        # , 100
-    ],
+    # "C": [0.001, 0.01, 0.1, 1, 10, 100],
     # "epsilon": [0.1, 0.2, 0.3, 0.4, 0.5],
     # "gamma": ["scale", "auto"],
 }
@@ -79,21 +58,14 @@ __SVR_HYPER_PARAMS__ = {
 __SGD_REGRESSION_HYPER_PARAMS__ = {
     # "loss": ["squared_loss", "huber", "epsilon_insensitive", "squared_epsilon_insensitive"],
     "penalty": ["l2", "l1", "elasticnet"],
-    "alpha": [0.001, 0.01, 0.1],
+    # "alpha": [0.001, 0.01, 0.1],
     # "learning_rate": ["constant", "optimal", "invscaling", "adaptive"],
 }
 
 
 __LOGISTIC_REGRESSION_HYPER_PARAMS__ = {
     "penalty": ["l1", "l2", "elasticnet"],
-    "C": [
-        # 0.001,
-        0.01,
-        0.1,
-        1,
-        10,
-        # , 100
-    ],
+    # "C": [0.001, 0.01, 0.1, 1, 10, 100],
 }
 
 __KNN_CLASSFICATION_HYPER_PARAMS__ = {
@@ -117,34 +89,20 @@ __DTREE_HYPER_PARAMS__ = {
 
 __LINEAR_SVC_HYPER_PARAMS__ = {
     "penalty": ["l1", "l2"],
-    "C": [
-        # 0.001,
-        0.01,
-        0.1,
-        1,
-        10,
-        # , 100
-    ],
+    # "C": [0.001, 0.01, 0.1, 1, 10, 100],
 }
 
 __SVC_HYPER_PARAMS__ = {
-    "C": [
-        # 0.001,
-        0.01,
-        0.1,
-        1,
-        10,
-        # , 100
-    ],
+    # "C": [0.001, 0.01, 0.1, 1, 10, 100],
     "kernel": ["poly", "rbf", "sigmoid"],
-    "degree": np.arange(2, stop=6),
+    # "degree": np.arange(2, stop=6),
     "gamma": ["scale", "auto"],
 }
 
 __SGD_CLASSFICATION_HYPER_PARAMS__ = {
     # "loss": ["hinge", "log", "modified_huber", "squared_hinge", "perceptron"],
     "penalty": ["l2", "l1", "elasticnet"],
-    "alpha": [0.001, 0.01, 0.1],
+    # "alpha": [0.001, 0.01, 0.1],
     # "learning_rate": ["constant", "optimal", "invscaling", "adaptive"],
 }
 

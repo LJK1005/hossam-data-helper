@@ -48,7 +48,6 @@ def __my_classification(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    pruning: bool = True,
     estimators: list = None,
     **params,
 ) -> any:
@@ -892,7 +891,7 @@ def my_dtree_classification(
     y_test: Series = None,
     conf_matrix: bool = True,
     cv: int = 5,
-    pruning: bool = True,
+    pruning: bool = False,
     hist: bool = True,
     roc: bool = True,
     pr: bool = True,
@@ -1262,6 +1261,15 @@ def my_classification(
     # 병렬처리를 위한 프로세스 생성 -> 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
         for c in callstack:
+            if params:
+                p = params.copy()
+
+                if c != my_dtree_classification:
+                    del p["pruning"]
+
+            else:
+                p = {}
+
             processes.append(
                 executor.submit(
                     c,
@@ -1290,7 +1298,7 @@ def my_classification(
                     dpi=100,
                     sort=None,
                     is_print=False,
-                    **params,
+                    **p,
                 )
             )
 

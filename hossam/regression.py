@@ -919,6 +919,23 @@ def my_dtree_regression(
         if not params:
             params = get_hyper_params(classname=DecisionTreeRegressor)
 
+        if pruning:
+            print("\033[91m가지치기를 위한 alpha값을 탐색합니다.\033[0m")
+
+            try:
+                dtree = get_estimator(classname=DecisionTreeRegressor)
+                path = dtree.cost_complexity_pruning_path(x_train, y_train)
+                ccp_alphas = path.ccp_alphas[1:-1]
+                params["ccp_alpha"] = ccp_alphas
+            except Exception as e:
+                print(f"\033[91m가지치기 실패 ({e})\033[0m")
+                e.with_traceback()
+        else:
+            if "ccp_alpha" in params:
+                del params["ccp_alpha"]
+
+            print("\033[91m가지치기를 하지 않습니다.\033[0m")
+
     return __my_regression(
         classname=DecisionTreeRegressor,
         x_train=x_train,
@@ -935,7 +952,6 @@ def my_dtree_regression(
         dpi=dpi,
         sort=sort,
         is_print=is_print,
-        pruning=pruning,
         **params,
     )
 
@@ -974,7 +990,6 @@ def my_svr_regression(
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
-        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
@@ -1040,7 +1055,6 @@ def my_sgd_regression(
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
-        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
@@ -1088,6 +1102,7 @@ def my_regression(
     sort: str = None,
     algorithm: list = None,
     scoring: list = ["rmse", "mse", "r2", "mae", "mape", "mpe"],
+    pruning: bool = False,
     **params,
 ) -> any:
     """회귀분석을 수행하고 결과를 출력한다.
@@ -1107,7 +1122,6 @@ def my_regression(
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         algorithm: list = None,
-        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
@@ -1167,6 +1181,15 @@ def my_regression(
     # 병렬처리를 위한 프로세스 생성 -> 분류 모델을 생성하는 함수를 각각 호출한다.
     with futures.ThreadPoolExecutor() as executor:
         for c in callstack:
+            if params:
+                p = params.copy()
+
+                if c != my_dtree_regression:
+                    del p["pruning"]
+
+            else:
+                p = {}
+
             processes.append(
                 executor.submit(
                     c,
@@ -1184,8 +1207,7 @@ def my_regression(
                     dpi=dpi,
                     sort=False,
                     is_print=False,
-                    # pruning=pruning,
-                    **params,
+                    **p,
                 )
             )
 

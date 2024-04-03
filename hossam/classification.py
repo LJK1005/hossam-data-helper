@@ -48,6 +48,7 @@ def __my_classification(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
+    pruning: bool = True,
     estimators: list = None,
     **params,
 ) -> any:
@@ -931,6 +932,8 @@ def my_dtree_classification(
             params = get_hyper_params(classname=DecisionTreeClassifier)
 
         if pruning:
+            print("\033[91m가지치기를 위한 alpha값을 탐색합니다.\033[0m")
+
             try:
                 dtree = get_estimator(classname=DecisionTreeClassifier)
                 path = dtree.cost_complexity_pruning_path(x_train, y_train)
@@ -939,6 +942,11 @@ def my_dtree_classification(
             except Exception as e:
                 print(f"\033[91m가지치기 실패 ({e})\033[0m")
                 e.with_traceback()
+        else:
+            if "ccp_alpha" in params:
+                del params["ccp_alpha"]
+
+            print("\033[91m가지치기를 하지 않습니다.\033[0m")
 
     return __my_classification(
         classname=DecisionTreeClassifier,

@@ -45,7 +45,7 @@ def __my_regression(
     is_print: bool = True,
     pruning: bool = False,
     **params,
-) -> LinearRegression:
+) -> any:
     """회귀분석을 수행하고 결과를 출력한다.
 
     Args:
@@ -81,6 +81,10 @@ def __my_regression(
         is_print=is_print,
         **params,
     )
+
+    if estimator is None:
+        print(f"\033[91m[{classname} 모델의 학습에 실패했습니다.\033[0m")
+        return None
 
     # ------------------------------------------------------
     # 성능평가
@@ -1190,15 +1194,17 @@ def my_regression(
             # 각 분류 함수의 결과값(분류모형 객체)을 저장한다.
             estimator = p.result()
 
-            if estimator is not None:
-                # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
-                scores = estimator.scores
-                # 분류모형의 이름과 객체를 저장한다.
-                n = estimator.__class__.__name__
-                estimator_names.append(n)
-                estimators[n] = estimator
-                # 성능평가 지표 딕셔너리를 리스트에 저장
-                results.append(scores)
+            if estimator is None:
+                continue
+
+            # 분류모형 객체가 포함하고 있는 성능 평가지표(딕셔너리)를 복사한다.
+            scores = estimator.scores
+            # 분류모형의 이름과 객체를 저장한다.
+            n = estimator.__class__.__name__
+            estimator_names.append(n)
+            estimators[n] = estimator
+            # 성능평가 지표 딕셔너리를 리스트에 저장
+            results.append(scores)
 
         # 결과값을 데이터프레임으로 변환
         result_df = DataFrame(results, index=estimator_names)

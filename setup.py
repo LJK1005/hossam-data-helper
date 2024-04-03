@@ -27,5 +27,6 @@ setup(
         "prophet",
         "graphviz",
         "dtreeviz",
+        "pca",
     ],
 )

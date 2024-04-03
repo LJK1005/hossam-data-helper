@@ -27,9 +27,21 @@ import sys
 
 from .core import get_random_state
 
-plt.rcParams["font.family"] = (
-    "AppleGothic" if sys.platform == "darwin" else "Malgun Gothic"
-)
+try:
+    import google.colab
+
+    IN_COLAB = True
+except:
+    IN_COLAB = False
+
+__FONT_NAME__ = "Malgun Gothic"
+
+if sys.platform == "darwin":
+    __FONT_NAME__ = "AppleGothic"
+elif IN_COLAB:
+    __FONT_NAME__ = "NanumGothic"
+
+plt.rcParams["font.family"] = __FONT_NAME__
 plt.rcParams["font.size"] = 10
 plt.rcParams["figure.figsize"] = (10, 6)
 plt.rcParams["figure.dpi"] = 200
@@ -1932,7 +1944,6 @@ def my_tree(estimator: DecisionTreeClassifier) -> None:
 
     print("depth:", estimator.get_depth(), "leaves:", estimator.get_n_leaves())
 
-    fname = "Malgun Gothic" if sys.platform == "win32" else "AppleGothic"
     xnames = list(estimator.feature_names_in_)
     class_names = estimator.classes_
     class_names = [str(i) for i in class_names]
@@ -1944,7 +1955,7 @@ def my_tree(estimator: DecisionTreeClassifier) -> None:
         class_names=class_names,
         rounded=True,  # 노드의 모서리를 둥글게
         filled=True,  # 노드의 색상을 다르게
-        fontname=fname,
+        fontname=__FONT_NAME__,
     )
 
     with open("tree.dot") as f:

@@ -29,12 +29,18 @@ def startup(mecab: bool = False) -> None:
         os.system(command="rm ~/.cache/matplotlib -rf")
         print("nanum font installation success!!!")
 
-        # Google Colab 환경인 경우 필요한 패키지 설치
-        # addon_packages = ["pca", "pingouin", "statannotations"]
+        print("-" * 100)
+        print("package installation start!!!")
 
-        # for i, v in enumerate(iterable=addon_packages):
-        #     os.system(command=f"pip3 install --upgrade {v}")
-        #     print(f"[{i+2}/4] {v} package install success")
+        # Google Colab 환경인 경우 필요한 패키지 설치
+        addon_packages = ["pca", "pingouin", "statannotations"]
+        l = len(addon_packages)
+
+        for i, v in enumerate(iterable=addon_packages):
+            os.system(command=f"pip3 install --upgrade {v}")
+            print(f"[{i+1}/{l}] {v} package install success")
+
+        print("package installation success!!!")
 
         if mecab:
             print("-" * 100)

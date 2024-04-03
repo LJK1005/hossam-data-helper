@@ -1551,7 +1551,7 @@ def my_bagging_classification(
             x_test=x_test,
             y_test=y_test,
             conf_matrix=False,
-            cv=5,
+            cv=cv,
             hist=False,
             roc=False,
             pr=False,

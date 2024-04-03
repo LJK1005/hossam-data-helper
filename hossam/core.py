@@ -87,7 +87,7 @@ __DTREE_HYPER_PARAMS__ = {
     "max_depth": np.arange(1, stop=10),
     "min_samples_split": np.arange(2, stop=10),
     "min_samples_leaf": np.arange(1, stop=10),
-    "max_features": ["auto", "sqrt", "log2"]
+    "max_features": ["auto", "sqrt", "log2"],
 }
 
 __LINEAR_SVC_HYPER_PARAMS__ = {
@@ -334,6 +334,8 @@ def get_hyper_params(classname: any, key: str = None) -> dict:
         params = __RIDGE_HYPER_PARAMS__.copy()
     elif classname == Lasso:
         params = __LASSO_HYPER_PARAMS__.copy()
+    elif classname == KNeighborsRegressor:
+        params = __KNN_REGRESSION_HYPER_PARAMS__.copy()
     elif classname == SVR:
         params = __SVR_HYPER_PARAMS__.copy()
     elif classname == DecisionTreeRegressor:

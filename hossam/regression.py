@@ -25,7 +25,7 @@ from sklearn.ensemble import VotingRegressor
 from scipy.stats import t, f
 from .core import __ml, get_hyper_params, get_estimator
 from .util import my_pretty_table, my_trend
-from .plot import my_learing_curve, my_residplot, my_qqplot
+from .plot import my_learing_curve, my_residplot, my_qqplot, my_barplot
 
 
 def __my_regression(
@@ -1133,6 +1133,7 @@ def my_regression(
     estimators = {}  # 분류분석 모델을 저장할 딕셔너리
     estimator_names = []  # 분류분석 모델의 이름을 저장할 문자열 리스트
     callstack = []
+    result_scores = []
 
     if not algorithm or "linear" in algorithm:
         callstack.append(my_linear_regression)
@@ -1228,13 +1229,36 @@ def my_regression(
             # 성능평가 지표 딕셔너리를 리스트에 저장
             results.append(scores)
 
+            result_scores.append(
+                {
+                    "model": n,
+                    "train": estimator.train_score,
+                    "test": estimator.test_score,
+                }
+            )
+
         # 결과값을 데이터프레임으로 변환
+        print("\n\n==================== 모델 성능 비교 ====================")
         result_df = DataFrame(results, index=estimator_names)
 
         if score_fields:
             result_df.sort_values(score_fields, ascending=score_method, inplace=True)
 
         my_pretty_table(result_df)
+
+        score_df = DataFrame(data=result_scores, index=estimator_names).sort_values(
+            by="test", ascending=False
+        )
+        score_df = score_df.melt(id_vars="model", var_name="data", value_name="score")
+        my_barplot(
+            df=score_df,
+            yname="model",
+            xname="score",
+            hue="data",
+            figsize=figsize,
+            dpi=dpi,
+            callback=lambda ax: ax.set_title("모델 성능 비교"),
+        )
 
     # 최고 성능의 모델을 선택
     if score_fields[0] == "결정계수(R2)":
@@ -1289,12 +1313,12 @@ def my_voting_regression(
     x_test: DataFrame = None,
     y_test: Series = None,
     lr: bool = True,
-    rg: bool = False,
-    ls: bool = False,
+    rg: bool = True,
+    ls: bool = True,
     knn: bool = True,
-    dtree: bool = False,
-    svr: bool = False,
-    sgd: bool = False,
+    dtree: bool = True,
+    svr: bool = True,
+    sgd: bool = True,
     cv: int = 5,
     learning_curve: bool = True,
     report=True,

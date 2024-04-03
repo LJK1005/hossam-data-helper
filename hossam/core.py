@@ -12,6 +12,7 @@ from sklearn.svm import SVR, LinearSVC, SVC
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.linear_model import SGDRegressor, SGDClassifier
+from sklearn.ensemble import BaggingClassifier, BaggingRegressor
 from tabulate import tabulate
 
 __RANDOM_STATE__ = 1000
@@ -110,17 +111,32 @@ __SGD_CLASSFICATION_HYPER_PARAMS__ = {
     # "learning_rate": ["constant", "optimal", "invscaling", "adaptive"],
 }
 
+__BAGGING_HYPER_PARAMS__ = {
+    "bootstrap_features": [False, True],
+    "n_estimators": [2, 5, 10, 20],
+    "max_features": [0.5, 0.7, 1.0],
+    "max_samples": [0.5, 0.7, 1.0],
+}
 
-def get_estimator(classname: any, estimators: list = None) -> any:
+
+def get_estimator(
+    classname: any, estimators: list = None, base_estimator: any = None
+) -> any:
     c = str(classname)
     p = c.rfind(".")
     cn = c[p + 1 : -2]
 
     args = {}
 
+    # VottingClassifier, VotingRegressor
     if "estimators" in dict(inspect.signature(classname.__init__).parameters):
         args["estimators"] = estimators
 
+    # BaggingClassifier, BaggingRegressor
+    if "estimator" in dict(inspect.signature(classname.__init__).parameters):
+        args["estimator"] = base_estimator
+
+    # 공통 속성들
     if "n_jobs" in dict(inspect.signature(classname.__init__).parameters):
         args["n_jobs"] = __N_JOBS__
 
@@ -150,6 +166,7 @@ def __ml(
     cv: int = 5,
     scoring: any = None,
     estimators: list = None,
+    base_estimator: any = None,
     is_print: bool = True,
     **params,
 ) -> any:
@@ -174,7 +191,7 @@ def __ml(
             params = {}
 
         prototype_estimator = get_estimator(
-            classname=classname, estimators=estimators
+            classname=classname, estimators=estimators, base_estimator=base_estimator
         )  # 모델 객체 생성
 
         if scoring is None:
@@ -274,6 +291,17 @@ def __ml(
     estimator.y = y_test if y_test is not None else y_train
     estimator.y_pred = y_pred if y_test is not None else estimator.predict(x_train)
 
+    estimator.train_score = (
+        estimator.score(x_train, y_train)
+        if x_train is not None and y_train is not None
+        else None
+    )
+    estimator.test_score = (
+        estimator.score(x_test, y_test)
+        if x_test is not None and y_test is not None
+        else None
+    )
+
     if y_test is not None or y_train is not None:
         estimator.resid = (
             y_test - y_pred
@@ -356,6 +384,8 @@ def get_hyper_params(classname: any, key: str = None) -> dict:
         params = __SVC_HYPER_PARAMS__.copy()
     elif classname == SGDClassifier:
         params = __SGD_CLASSFICATION_HYPER_PARAMS__.copy()
+    elif classname == BaggingRegressor or classname == BaggingClassifier:
+        params = __BAGGING_HYPER_PARAMS__.copy()
 
     key_list = list(params.keys())
 

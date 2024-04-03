@@ -1,8 +1,11 @@
 def startup(package: bool = False, mecab: bool = False) -> None:
-    # 경고 메시지 off
-    import warnings, os, sys
+    import warnings, os
 
     warnings.filterwarnings(action="ignore")
+
+    if not sys.warnoptions:
+        warnings.simplefilter("ignore")
+        os.environ["PYTHONWARNINGS"] = "ignore"
 
     # Google Colab 환경인지 확인
     try:

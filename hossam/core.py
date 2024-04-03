@@ -18,29 +18,45 @@ __RANDOM_STATE__ = 1000
 
 __MAX_ITER__ = 1000
 
-__N_JOBS__ = -1
+__N_JOBS__ = 2
 
-__LINEAR_REGRESSION_HYPER_PARAMS__ = {"fit_intercept": [True, False]}
+__LINEAR_REGRESSION_HYPER_PARAMS__ = {
+    # "fit_intercept": [True, False]
+}
 
 __RIDGE_HYPER_PARAMS__ = {
-    "alpha": [0.001, 0.01, 0.1, 1, 10, 100],
-    "solver": ["auto", "svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga"],
+    "alpha": [
+        # 0.001,
+        0.01,
+        0.1,
+        1,
+        10,
+        # , 100
+    ],
+    # "solver": ["auto", "svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga"],
 }
 
 __LASSO_HYPER_PARAMS__ = {
-    "alpha": [0.001, 0.01, 0.1, 1, 10, 100],
-    "selection": ["cyclic", "random"],
+    "alpha": [
+        # 0.001,
+        0.01,
+        0.1,
+        1,
+        10,
+        # , 100
+    ],
+    # "selection": ["cyclic", "random"],
 }
 
 __KNN_REGRESSION_HYPER_PARAMS__ = {
-    "n_neighbors": np.arange(2, stop=10),
-    "weights": ["uniform", "distance"],
-    "metric": ["euclidean", "manhattan", "minkowski"],
+    "n_neighbors": np.arange(2, stop=6),
+    # "weights": ["uniform", "distance"],
+    "metric": ["euclidean", "manhattan"],  # , "minkowski"
 }
 
 __DTREE_REGRESSION_HYPER_PARAMS__ = {
-    "criterion": ["squared_error", "friedman_mse", "absolute_error", "poisson"],
-    "splitter": ["best", "random"],
+    # "criterion": ["squared_error", "friedman_mse", "absolute_error", "poisson"],
+    # "splitter": ["best", "random"],
     # "min_samples_split": np.arange(2, stop=10),
     # "min_samples_leaf": np.arange(1, stop=10),
     # "max_features": ["auto", "sqrt", "log2"]
@@ -48,31 +64,40 @@ __DTREE_REGRESSION_HYPER_PARAMS__ = {
 
 __SVR_HYPER_PARAMS__ = {
     "kernel": ["linear", "poly", "rbf", "sigmoid"],
-    "C": [0.001, 0.01, 0.1, 1, 10],
-    "epsilon": [0.1, 0.2, 0.3, 0.4, 0.5],
-    "gamma": ["scale", "auto"],
+    "C": [
+        # 0.001,
+        0.01,
+        0.1,
+        1,
+        10,
+        # , 100
+    ],
+    # "epsilon": [0.1, 0.2, 0.3, 0.4, 0.5],
+    # "gamma": ["scale", "auto"],
 }
 
 __SGD_REGRESSION_HYPER_PARAMS__ = {
-    "loss": [
-        "squared_loss",
-        "huber",
-        "epsilon_insensitive",
-        "squared_epsilon_insensitive",
-    ],
+    # "loss": ["squared_loss", "huber", "epsilon_insensitive", "squared_epsilon_insensitive"],
     "penalty": ["l2", "l1", "elasticnet"],
     "alpha": [0.001, 0.01, 0.1],
-    "learning_rate": ["constant", "optimal", "invscaling", "adaptive"],
+    # "learning_rate": ["constant", "optimal", "invscaling", "adaptive"],
 }
 
 
 __LOGISTIC_REGRESSION_HYPER_PARAMS__ = {
     "penalty": ["l1", "l2", "elasticnet"],
-    "C": [0.001, 0.01, 0.1, 1, 10, 100],
+    "C": [
+        # 0.001,
+        0.01,
+        0.1,
+        1,
+        10,
+        # , 100
+    ],
 }
 
 __KNN_CLASSFICATION_HYPER_PARAMS__ = {
-    "n_neighbors": np.arange(2, stop=10),
+    "n_neighbors": np.arange(2, stop=6),
     "weights": ["uniform", "distance"],
     "metric": ["euclidean", "manhattan", "minkowski"],
 }
@@ -84,29 +109,43 @@ __NB_HYPER_PARAMS__ = {
 
 __DTREE_HYPER_PARAMS__ = {
     "criterion": ["gini", "entropy"],
-    "max_depth": np.arange(1, stop=10),
-    "min_samples_split": np.arange(2, stop=10),
-    "min_samples_leaf": np.arange(1, stop=10),
-    "max_features": ["auto", "sqrt", "log2"],
+    # "max_depth": np.arange(1, stop=10),
+    # "min_samples_split": np.arange(2, stop=10),
+    # "min_samples_leaf": np.arange(1, stop=10),
+    # "max_features": ["auto", "sqrt", "log2"],
 }
 
 __LINEAR_SVC_HYPER_PARAMS__ = {
     "penalty": ["l1", "l2"],
-    "C": [0.001, 0.01, 0.1, 1, 10, 100],
+    "C": [
+        # 0.001,
+        0.01,
+        0.1,
+        1,
+        10,
+        # , 100
+    ],
 }
 
 __SVC_HYPER_PARAMS__ = {
-    "C": [0.001, 0.01, 0.1, 1, 10],
+    "C": [
+        # 0.001,
+        0.01,
+        0.1,
+        1,
+        10,
+        # , 100
+    ],
     "kernel": ["poly", "rbf", "sigmoid"],
-    "degree": np.arange(2, stop=10),
+    "degree": np.arange(2, stop=6),
     "gamma": ["scale", "auto"],
 }
 
 __SGD_CLASSFICATION_HYPER_PARAMS__ = {
-    "loss": ["hinge", "log", "modified_huber", "squared_hinge", "perceptron"],
+    # "loss": ["hinge", "log", "modified_huber", "squared_hinge", "perceptron"],
     "penalty": ["l2", "l1", "elasticnet"],
     "alpha": [0.001, 0.01, 0.1],
-    "learning_rate": ["constant", "optimal", "invscaling", "adaptive"],
+    # "learning_rate": ["constant", "optimal", "invscaling", "adaptive"],
 }
 
 
@@ -227,9 +266,8 @@ def __ml(
 
         if "mean_test_score" in grid.cv_results_:
             result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
-            result_df = result_df.dropna(subset=["mean_test_score"]).sort_values(
-                by="mean_test_score", ascending=False
-            )
+            result_df = result_df.dropna(subset=["mean_test_score"])
+            result_df = result_df.sort_values(by="mean_test_score", ascending=False)
 
         estimator = grid.best_estimator_
         estimator.best_params = grid.best_params_

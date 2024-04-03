@@ -37,7 +37,8 @@ __LASSO_HYPER_PARAMS__ = {
 __KNN_REGRESSION_HYPER_PARAMS__ = {
     "n_neighbors": np.arange(2, stop=6),
     # "weights": ["uniform", "distance"],
-    "metric": ["euclidean", "manhattan"],  # , "minkowski"
+    # "metric": ["euclidean", "manhattan", "minkowski"],
+    "metric": ["euclidean", "manhattan"],
 }
 
 __DTREE_REGRESSION_HYPER_PARAMS__ = {
@@ -64,19 +65,21 @@ __SGD_REGRESSION_HYPER_PARAMS__ = {
 
 
 __LOGISTIC_REGRESSION_HYPER_PARAMS__ = {
-    "penalty": ["l1", "l2", "elasticnet"],
+    # "penalty": ["l1", "l2", "elasticnet"],
+    "penalty": ["l1", "l2"],
     # "C": [0.001, 0.01, 0.1, 1, 10, 100],
 }
 
 __KNN_CLASSFICATION_HYPER_PARAMS__ = {
     "n_neighbors": np.arange(2, stop=6),
-    "weights": ["uniform", "distance"],
-    "metric": ["euclidean", "manhattan", "minkowski"],
+    # "weights": ["uniform", "distance"],
+    # "metric": ["euclidean", "manhattan", "minkowski"],
+    "metric": ["euclidean", "manhattan"],
 }
 
 __NB_HYPER_PARAMS__ = {
     # "priors" : None,
-    "var_smoothing": [1e-9, 1e-8, 1e-7, 1e-6, 1e-5]
+    # "var_smoothing": [1e-9, 1e-8, 1e-7, 1e-6, 1e-5]
 }
 
 __DTREE_HYPER_PARAMS__ = {
@@ -101,7 +104,8 @@ __SVC_HYPER_PARAMS__ = {
 
 __SGD_CLASSFICATION_HYPER_PARAMS__ = {
     # "loss": ["hinge", "log", "modified_huber", "squared_hinge", "perceptron"],
-    "penalty": ["l2", "l1", "elasticnet"],
+    # "penalty": ["l2", "l1", "elasticnet"],
+    "penalty": ["l2", "l1"],
     # "alpha": [0.001, 0.01, 0.1],
     # "learning_rate": ["constant", "optimal", "invscaling", "adaptive"],
 }

@@ -12,14 +12,19 @@ from sklearn.svm import SVR, LinearSVC, SVC
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.linear_model import SGDRegressor, SGDClassifier
-from sklearn.ensemble import BaggingClassifier, BaggingRegressor
+from sklearn.ensemble import (
+    BaggingClassifier,
+    BaggingRegressor,
+    RandomForestClassifier,
+    RandomForestRegressor,
+)
 from tabulate import tabulate
 
-__RANDOM_STATE__ = 1000
+__RANDOM_STATE__ = 0
 
-__MAX_ITER__ = 1000
+__MAX_ITER__ = 100
 
-__N_JOBS__ = 2
+__N_JOBS__ = -1
 
 __LINEAR_REGRESSION_HYPER_PARAMS__ = {
     # "fit_intercept": [True, False]
@@ -116,6 +121,20 @@ __BAGGING_HYPER_PARAMS__ = {
     "n_estimators": [2, 5, 10, 20],
     "max_features": [0.5, 0.7, 1.0],
     "max_samples": [0.5, 0.7, 1.0],
+}
+
+__RANDOM_FOREST_REGRESSION_HYPER_PARAMS__ = {
+    "n_estimators": [2, 5, 10, 20, 50, 100],
+    "criterion": ["squared_error", "absolute_error", "friedman_mse", "poisson"],
+    "max_features": ["auto", "sqrt", "log2"],
+    "max_depth": [2, 5, 10, 20, 50, None],
+}
+
+__RANDOM_FOREST_CLASSIFICATION_HYPER_PARAMS__ = {
+    "n_estimators": [2, 5, 10, 20, 50, 100],
+    "criterion": ["gini", "entropy"],
+    "max_features": ["sqrt", "log2", None],
+    "max_depth": [2, 5, 10, 20, 50, None],
 }
 
 
@@ -386,6 +405,10 @@ def get_hyper_params(classname: any, key: str = None) -> dict:
         params = __SGD_CLASSFICATION_HYPER_PARAMS__.copy()
     elif classname == BaggingRegressor or classname == BaggingClassifier:
         params = __BAGGING_HYPER_PARAMS__.copy()
+    elif classname == RandomForestRegressor:
+        params = __RANDOM_FOREST_REGRESSION_HYPER_PARAMS__.copy()
+    elif classname == RandomForestClassifier:
+        params = __RANDOM_FOREST_CLASSIFICATION_HYPER_PARAMS__.copy()
 
     key_list = list(params.keys())
 

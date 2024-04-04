@@ -21,7 +21,7 @@ from sklearn.naive_bayes import GaussianNB
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import SGDClassifier
-from sklearn.ensemble import VotingClassifier, BaggingClassifier
+from sklearn.ensemble import VotingClassifier, BaggingClassifier, RandomForestClassifier
 
 from scipy.stats import norm
 
@@ -100,7 +100,7 @@ def __my_classification(
     )
 
     if estimator is None:
-        print(f"\033[91m[{classname} 모델의 학습에 실패했습니다.\033[0m")
+        print(f"\033[91m[{classname} 모델의 학습에 실패했습니다.\033[0m", end="\r")
         return None
 
     # ------------------------------------------------------
@@ -169,11 +169,11 @@ def my_classification_result(
     """
 
     # ------------------------------------------------------
-    # 성능평가
-
+    # 성능평가 시작
     scores = []
     score_names = []
 
+    # ------------------------------------------------------
     # 이진분류인지 다항분류인지 구분
     if hasattr(estimator, "classes_"):
         labels = list(estimator.classes_)
@@ -186,6 +186,8 @@ def my_classification_result(
 
     is_binary = len(labels) == 2
 
+    # ------------------------------------------------------
+    # 훈련데이터
     if x_train is not None and y_train is not None:
         # 추정치
         y_train_pred = estimator.predict(x_train)
@@ -250,6 +252,8 @@ def my_classification_result(
         scores.append(result)
         score_names.append("훈련데이터")
 
+    # ------------------------------------------------------
+    # 검증데이터
     if x_test is not None and y_test is not None:
         # 추정치
         y_test_pred = estimator.predict(x_test)
@@ -311,6 +315,7 @@ def my_classification_result(
         scores.append(result)
         score_names.append("검증데이터")
 
+    # ------------------------------------------------------
     # 각 항목의 설명 추가
     if is_binary:
         result = {
@@ -345,8 +350,9 @@ def my_classification_result(
     scores.append(result)
     score_names.append("설명")
 
+    # ------------------------------------------------------
     if is_print:
-        print("[분류분석 성능평가]")
+        print("[분류분석 성능평가]", end="\r")
         result_df = DataFrame(scores, index=score_names)
 
         if estimator.__class__.__name__ != "LogisticRegression":
@@ -361,7 +367,7 @@ def my_classification_result(
     # ------------------------------------------------------
     # 혼동행렬
     if conf_matrix and is_print:
-        print("\n[혼동행렬]")
+        print("\n[혼동행렬]", end="\r")
 
         if x_test is not None and y_test is not None:
             my_confusion_matrix(y_test, y_test_pred, figsize=figsize, dpi=dpi)
@@ -372,9 +378,8 @@ def my_classification_result(
     # curve
     if is_print:
         if hasattr(estimator, "predict_proba"):
-
             if x_test is None or y_test is None:
-                print("\n[Roc Curve]")
+                print("\n[Roc Curve]", end="\r")
                 my_roc_curve(
                     estimator,
                     x_train,
@@ -386,7 +391,7 @@ def my_classification_result(
                     dpi=dpi,
                 )
             else:
-                print("\n[Roc Curve]")
+                print("\n[Roc Curve]", end="\r")
                 my_roc_curve(
                     estimator,
                     x_test,
@@ -400,7 +405,7 @@ def my_classification_result(
 
         # 학습곡선
         if learning_curve:
-            print("\n[학습곡선]")
+            print("\n[학습곡선]", end="\r")
             yname = y_train.name
 
             if x_test is not None and y_test is not None:
@@ -415,15 +420,24 @@ def my_classification_result(
 
             if cv > 0:
                 my_learing_curve(
-                    estimator, data=x_df, yname=yname, cv=cv, figsize=figsize, dpi=dpi
+                    estimator=estimator,
+                    data=x_df,
+                    yname=yname,
+                    cv=cv,
+                    figsize=figsize,
+                    dpi=dpi,
                 )
             else:
                 my_learing_curve(
-                    estimator, data=x_df, yname=yname, figsize=figsize, dpi=dpi
+                    estimator=estimator,
+                    data=x_df,
+                    yname=yname,
+                    figsize=figsize,
+                    dpi=dpi,
                 )
 
         if estimator.__class__.__name__ == "DecisionTreeClassifier":
-            my_tree(estimator)
+            my_tree(estimator=estimator)
 
 
 def my_classification_report(
@@ -941,7 +955,7 @@ def my_dtree_classification(
             params = get_hyper_params(classname=DecisionTreeClassifier)
 
         if pruning:
-            print("\033[91m가지치기를 위한 alpha값을 탐색합니다.\033[0m")
+            print("\033[91m가지치기를 위한 alpha값을 탐색합니다.\033[0m", end="\r")
 
             try:
                 dtree = get_estimator(classname=DecisionTreeClassifier)
@@ -949,13 +963,13 @@ def my_dtree_classification(
                 ccp_alphas = path.ccp_alphas[1:-1]
                 params["ccp_alpha"] = ccp_alphas
             except Exception as e:
-                print(f"\033[91m가지치기 실패 ({e})\033[0m")
+                print(f"\033[91m가지치기 실패 ({e})\033[0m", end="\r")
                 e.with_traceback()
         else:
             if "ccp_alpha" in params:
                 del params["ccp_alpha"]
 
-            print("\033[91m가지치기를 하지 않습니다.\033[0m")
+            print("\033[91m가지치기를 하지 않습니다.\033[0m", end="\r")
 
     return __my_classification(
         classname=DecisionTreeClassifier,
@@ -1180,6 +1194,72 @@ def my_sgd_classification(
     )
 
 
+def my_rf_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -> RandomForestClassifier:
+    """랜덤포레스트 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
+        cv (int, optional): 교차검증 횟수. Defaults to 5.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to True.
+        report (bool, optional) : 독립변수 보고를 출력할지 여부. Defaults to True.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+    Returns:
+        RandomForestClassifier
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = get_hyper_params(classname=RandomForestClassifier)
+
+    return __my_classification(
+        classname=RandomForestClassifier,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
 def my_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1218,7 +1298,7 @@ def my_classification(
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-        algorithm (list, optional): 사용하고자 하는 분류분석 알고리즘 리스트. None으로 설정할 경우 모든 알고리즘 수행 ['logistic', 'knn', 'dtree', 'svc', 'sgd']. Defaults to None.
+        algorithm (list, optional): 사용하고자 하는 분류분석 알고리즘 리스트. None으로 설정할 경우 모든 알고리즘 수행 ['logistic', 'knn', 'dtree', 'svc', 'sgd', 'rf']. Defaults to None.
 
     Returns:
         DataFrame: 분류분석 결과
@@ -1231,23 +1311,29 @@ def my_classification(
     callstack = []
     result_scores = []
 
-    if not algorithm or "logistic" in algorithm:
+    if not algorithm:
+        algorithm = ["logistic", "knn", "dtree", "svc", "sgd", "rf"]
+
+    if "logistic" in algorithm:
         callstack.append(my_logistic_classification)
 
-    if not algorithm or "knn" in algorithm:
+    if "knn" in algorithm:
         callstack.append(my_knn_classification)
 
-    if not algorithm or "svc" in algorithm:
+    if "svc" in algorithm:
         callstack.append(my_svc_classification)
 
-    if not algorithm or "nb" in algorithm:
+    if "nb" in algorithm:
         callstack.append(my_nb_classification)
 
-    if not algorithm or "dtree" in algorithm:
+    if "dtree" in algorithm:
         callstack.append(my_dtree_classification)
 
-    if not algorithm or "sgd" in algorithm:
+    if "sgd" in algorithm:
         callstack.append(my_sgd_classification)
+
+    if "rf" in algorithm:
+        callstack.append(my_rf_classification)
 
     score_fields = []
 
@@ -1339,7 +1425,7 @@ def my_classification(
             )
 
         # 결과값을 데이터프레임으로 변환
-        print("\n\n==================== 모델 성능 비교 ====================")
+        print("\n\n==================== 모델 성능 비교 ====================", end="\r")
         result_df = DataFrame(data=results, index=estimator_names)
 
         if score_fields:
@@ -1365,7 +1451,10 @@ def my_classification(
     best_idx = result_df[score_fields[0]].idxmax()
     estimators["best"] = estimators[best_idx]
 
-    print("\n\n==================== 최고 성능 모델: %s ====================" % best_idx)
+    print(
+        "\n\n==================== 최고 성능 모델: %s ====================" % best_idx,
+        end="\r",
+    )
     my_classification_result(
         estimator=estimators["best"],
         x_train=x_train,

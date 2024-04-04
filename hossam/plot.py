@@ -1,14 +1,20 @@
 import os
 import sys
+import graphviz
 import numpy as np
 import seaborn as sb
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+
 from math import sqrt
-from scipy.stats import t
 from pandas import DataFrame, Series
+
+from scipy.stats import t
 from scipy.spatial import ConvexHull
-from statannotations.Annotator import Annotator
 from scipy.stats import zscore, probplot
+
+from statannotations.Annotator import Annotator
+
 from sklearn.metrics import (
     mean_squared_error,
     ConfusionMatrixDisplay,
@@ -18,14 +24,13 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import learning_curve
 from sklearn.preprocessing import StandardScaler
-
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.tree import export_graphviz
-import graphviz
-import matplotlib.cm as cm
-import sys
 
-from .core import get_random_state
+from IPython import display
+
+from .core import get_random_state, get_n_jobs
+
 
 try:
     import google.colab
@@ -1046,8 +1051,8 @@ def my_learing_curve(
     data: DataFrame,
     yname: str = "target",
     scalling: bool = False,
-    cv: int = 10,
-    train_sizes: np.ndarray = np.linspace(0.01, 1.0, 10),
+    cv: int = 5,
+    train_sizes: np.ndarray = np.linspace(start=0.01, stop=1.0, num=5),
     scoring: str = None,
     figsize: tuple = (10, 5),
     dpi: int = 100,
@@ -1084,13 +1089,14 @@ def my_learing_curve(
     if scoring == None:
         try:
             train_sizes, train_scores, test_scores = learning_curve(
-                estimator,
-                x,
-                y,
+                estimator=estimator,
+                X=x,
+                y=y,
                 cv=cv,
-                n_jobs=-1,
+                n_jobs=get_n_jobs(),
                 train_sizes=train_sizes,
-                random_state=get_random_state(),
+                random_state=random_state,
+                #explore_incremental_learning=True,
             )
 
             ylabel = "Score"
@@ -1158,14 +1164,15 @@ def my_learing_curve(
 
         try:
             train_sizes, train_scores, test_scores = learning_curve(
-                estimator,
-                x,
-                y,
+                estimator=estimator,
+                X=x,
+                y=y,
                 cv=cv,
-                n_jobs=-1,
+                n_jobs=get_n_jobs(),
                 train_sizes=train_sizes,
                 scoring=scoring,
                 random_state=get_random_state(),
+                #explore_incremental_learning=True,
             )
         except Exception as e:
             print(
@@ -1360,13 +1367,15 @@ def my_roc_curve_binary(
         )
         ax[fig_index].set_xlabel("False Positive Rate")
         ax[fig_index].set_ylabel("True Positive Rate")
-        ax[fig_index].set_xticks(np.round(np.arange(0, 1.1, 0.1), 2))
+        ax[fig_index].set_xticks(
+            np.round(np.arange(start=0, stop=1.1, step=0.1), decimals=2)
+        )
         ax[fig_index].set_xlim([-0.01, 1.01])
         ax[fig_index].set_ylim([-0.01, 1.01])
         ax[fig_index].text(
             0.95,
             0.05,
-            "AUC=%0.3f" % roc_auc_score(df_aux["class"], df_aux["prob"]),
+            "AUC=%0.3f" % roc_auc_score(y_true=df_aux["class"], y_score=df_aux["prob"]),
             fontsize=16,
             ha="right",
             va="bottom",
@@ -1378,7 +1387,7 @@ def my_roc_curve_binary(
     # Precision-Recall Curve
     if pr:
         precision, recall, thresholds = precision_recall_curve(
-            df_aux["class"], df_aux["prob"]
+            y_true=df_aux["class"], probas_pred=df_aux["prob"]
         )
         y_mean = y.mean()
 
@@ -1400,7 +1409,9 @@ def my_roc_curve_binary(
         )
         ax[fig_index].set_xlabel("Recall")
         ax[fig_index].set_ylabel("Precision")
-        ax[fig_index].set_xticks(np.round(np.arange(0, 1.1, 0.1), 2))
+        ax[fig_index].set_xticks(
+            np.round(a=np.arange(start=0, stop=1.1, step=0.1), decimals=2)
+        )
         ax[fig_index].set_xlim([-0.01, 1.01])
         ax[fig_index].set_ylim([y_mean - 0.05, 1.01])
         ax[fig_index].legend()
@@ -1424,7 +1435,6 @@ def my_roc_curve_multiclass_ovo(
     pr: bool = True,
     figsize: tuple = (6, 5),
     dpi: int = 100,
-    callback: any = None,
 ) -> None:
     """다중 분류에 대한 ROC와 Precision-Recall 곡선을 출력한다.
 
@@ -1437,7 +1447,6 @@ def my_roc_curve_multiclass_ovo(
         pr (bool, optional): Precision-Recall 곡선 출력 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 10).
         dpi (int, optional): 그래프의 해상도. Defaults to 200.
-        callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
     """
     cols = 0
 
@@ -1600,7 +1609,6 @@ def my_roc_curve_multiclass_ovr(
     pr: bool = True,
     figsize: tuple = (6, 5),
     dpi: int = 100,
-    callback: any = None,
 ) -> None:
     """다중 분류에 대한 ROC와 Precision-Recall 곡선을 출력한다.
 
@@ -1613,7 +1621,6 @@ def my_roc_curve_multiclass_ovr(
         pr (bool, optional): Precision-Recall 곡선 출력 여부. Defaults to True.
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 10).
         dpi (int, optional): 그래프의 해상도. Defaults to 200.
-        callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
     """
     cols = 0
 
@@ -1844,8 +1851,8 @@ def my_distribution_by_class(
 
         if type == "kde":
             my_kdeplot(
-                data,
-                v,
+                df=data,
+                xname=v,
                 hue=hue,
                 palette=palette,
                 fill=fill,
@@ -1855,8 +1862,8 @@ def my_distribution_by_class(
             )
         elif type == "hist":
             my_histplot(
-                data,
-                v,
+                df=data,
+                xname=v,
                 hue=hue,
                 bins=bins,
                 kde=False,
@@ -1867,8 +1874,8 @@ def my_distribution_by_class(
             )
         elif type == "histkde":
             my_histplot(
-                data,
-                v,
+                df=data,
+                xname=v,
                 hue=hue,
                 bins=bins,
                 kde=True,
@@ -1946,10 +1953,10 @@ def my_tree(estimator: DecisionTreeClassifier) -> None:
 
     xnames = list(estimator.feature_names_in_)
     class_names = estimator.classes_
-    class_names = [str(i) for i in class_names]
+    class_names = [str(object=i) for i in class_names]
 
     export_graphviz(
-        estimator,
+        decision_tree=estimator,
         out_file="tree.dot",
         feature_names=xnames,
         class_names=class_names,

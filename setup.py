@@ -13,6 +13,7 @@ setup(
     zip_safe=False,
     url="https://github.com/leekh4232/hossam_data_helper",
     install_requires=[
+        "tqdm",
         "tabulate",
         "pandas",
         "matplotlib",

@@ -19,7 +19,7 @@ from sklearn.preprocessing import StandardScaler
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson
 from statsmodels.stats.api import het_breuschpagan
-from sklearn.ensemble import VotingRegressor, BaggingRegressor
+from sklearn.ensemble import VotingRegressor, BaggingRegressor, RandomForestRegressor
 
 from scipy.stats import t, f
 from .core import __ml, get_hyper_params, get_estimator
@@ -1092,6 +1092,71 @@ def my_sgd_regression(
     )
 
 
+def my_rf_regression(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=True,
+    plot: bool = False,
+    deg: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -> RandomForestRegressor:
+    """RandomForest 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        SGDRegressor
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = get_hyper_params(classname=RandomForestRegressor)
+
+    return __my_regression(
+        classname=RandomForestRegressor,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        deg=deg,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
 def my_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -1107,7 +1172,7 @@ def my_regression(
     dpi: int = 100,
     sort: str = None,
     algorithm: list = None,
-    scoring: list = ["rmse", "mse", "r2", "mae", "mape", "mpe"],
+    scoring: list = ["rmse", "mse", "r2", "mae", "mape", "mpe", "rf"],
     **params,
 ) -> any:
     """회귀분석을 수행하고 결과를 출력한다.
@@ -1126,7 +1191,7 @@ def my_regression(
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-        algorithm: list = None,
+        algorithm (list, optional): 사용할 알고리즘 ["linear", "ridge", "lasso", "knn", "dtree", "svr", "sgd"]. Defaults to None.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
@@ -1140,26 +1205,32 @@ def my_regression(
     callstack = []
     result_scores = []
 
-    if not algorithm or "linear" in algorithm:
+    if not algorithm:
+        algorithm = ["linear", "ridge", "lasso", "knn", "dtree", "svr", "sgd", "rf"]
+
+    if "linear" in algorithm:
         callstack.append(my_linear_regression)
 
-    if not algorithm or "ridge" in algorithm:
+    if "ridge" in algorithm:
         callstack.append(my_ridge_regression)
 
-    if not algorithm or "lasso" in algorithm:
+    if "lasso" in algorithm:
         callstack.append(my_lasso_regression)
 
-    if not algorithm or "knn" in algorithm:
+    if "knn" in algorithm:
         callstack.append(my_knn_regression)
 
-    if not algorithm or "dtree" in algorithm:
+    if "dtree" in algorithm:
         callstack.append(my_dtree_regression)
 
-    if not algorithm or "svr" in algorithm:
+    if "svr" in algorithm:
         callstack.append(my_svr_regression)
 
-    if not algorithm or "sgd" in algorithm:
+    if "sgd" in algorithm:
         callstack.append(my_sgd_regression)
+
+    if "rf" in algorithm:
+        callstack.append(my_rf_regression)
 
     score_fields = []
     score_method = []

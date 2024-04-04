@@ -26,29 +26,26 @@ __MAX_ITER__ = 100
 
 __N_JOBS__ = -1
 
-__LINEAR_REGRESSION_HYPER_PARAMS__ = {
-    # "fit_intercept": [True, False]
-}
+__LINEAR_REGRESSION_HYPER_PARAMS__ = {"fit_intercept": [True, False]}
 
 __RIDGE_HYPER_PARAMS__ = {
-    # "alpha": [0.001, 0.01, 0.1, 1, 10, 100],
-    # "solver": ["auto", "svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga"],
+    "alpha": [0.001, 0.01, 0.1, 1, 10, 100],
+    "solver": ["svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga"],
 }
 
 __LASSO_HYPER_PARAMS__ = {
-    # "alpha": [0.001, 0.01, 0.1, 1, 10, 100],
-    # "selection": ["cyclic", "random"],
+    "alpha": [0.001, 0.01, 0.1, 1, 10, 100],
+    "selection": ["cyclic", "random"],
 }
 
 __KNN_REGRESSION_HYPER_PARAMS__ = {
     "n_neighbors": np.arange(2, stop=6),
-    # "weights": ["uniform", "distance"],
-    # "metric": ["euclidean", "manhattan", "minkowski"],
+    "weights": ["uniform", "distance"],
     "metric": ["euclidean", "manhattan"],
 }
 
 __DTREE_REGRESSION_HYPER_PARAMS__ = {
-    # "criterion": ["squared_error", "friedman_mse", "absolute_error", "poisson"],
+    "criterion": ["squared_error", "friedman_mse", "absolute_error", "poisson"],
     # "splitter": ["best", "random"],
     # "min_samples_split": np.arange(2, stop=10),
     # "min_samples_leaf": np.arange(1, stop=10),
@@ -63,10 +60,15 @@ __SVR_HYPER_PARAMS__ = {
 }
 
 __SGD_REGRESSION_HYPER_PARAMS__ = {
-    # "loss": ["squared_loss", "huber", "epsilon_insensitive", "squared_epsilon_insensitive"],
+    "loss": [
+        "squared_loss",
+        "huber",
+        "epsilon_insensitive",
+        "squared_epsilon_insensitive",
+    ],
     "penalty": ["l2", "l1", "elasticnet"],
-    # "alpha": [0.001, 0.01, 0.1],
-    # "learning_rate": ["constant", "optimal", "invscaling", "adaptive"],
+    "alpha": [0.001, 0.01, 0.1],
+    "learning_rate": ["constant", "optimal", "invscaling", "adaptive"],
 }
 
 
@@ -78,8 +80,7 @@ __LOGISTIC_REGRESSION_HYPER_PARAMS__ = {
 
 __KNN_CLASSFICATION_HYPER_PARAMS__ = {
     "n_neighbors": np.arange(2, stop=6),
-    # "weights": ["uniform", "distance"],
-    # "metric": ["euclidean", "manhattan", "minkowski"],
+    "weights": ["uniform", "distance"],
     "metric": ["euclidean", "manhattan"],
 }
 
@@ -88,7 +89,7 @@ __NB_HYPER_PARAMS__ = {
     # "var_smoothing": [1e-9, 1e-8, 1e-7, 1e-6, 1e-5]
 }
 
-__DTREE_HYPER_PARAMS__ = {
+__DTREE_CLASSIFICATION_HYPER_PARAMS__ = {
     "criterion": ["gini", "entropy"],
     # "max_depth": np.arange(1, stop=10),
     # "min_samples_split": np.arange(2, stop=10),
@@ -98,14 +99,14 @@ __DTREE_HYPER_PARAMS__ = {
 
 __LINEAR_SVC_HYPER_PARAMS__ = {
     "penalty": ["l1", "l2"],
-    # "C": [0.001, 0.01, 0.1, 1, 10, 100],
+    "C": [0.001, 0.01, 0.1, 1, 10, 100],
 }
 
 __SVC_HYPER_PARAMS__ = {
     # "C": [0.001, 0.01, 0.1, 1, 10, 100],
     "kernel": ["poly", "rbf", "sigmoid"],
     # "degree": np.arange(2, stop=6),
-    "gamma": ["scale", "auto"],
+    # "gamma": ["scale", "auto"],
 }
 
 __SGD_CLASSFICATION_HYPER_PARAMS__ = {
@@ -118,61 +119,60 @@ __SGD_CLASSFICATION_HYPER_PARAMS__ = {
 
 __BAGGING_HYPER_PARAMS__ = {
     "bootstrap_features": [False, True],
-    "n_estimators": [2, 5, 10, 20],
+    "n_estimators": [10, 20, 50, 100],
     "max_features": [0.5, 0.7, 1.0],
     "max_samples": [0.5, 0.7, 1.0],
 }
 
 __RANDOM_FOREST_REGRESSION_HYPER_PARAMS__ = {
-    "n_estimators": [2, 5, 10, 20, 50, 100],
+    "n_estimators": [10, 20, 50, 100],
     "criterion": ["squared_error", "absolute_error", "friedman_mse", "poisson"],
-    "max_features": ["auto", "sqrt", "log2"],
+    "max_features": ["sqrt", "log2"],
     "max_depth": [2, 5, 10, 20, 50, None],
 }
 
 __RANDOM_FOREST_CLASSIFICATION_HYPER_PARAMS__ = {
-    "n_estimators": [2, 5, 10, 20, 50, 100],
+    "n_estimators": [10, 20, 50, 100],
     "criterion": ["gini", "entropy"],
     "max_features": ["sqrt", "log2", None],
-    "max_depth": [2, 5, 10, 20, 50, None],
+    "max_depth": [2, 5, 10, 20, None],
 }
 
 
 def get_estimator(
     classname: any, estimators: list = None, base_estimator: any = None
 ) -> any:
-    c = str(classname)
+    c = str(object=classname)
     p = c.rfind(".")
     cn = c[p + 1 : -2]
 
     args = {}
 
     # VottingClassifier, VotingRegressor
-    if "estimators" in dict(inspect.signature(classname.__init__).parameters):
+    if "estimators" in dict(inspect.signature(obj=classname.__init__).parameters):
         args["estimators"] = estimators
 
     # BaggingClassifier, BaggingRegressor
-    if "estimator" in dict(inspect.signature(classname.__init__).parameters):
+    if "estimator" in dict(inspect.signature(obj=classname.__init__).parameters):
         args["estimator"] = base_estimator
 
     # 공통 속성들
-    if "n_jobs" in dict(inspect.signature(classname.__init__).parameters):
+    if "n_jobs" in dict(inspect.signature(obj=classname.__init__).parameters):
         args["n_jobs"] = __N_JOBS__
 
-    if "max_iter" in dict(inspect.signature(classname.__init__).parameters):
+    if "max_iter" in dict(inspect.signature(obj=classname.__init__).parameters):
         args["max_iter"] = __MAX_ITER__
 
-    if "random_state" in dict(inspect.signature(classname.__init__).parameters):
+    if "random_state" in dict(inspect.signature(obj=classname.__init__).parameters):
         args["random_state"] = __RANDOM_STATE__
 
-    if "early_stopping" in dict(inspect.signature(classname.__init__).parameters):
+    if "early_stopping" in dict(inspect.signature(obj=classname.__init__).parameters):
         args["early_stopping"] = True
 
-    if "probability" in dict(inspect.signature(classname.__init__).parameters):
+    if "probability" in dict(inspect.signature(obj=classname.__init__).parameters):
         args["probability"] = True
 
     prototype_estimator = classname(**args)
-    # print(f"\033[92m{cn}({args})\033[0m".replace("\n", ""))
     return prototype_estimator
 
 
@@ -254,13 +254,11 @@ def __ml(
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(
-                f"\033[91m[{fname}:{exc_tb.tb_lineno}] {str(exc_type)} {exc_obj}\033[0m"
+                f"\033[91m[{fname}:{exc_tb.tb_lineno}] {str(object=exc_type)} {exc_obj}\033[0m"
             )
             return None
 
-        # print(grid.cv_results_)
-
-        result_df = DataFrame(grid.cv_results_["params"])
+        result_df = DataFrame(data=grid.cv_results_["params"])
 
         if "mean_test_score" in grid.cv_results_:
             result_df["mean_test_score"] = grid.cv_results_["mean_test_score"]
@@ -274,7 +272,7 @@ def __ml(
             print("[교차검증 TOP5]")
             print(
                 tabulate(
-                    result_df.head().reset_index(drop=True),
+                    tabular_data=result_df.head().reset_index(drop=True),
                     headers="keys",
                     tablefmt="psql",
                     showindex=True,
@@ -396,7 +394,7 @@ def get_hyper_params(classname: any, key: str = None) -> dict:
     elif classname == GaussianNB:
         params = __NB_HYPER_PARAMS__.copy()
     elif classname == DecisionTreeClassifier:
-        params = __DTREE_HYPER_PARAMS__.copy()
+        params = __DTREE_CLASSIFICATION_HYPER_PARAMS__.copy()
     elif classname == LinearSVC:
         params = __LINEAR_SVC_HYPER_PARAMS__.copy()
     elif classname == SVC:

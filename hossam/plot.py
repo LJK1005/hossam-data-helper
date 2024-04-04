@@ -1052,7 +1052,7 @@ def my_learing_curve(
     yname: str = "target",
     scalling: bool = False,
     cv: int = 5,
-    train_sizes: np.ndarray = np.linspace(start=0.01, stop=1.0, num=5),
+    train_sizes: np.ndarray = np.array([0.1, 0.3, 0.5, 0.7, 1]),
     scoring: str = None,
     figsize: tuple = (10, 5),
     dpi: int = 100,
@@ -1080,6 +1080,7 @@ def my_learing_curve(
     x = data.drop(yname, axis=1)
     y = data[yname]
     w = 1
+    cv = 3
 
     if scalling:
         scaler = StandardScaler()
@@ -1096,7 +1097,7 @@ def my_learing_curve(
                 n_jobs=get_n_jobs(),
                 train_sizes=train_sizes,
                 random_state=random_state,
-                #explore_incremental_learning=True,
+                # explore_incremental_learning=True,
             )
 
             ylabel = "Score"
@@ -1172,7 +1173,7 @@ def my_learing_curve(
                 train_sizes=train_sizes,
                 scoring=scoring,
                 random_state=get_random_state(),
-                #explore_incremental_learning=True,
+                # explore_incremental_learning=True,
             )
         except Exception as e:
             print(
@@ -1199,9 +1200,9 @@ def my_learing_curve(
         ax=ax,
     )
     ax.fill_between(
-        train_sizes,
-        train_mean + train_std,
-        train_mean - train_std,
+        x=train_sizes,
+        y1=train_mean + train_std,
+        y2=train_mean - train_std,
         alpha=0.15,
         color="#ff2200",
     )
@@ -1218,16 +1219,16 @@ def my_learing_curve(
         ax=ax,
     )
     ax.fill_between(
-        train_sizes,
-        test_mean + test_std,
-        test_mean - test_std,
+        x=train_sizes,
+        y1=test_mean + test_std,
+        y2=test_mean - test_std,
         alpha=0.15,
         color="#0066ff",
     )
 
     ax.grid()
-    ax.set_xlabel("훈련 셋트 크기")
-    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel="훈련 셋트 크기")
+    ax.set_ylabel(ylabel=ylabel)
     ax.legend()
 
     if callback:
@@ -1346,7 +1347,7 @@ def my_roc_curve_binary(
     # ax[0] : histogram -------------------------
     if hist:
         sb.histplot(data=df_aux, x="prob", hue="class", bins=bins, ax=ax[fig_index])
-        ax[fig_index].legend()
+        # ax[fig_index].legend()
         ax[fig_index].grid()
         fig_index += 1
 
@@ -1363,6 +1364,7 @@ def my_roc_curve_binary(
             color="black",
             linestyle="--",
             linewidth=0.7,
+            label="chance",
             ax=ax[fig_index],
         )
         ax[fig_index].set_xlabel("False Positive Rate")
@@ -1405,6 +1407,7 @@ def my_roc_curve_binary(
             color="black",
             linewidth=0.7,
             linestyle="--",
+            label="chance",
             ax=ax[fig_index],
         )
         ax[fig_index].set_xlabel("Recall")
@@ -1518,7 +1521,7 @@ def my_roc_curve_multiclass_ovo(
         # ax[0] : histogram -------------------------
         if hist:
             sb.histplot(data=df_aux, x="prob", hue="class", bins=bins, ax=ax[fig_index])
-            ax[fig_index].legend([f"{c1}", f"{c2}"])
+            # ax[fig_index].legend()
             ax[fig_index].set_xlabel(f"P(x = {c1})")
             ax[fig_index].grid()
             fig_index += 1
@@ -1545,6 +1548,7 @@ def my_roc_curve_multiclass_ovo(
                 linestyle="--",
                 color="#005500",
                 linewidth=0.5,
+                label="chance level",
                 ax=ax[fig_index],
             )
             ax[fig_index].set_xlabel("Fase Positive Rate")
@@ -1553,6 +1557,7 @@ def my_roc_curve_multiclass_ovo(
             ax[fig_index].set_xlim([-0.01, 1.01])
             ax[fig_index].set_ylim([-0.01, 1.01])
             ax[fig_index].grid()
+            ax[fig_index].legend()
             ax[fig_index].text(
                 0.95, 0.05, "AUC=%0.3f" % auc, fontsize=16, ha="right", va="bottom"
             )
@@ -1579,6 +1584,7 @@ def my_roc_curve_multiclass_ovo(
                 color="#005500",
                 linewidth=0.5,
                 linestyle="--",
+                label="chance level",
                 ax=ax[fig_index],
             )
             ax[fig_index].set_xlabel("Recall")
@@ -1679,7 +1685,7 @@ def my_roc_curve_multiclass_ovr(
         # ax[0] : histogram -------------------------
         if hist:
             sb.histplot(data=df_aux, x="prob", hue="class", bins=bins, ax=ax[fig_index])
-            ax[fig_index].legend([f"{c}", "Rest"])
+            # ax[fig_index].legend([f"{c}", "Rest"])
             ax[fig_index].set_xlabel(f"P(x = {c})")
             ax[fig_index].grid()
             fig_index += 1
@@ -1706,6 +1712,7 @@ def my_roc_curve_multiclass_ovr(
                 linestyle="--",
                 color="#005500",
                 linewidth=0.5,
+                label="chance",
                 ax=ax[fig_index],
             )
             ax[fig_index].set_xlabel("Fase Positive Rate")
@@ -1740,6 +1747,7 @@ def my_roc_curve_multiclass_ovr(
                 color="#005500",
                 linewidth=0.5,
                 linestyle="--",
+                label="chance",
                 ax=ax[fig_index],
             )
             ax[fig_index].set_xlabel("Recall")

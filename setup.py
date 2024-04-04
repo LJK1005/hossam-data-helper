@@ -28,5 +28,6 @@ setup(
         "graphviz",
         "dtreeviz",
         "pca",
+        "statannotations",
     ],
 )

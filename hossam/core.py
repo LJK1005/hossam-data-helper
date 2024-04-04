@@ -22,7 +22,7 @@ from tabulate import tabulate
 
 __RANDOM_STATE__ = 0
 
-__MAX_ITER__ = 500
+__MAX_ITER__ = 1000
 
 __N_JOBS__ = -1
 
@@ -61,7 +61,7 @@ __SVR_HYPER_PARAMS__ = {
 
 __SGD_REGRESSION_HYPER_PARAMS__ = {
     "loss": [
-        "squared_loss",
+        "squared_error",
         "huber",
         "epsilon_insensitive",
         "squared_epsilon_insensitive",
@@ -158,8 +158,8 @@ def get_estimator(
     if "n_jobs" in dict(inspect.signature(obj=classname.__init__).parameters):
         args["n_jobs"] = __N_JOBS__
 
-    if "max_iter" in dict(inspect.signature(obj=classname.__init__).parameters):
-        args["max_iter"] = __MAX_ITER__
+    # if "max_iter" in dict(inspect.signature(obj=classname.__init__).parameters):
+    #     args["max_iter"] = __MAX_ITER__
 
     if "random_state" in dict(inspect.signature(obj=classname.__init__).parameters):
         args["random_state"] = __RANDOM_STATE__
@@ -219,7 +219,7 @@ def __ml(
                 param_distributions=params,
                 cv=cv,
                 n_jobs=__N_JOBS__,
-                n_iter=__MAX_ITER__,
+                # n_iter=__MAX_ITER__,
                 random_state=__RANDOM_STATE__,
                 verbose=0,
             )
@@ -228,7 +228,6 @@ def __ml(
             #     param_grid=params,
             #     cv=cv,
             #     n_jobs=__N_JOBS__,
-            #     n_iter=__MAX_ITER__,
             # )
         else:
             grid = RandomizedSearchCV(
@@ -236,7 +235,7 @@ def __ml(
                 param_distributions=params,
                 cv=cv,
                 n_jobs=__N_JOBS__,
-                n_iter=__MAX_ITER__,
+                # n_iter=__MAX_ITER__,
                 random_state=__RANDOM_STATE__,
                 scoring=scoring,
                 verbose=0,
@@ -246,7 +245,6 @@ def __ml(
             #     param_grid=params,
             #     cv=cv,
             #     n_jobs=__N_JOBS__,
-            #     n_iter=__MAX_ITER__,
             #     scoring=scoring,
             # )
 

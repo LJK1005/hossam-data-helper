@@ -1,5 +1,5 @@
 def init(package: bool = False, mecab: bool = False) -> None:
-    import warnings, os
+    import warnings, os, sys
 
     warnings.filterwarnings(action="ignore")
 

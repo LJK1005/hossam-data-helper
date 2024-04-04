@@ -78,6 +78,8 @@ def __my_classification(
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
+        estimators (list, optional): Voting 앙상블 모델의 추정기. Defaults to None.
+        base_estimator (any, optional): Bagging 앙상블 모델의 기본 추정기. Defaults to None.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
         any: 분류분석 모델

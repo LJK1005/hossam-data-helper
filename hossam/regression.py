@@ -19,8 +19,7 @@ from sklearn.preprocessing import StandardScaler
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson
 from statsmodels.stats.api import het_breuschpagan
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-from sklearn.ensemble import VotingRegressor
+from sklearn.ensemble import VotingRegressor, BaggingRegressor
 
 from scipy.stats import t, f
 from .core import __ml, get_hyper_params, get_estimator
@@ -44,6 +43,8 @@ def __my_regression(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
+    estimators: list = None,
+    base_estimator: any = None,
     **params,
 ) -> any:
     """회귀분석을 수행하고 결과를 출력한다.
@@ -64,6 +65,9 @@ def __my_regression(
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
+        estimators (list, optional): Voting 앙상블 모델의 추정기. Defaults to None.
+        base_estimator (any, optional): Bagging 앙상블 모델의 기본 추정기. Defaults to None.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
         any: 분류분석 모델
@@ -79,6 +83,8 @@ def __my_regression(
         y_test=y_test,
         cv=cv,
         is_print=is_print,
+        estimators=estimators,
+        base_estimator=base_estimator,
         **params,
     )
 
@@ -1102,7 +1108,6 @@ def my_regression(
     sort: str = None,
     algorithm: list = None,
     scoring: list = ["rmse", "mse", "r2", "mae", "mape", "mpe"],
-    pruning: bool = False,
     **params,
 ) -> any:
     """회귀분석을 수행하고 결과를 출력한다.
@@ -1402,5 +1407,100 @@ def my_voting_regression(
         sort=sort,
         is_print=True,
         estimators=estimators,
+        **params,
+    )
+
+
+def my_bagging_regression(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    estimator: type = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=True,
+    plot: bool = True,
+    deg: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    algorithm: list = None,
+    scoring: list = ["rmse", "mse", "r2", "mae", "mape", "mpe"],
+    **params,
+) -> DataFrame:
+    """배깅 앙상블 분류분석을 수행하고 결과를 출력한다.
+
+    Args:
+        estimator (type): 기본 분류분석 알고리즘
+        x_train (DataFrame): 훈련 데이터의 독립변수
+        y_train (Series): 훈련 데이터의 종속변수
+        x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
+        y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        algorithm: list = None,
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        DataFrame: 분류분석 결과
+    """
+
+    if estimator is None:
+        estimator = my_regression(
+            x_train=x_train,
+            y_train=y_train,
+            x_test=x_test,
+            y_test=y_test,
+            cv=cv,
+            learning_curve=learning_curve,
+            report=False,
+            plot=False,
+            deg=deg,
+            resid_test=False,
+            figsize=figsize,
+            dpi=dpi,
+            sort=sort,
+            algorithm=algorithm,
+            scoring=scoring,
+            **params,
+        )
+
+        estimator = estimator["best"]
+
+    if type(estimator) is type:
+        params = get_hyper_params(classname=estimator, key="estimator")
+        estimator = get_estimator(classname=estimator)
+    else:
+        params = get_hyper_params(classname=estimator.__class__, key="estimator")
+
+    bagging_params = get_hyper_params(classname=BaggingRegressor)
+    params.update(bagging_params)
+
+    return __my_regression(
+        classname=BaggingRegressor,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        deg=deg,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=True,
+        base_estimator=estimator,
         **params,
     )

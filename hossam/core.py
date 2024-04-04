@@ -22,7 +22,7 @@ from tabulate import tabulate
 
 __RANDOM_STATE__ = 0
 
-__MAX_ITER__ = 100
+__MAX_ITER__ = 500
 
 __N_JOBS__ = -1
 
@@ -73,8 +73,6 @@ __SGD_REGRESSION_HYPER_PARAMS__ = {
 
 
 __LOGISTIC_REGRESSION_HYPER_PARAMS__ = {
-    # "penalty": ["l1", "l2", "elasticnet"],
-    "penalty": ["l1", "l2"],
     # "C": [0.001, 0.01, 0.1, 1, 10, 100],
 }
 
@@ -172,8 +170,10 @@ def get_estimator(
     if "probability" in dict(inspect.signature(obj=classname.__init__).parameters):
         args["probability"] = True
 
-    prototype_estimator = classname(**args)
-    return prototype_estimator
+    if "verbose" in dict(inspect.signature(obj=classname.__init__).parameters):
+        args["verbose"] = False
+
+    return classname(**args)
 
 
 def __ml(
@@ -221,6 +221,7 @@ def __ml(
                 n_jobs=__N_JOBS__,
                 n_iter=__MAX_ITER__,
                 random_state=__RANDOM_STATE__,
+                verbose=0,
             )
             # grid = GridSearchCV(
             #     estimator=prototype_estimator,
@@ -238,6 +239,7 @@ def __ml(
                 n_iter=__MAX_ITER__,
                 random_state=__RANDOM_STATE__,
                 scoring=scoring,
+                verbose=0,
             )
             # grid = GridSearchCV(
             #     estimator=prototype_estimator,

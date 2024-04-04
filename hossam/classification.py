@@ -1312,7 +1312,8 @@ def my_classification(
     result_scores = []
 
     if not algorithm:
-        algorithm = ["logistic", "knn", "dtree", "svc", "sgd", "rf"]
+        # algorithm = ["logistic", "knn", "dtree", "svc", "sgd", "rf"]
+        algorithm = ["logistic", "knn", "dtree", "svc", "sgd"]
 
     if "logistic" in algorithm:
         callstack.append(my_logistic_classification)

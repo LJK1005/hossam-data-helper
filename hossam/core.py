@@ -17,6 +17,10 @@ from sklearn.ensemble import (
     BaggingRegressor,
     RandomForestClassifier,
     RandomForestRegressor,
+    AdaBoostClassifier,
+    AdaBoostRegressor,
+    GradientBoostingClassifier,
+    GradientBoostingRegressor,
 )
 from tabulate import tabulate
 
@@ -134,6 +138,28 @@ __RANDOM_FOREST_CLASSIFICATION_HYPER_PARAMS__ = {
     "criterion": ["gini", "entropy"],
     "max_features": ["sqrt", "log2", None],
     "max_depth": [10, 20, 50, None],
+}
+
+__ADA_BOOSTING_CLASSIFICATION_HYPER_PARAMS__ = {
+    "n_estimators": [10, 20, 50, 100],
+    "learning_rate": [0.001, 0.01, 0.1, 1],
+}
+
+__ADA_BOOSTING_REGRESSION_HYPER_PARAMS__ = {
+    "n_estimators": [10, 20, 50, 100],
+    "learning_rate": [0.001, 0.01, 0.1, 1],
+}
+
+__GRADIENT_BOOSTING_CLASSIFICATION_HYPER_PARAMS__ = {
+    "n_estimators": [10, 20, 50, 100],
+    "learning_rate": [0.001, 0.01, 0.1, 1],
+    "subsample": [0.5, 0.7, 1.0],
+}
+
+__GRADIENT_BOOSTING_REGRESSION_HYPER_PARAMS__ = {
+    "n_estimators": [10, 20, 50, 100],
+    "learning_rate": [0.001, 0.01, 0.1, 1],
+    "subsample": [0.5, 0.7, 1.0],
 }
 
 
@@ -407,6 +433,14 @@ def get_hyper_params(classname: any, key: str = None) -> dict:
         params = __RANDOM_FOREST_REGRESSION_HYPER_PARAMS__.copy()
     elif classname == RandomForestClassifier:
         params = __RANDOM_FOREST_CLASSIFICATION_HYPER_PARAMS__.copy()
+    elif classname == AdaBoostRegressor:
+        params = __ADA_BOOSTING_REGRESSION_HYPER_PARAMS__.copy()
+    elif classname == AdaBoostClassifier:
+        params = __ADA_BOOSTING_CLASSIFICATION_HYPER_PARAMS__.copy()
+    elif classname == GradientBoostingRegressor:
+        params = __GRADIENT_BOOSTING_REGRESSION_HYPER_PARAMS__.copy()
+    elif classname == GradientBoostingClassifier:
+        params = __GRADIENT_BOOSTING_CLASSIFICATION_HYPER_PARAMS__.copy()
 
     key_list = list(params.keys())
 

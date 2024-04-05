@@ -442,11 +442,13 @@ def get_hyper_params(classname: any, key: str = None) -> dict:
     elif classname == GradientBoostingClassifier:
         params = __GRADIENT_BOOSTING_CLASSIFICATION_HYPER_PARAMS__.copy()
 
-    key_list = list(params.keys())
+    if params:
+        key_list = list(params.keys())
 
-    if params and key is not None:
-        for p in key_list:
-            params[f"{key}__{p}"] = params[p]
-            del params[p]
+        if params and key is not None:
+            for p in key_list:
+                params[f"{key}__{p}"] = params[p]
+                del params[p]
 
+    # print(f"[{classname}] {params}")
     return params

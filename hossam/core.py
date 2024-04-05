@@ -126,14 +126,14 @@ __RANDOM_FOREST_REGRESSION_HYPER_PARAMS__ = {
     "n_estimators": [10, 20, 50, 100],
     "criterion": ["squared_error", "absolute_error", "friedman_mse", "poisson"],
     "max_features": ["sqrt", "log2"],
-    "max_depth": [2, 5, 10, 20, 50, None],
+    "max_depth": [10, 20, 50, None],
 }
 
 __RANDOM_FOREST_CLASSIFICATION_HYPER_PARAMS__ = {
     "n_estimators": [10, 20, 50, 100],
     "criterion": ["gini", "entropy"],
     "max_features": ["sqrt", "log2", None],
-    "max_depth": [2, 5, 10, 20, None],
+    "max_depth": [10, 20, 50, None],
 }
 
 

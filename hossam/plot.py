@@ -1801,18 +1801,18 @@ def my_roc_curve(
     else:
         if multiclass == "ovo":
             my_roc_curve_multiclass_ovo(
-                estimator, x, y, hist, roc, pr, figsize, dpi, callback
+                estimator, x, y, hist, roc, pr, figsize, dpi
             )
         elif multiclass == "ovr":
             my_roc_curve_multiclass_ovr(
-                estimator, x, y, hist, roc, pr, figsize, dpi, callback
+                estimator, x, y, hist, roc, pr, figsize, dpi
             )
         else:
             my_roc_curve_multiclass_ovo(
-                estimator, x, y, hist, roc, pr, figsize, dpi, callback
+                estimator, x, y, hist, roc, pr, figsize, dpi
             )
             my_roc_curve_multiclass_ovr(
-                estimator, x, y, hist, roc, pr, figsize, dpi, callback
+                estimator, x, y, hist, roc, pr, figsize, dpi
             )
 
 

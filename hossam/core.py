@@ -272,10 +272,16 @@ def __ml(
         if classname == XGBClassifier:
             classes = y_train.unique()
             n_classes = len(classes)
-            objective = "binary:logistic" if n_classes == 2 else "multi:softmax"
+
+            if n_classes == 2:
+                objective = "binary:logistic"
+                eval_metric='error'
+            else:
+                objective = "multi:softmax"
+                eval_metric='merror'
 
             prototype_estimator = get_estimator(
-                classname=classname, objective=objective, eval_metric='error'
+                classname=classname, objective=objective, eval_metric=eval_metric
             )
         else:
             prototype_estimator = get_estimator(classname=classname, est=est)

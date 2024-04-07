@@ -1,7 +1,9 @@
 import inspect
+from re import X
 import sys, os
-
 import numpy as np
+
+from tabulate import tabulate
 from pandas import DataFrame, Series
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
@@ -22,7 +24,8 @@ from sklearn.ensemble import (
     GradientBoostingClassifier,
     GradientBoostingRegressor,
 )
-from tabulate import tabulate
+from xgboost import XGBClassifier
+
 
 __RANDOM_STATE__ = 0
 
@@ -162,23 +165,41 @@ __GRADIENT_BOOSTING_REGRESSION_HYPER_PARAMS__ = {
     "subsample": [0.5, 0.7, 1.0],
 }
 
+__XGBOOST_CLASSIFICATION_HYPER_PARAMS__ = {
+    "learning_rate": [0.1, 0.3, 0.5, 0.7, 1],
+    "n_estimators": [100, 200, 300, 400, 500],
+    "min_child_weight": [1, 3, 5, 7, 9],
+    "gamma": [0, 1, 2, 3, 4, 5],
+    "max_depth": [0, 2, 4, 6],
+    "subsample": [0.5, 0.7, 1],
+    "colsample_bytree": [0.6, 0.7, 0.8, 0.9],
+    "reg_alpha": [1, 3, 5, 7, 9],
+    "reg_lambda": [1, 3, 5, 7, 9]
+}
+
 
 def get_estimator(
-    classname: any, estimators: list = None, base_estimator: any = None
+    classname: any, est: any = None, **params
 ) -> any:
-    c = str(object=classname)
-    p = c.rfind(".")
-    cn = c[p + 1 : -2]
+    """분류분석 추정기 객체를 생성한다. 고정적으로 사용되는 속성들을 일괄 설정한다.
+
+    Args:
+        classname (any): 분류분석 추정기 클래스
+        est (list | any, optional): Voting, Bagging에서 사용될 추정기 객체. Defaults to None.
+
+    Returns:
+        any: _description_
+    """
 
     args = {}
 
     # VottingClassifier, VotingRegressor
     if "estimators" in dict(inspect.signature(obj=classname.__init__).parameters):
-        args["estimators"] = estimators
+        args["estimators"] = est
 
     # BaggingClassifier, BaggingRegressor
     if "estimator" in dict(inspect.signature(obj=classname.__init__).parameters):
-        args["estimator"] = base_estimator
+        args["estimator"] = est
 
     # 공통 속성들
     if "n_jobs" in dict(inspect.signature(obj=classname.__init__).parameters):
@@ -199,6 +220,18 @@ def get_estimator(
     if "verbose" in dict(inspect.signature(obj=classname.__init__).parameters):
         args["verbose"] = False
 
+    if classname == AdaBoostClassifier:
+        args['algorithm'] = 'SAMME'
+
+    if classname == XGBClassifier:
+        # general params
+        args['booster'] ="gbtree"
+        args['device'] = "cpu"
+        args['verbosity'] = 0
+ 
+    if params:
+        args.update(params)
+
     return classname(**args)
 
 
@@ -210,8 +243,7 @@ def __ml(
     y_test: Series = None,
     cv: int = 5,
     scoring: any = None,
-    estimators: list = None,
-    base_estimator: any = None,
+    est: any = None,
     is_print: bool = True,
     **params,
 ) -> any:
@@ -224,6 +256,8 @@ def __ml(
         x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
         y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
+        scoring (any, optional): 교차검증 시 사용할 평가지표. Defaults to None.
+        est (list | any, optional): Voting, Bagging에서 사용될 추정기 리스트. Defaults to None.
         is_print (bool, optional): 출력 여부. Defaults to True.
 
     Returns:
@@ -235,9 +269,16 @@ def __ml(
         if not params:
             params = {}
 
-        prototype_estimator = get_estimator(
-            classname=classname, estimators=estimators, base_estimator=base_estimator
-        )  # 모델 객체 생성
+        if classname == XGBClassifier:
+            classes = y_train.unique()
+            n_classes = len(classes)
+            objective = "binary:logistic" if n_classes == 2 else "multi:softmax"
+
+            prototype_estimator = get_estimator(
+                classname=classname, objective=objective, eval_metric='error'
+            )
+        else:
+            prototype_estimator = get_estimator(classname=classname, est=est)
 
         if scoring is None:
             grid = RandomizedSearchCV(
@@ -441,6 +482,8 @@ def get_hyper_params(classname: any, key: str = None) -> dict:
         params = __GRADIENT_BOOSTING_REGRESSION_HYPER_PARAMS__.copy()
     elif classname == GradientBoostingClassifier:
         params = __GRADIENT_BOOSTING_CLASSIFICATION_HYPER_PARAMS__.copy()
+    elif classname == XGBClassifier:
+        params = __XGBOOST_CLASSIFICATION_HYPER_PARAMS__.copy()
 
     if params:
         key_list = list(params.keys())

@@ -30,7 +30,7 @@ from sklearn.tree import export_graphviz
 from IPython import display
 
 from .core import get_random_state, get_n_jobs
-
+from xgboost import plot_importance as xgb_plot_importance
 
 try:
     import google.colab
@@ -1978,3 +1978,12 @@ def my_tree(estimator: DecisionTreeClassifier) -> None:
         display(graphviz.Source(dot))
 
     os.remove("tree.dot")
+
+
+def my_plot_importance(estimator: any, importance_type: str = "weight", figsize: tuple = (10, 5), dpi: int = 100) -> None:
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    ax = fig.gca()
+    xgb_plot_importance(booster=estimator, importance_type=importance_type, ax=ax)
+    plt.tight_layout()
+    plt.show()
+    plt.close()

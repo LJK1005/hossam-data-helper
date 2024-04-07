@@ -39,7 +39,10 @@ from .plot import (
     my_roc_curve,
     my_tree,
     my_barplot,
+    my_plot_importance
 )
+
+from xgboost import XGBClassifier
 
 
 def __my_classification(
@@ -60,8 +63,7 @@ def __my_classification(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    estimators: list = None,
-    base_estimator: any = None,
+    est: any = None,
     **params,
 ) -> any:
     """분류분석을 수행하고 결과를 출력한다.
@@ -84,8 +86,7 @@ def __my_classification(
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
-        estimators (list, optional): Voting 앙상블 모델의 추정기. Defaults to None.
-        base_estimator (any, optional): Bagging 앙상블 모델의 기본 추정기. Defaults to None.
+        est (any, optional): 앙상블 모델을 사용할 경우, 추정기 리스트. Defaults to None.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
     Returns:
         any: 분류분석 모델
@@ -100,13 +101,12 @@ def __my_classification(
         y_test=y_test,
         cv=cv,
         is_print=is_print,
-        estimators=estimators,
-        base_estimator=base_estimator,
+        est=est,
         **params,
     )
 
     if estimator is None:
-        print(f"\033[91m[{classname} 모델의 학습에 실패했습니다.\033[0m", end="\r")
+        print(f"\033[91m[{classname} 모델의 학습에 실패했습니다.\033[0m")
         return None
 
     # ------------------------------------------------------
@@ -358,7 +358,7 @@ def my_classification_result(
 
     # ------------------------------------------------------
     if is_print:
-        print("[분류분석 성능평가]", end="\r")
+        print("[분류분석 성능평가]")
         result_df = DataFrame(scores, index=score_names)
 
         if estimator.__class__.__name__ != "LogisticRegression":
@@ -373,7 +373,7 @@ def my_classification_result(
     # ------------------------------------------------------
     # 혼동행렬
     if conf_matrix and is_print:
-        print("\n[혼동행렬]", end="\r")
+        print("\n[혼동행렬]")
 
         if x_test is not None and y_test is not None:
             my_confusion_matrix(y_test, y_test_pred, figsize=figsize, dpi=dpi)
@@ -381,11 +381,16 @@ def my_classification_result(
             my_confusion_matrix(y_train, y_train_pred, figsize=figsize, dpi=dpi)
 
     # ------------------------------------------------------
+    if is_print and estimator.__class__.__name__ == "XGBClassifier":
+        print("\n[변수 중요도]")
+        my_plot_importance(estimator=estimator)
+
+    # ------------------------------------------------------
     # curve
     if is_print:
         if hasattr(estimator, "predict_proba"):
             if x_test is None or y_test is None:
-                print("\n[Roc Curve]", end="\r")
+                print("\n[Roc Curve]")
                 my_roc_curve(
                     estimator,
                     x_train,
@@ -397,7 +402,7 @@ def my_classification_result(
                     dpi=dpi,
                 )
             else:
-                print("\n[Roc Curve]", end="\r")
+                print("\n[Roc Curve]")
                 my_roc_curve(
                     estimator,
                     x_test,
@@ -411,7 +416,7 @@ def my_classification_result(
 
         # 학습곡선
         if learning_curve:
-            print("\n[학습곡선]", end="\r")
+            print("\n[학습곡선]")
             yname = y_train.name
 
             if x_test is not None and y_test is not None:
@@ -961,7 +966,7 @@ def my_dtree_classification(
             params = get_hyper_params(classname=DecisionTreeClassifier)
 
         if pruning:
-            print("\033[91m가지치기를 위한 alpha값을 탐색합니다.\033[0m", end="\r")
+            print("\033[91m가지치기를 위한 alpha값을 탐색합니다.\033[0m")
 
             try:
                 dtree = get_estimator(classname=DecisionTreeClassifier)
@@ -969,13 +974,13 @@ def my_dtree_classification(
                 ccp_alphas = path.ccp_alphas[1:-1]
                 params["ccp_alpha"] = ccp_alphas
             except Exception as e:
-                print(f"\033[91m가지치기 실패 ({e})\033[0m", end="\r")
+                print(f"\033[91m가지치기 실패 ({e})\033[0m")
                 e.with_traceback()
         else:
             if "ccp_alpha" in params:
                 del params["ccp_alpha"]
 
-            print("\033[91m가지치기를 하지 않습니다.\033[0m", end="\r")
+            print("\033[91m가지치기를 하지 않습니다.\033[0m")
 
     return __my_classification(
         classname=DecisionTreeClassifier,
@@ -1285,7 +1290,7 @@ def my_classification(
     algorithm: list = None,
     scoring: list = ["accuracy", "precision", "recall", "f1", "auc"],
     **params,
-) -> DataFrame:
+) -> any:
     """분류분석을 수행하고 결과를 출력한다.
 
     Args:
@@ -1307,7 +1312,7 @@ def my_classification(
         algorithm (list, optional): 사용하고자 하는 분류분석 알고리즘 리스트. None으로 설정할 경우 모든 알고리즘 수행 ['logistic', 'knn', 'dtree', 'svc', 'sgd', 'rf']. Defaults to None.
 
     Returns:
-        DataFrame: 분류분석 결과
+        any: 분류분석 결과
     """
 
     results = []  # 결과값을 저장할 리스트
@@ -1318,8 +1323,7 @@ def my_classification(
     result_scores = []
 
     if not algorithm:
-        # algorithm = ["logistic", "knn", "dtree", "svc", "sgd", "rf"]
-        algorithm = ["logistic", "knn", "dtree", "svc", "sgd"]
+        algorithm = ["logistic", "knn", "dtree", "svc", "sgd", "rf", "xgb"]
 
     if "logistic" in algorithm:
         callstack.append(my_logistic_classification)
@@ -1341,6 +1345,9 @@ def my_classification(
 
     if "rf" in algorithm:
         callstack.append(my_rf_classification)
+
+    if "xgb" in algorithm:
+        callstack.append(my_xgb_classification)
 
     score_fields = []
 
@@ -1435,7 +1442,7 @@ def my_classification(
             )
 
         # 결과값을 데이터프레임으로 변환
-        print("\n\n==================== 모델 성능 비교 ====================", end="\r")
+        print("\n\n==================== 모델 성능 비교 ====================")
         result_df = DataFrame(data=results, index=estimator_names)
 
         if score_fields:
@@ -1508,6 +1515,8 @@ def my_voting_classification(
     dtree: bool = True,
     svc: bool = True,
     sgd: bool = True,
+    rf: bool = True,
+    xgb: bool = True,
     conf_matrix: bool = True,
     hist: bool = True,
     roc: bool = True,
@@ -1532,6 +1541,10 @@ def my_voting_classification(
         knn (bool, optional): KNN 분류분석을 수행할지 여부. Defaults to True.
         nb (bool, optional): 나이브베이즈 분류분석을 수행할지 여부. Defaults to True.
         dtree (bool, optional): 의사결정나무 분류분석을 수행할지 여부. Defaults to True.
+        svc (bool, optional): 서포트벡터머신 분류분석을 수행할지 여부. Defaults to True.
+        sgd (bool, optional): SGD 분류분석을 수행할지 여부. Defaults to True.
+        rf (bool, optional): 랜덤포레스트 분류분석을 수행할지 여부. Defaults to True.
+        xgb (bool, optional): XGBoost 분류분석을 수행할지 여부. Defaults to True.
         conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to False.
         roc (bool, optional): ROC Curve를 출력할지 여부. Defaults to False.
@@ -1542,6 +1555,9 @@ def my_voting_classification(
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         is_print (bool, optional): 출력 여부. Defaults to True.
+
+    Returns:
+        VotingClassifier: 분류분석 결과
     """
 
     params = {"voting": []}
@@ -1552,31 +1568,39 @@ def my_voting_classification(
     if soft:
         params["voting"].append("soft")
 
-    estimators = []
+    est = []
 
     if lr:
-        estimators.append(("lr", get_estimator(LogisticRegression)))
+        est.append(("lr", get_estimator(classname=LogisticRegression)))
         params.update(get_hyper_params(classname=LogisticRegression, key="lr"))
 
     if knn:
-        estimators.append(("knn", get_estimator(KNeighborsClassifier)))
+        est.append(("knn", get_estimator(classname=KNeighborsClassifier)))
         params.update(get_hyper_params(classname=KNeighborsClassifier, key="knn"))
 
     if nb:
-        estimators.append(("nb", get_estimator(GaussianNB)))
+        est.append(("nb", get_estimator(classname=GaussianNB)))
         params.update(get_hyper_params(classname=GaussianNB, key="nb"))
 
     if dtree:
-        estimators.append(("dtree", get_estimator(DecisionTreeClassifier)))
+        est.append(("dtree", get_estimator(classname=DecisionTreeClassifier)))
         params.update(get_hyper_params(classname=DecisionTreeClassifier, key="dtree"))
 
     if svc:
-        estimators.append(("svc", get_estimator(SVC)))
+        est.append(("svc", get_estimator(classname=SVC)))
         params.update(get_hyper_params(classname=SVC, key="svc"))
 
     if sgd and soft == False:
-        estimators.append(("sgd", get_estimator(SGDClassifier)))
+        est.append(("sgd", get_estimator(classname=SGDClassifier)))
         params.update(get_hyper_params(classname=SGDClassifier, key="sgd"))
+
+    if rf:
+        est.append(("rf", get_estimator(classname=RandomForestClassifier)))
+        params.update(get_hyper_params(classname=RandomForestClassifier, key="rf"))
+
+    if xgb:
+        est.append(("xgb", get_estimator(classname=XGBClassifier)))
+        params.update(get_hyper_params(classname=XGBClassifier, key="xgb"))
 
     return __my_classification(
         classname=VotingClassifier,
@@ -1594,7 +1618,7 @@ def my_voting_classification(
         figsize=figsize,
         dpi=dpi,
         is_print=is_print,
-        estimators=estimators,
+        est=est,
         **params,
     )
 
@@ -1604,7 +1628,7 @@ def my_bagging_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
-    estimator: type = None,
+    estimator: any = None,
     conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
@@ -1623,11 +1647,11 @@ def my_bagging_classification(
     """배깅 앙상블 분류분석을 수행하고 결과를 출력한다.
 
     Args:
-        estimator (type): 기본 분류분석 알고리즘
         x_train (DataFrame): 훈련 데이터의 독립변수
         y_train (Series): 훈련 데이터의 종속변수
         x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
         y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
+        estimator (any): 기본 분류분석 알고리즘
         conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to False.
@@ -1646,7 +1670,7 @@ def my_bagging_classification(
     """
 
     if estimator is None:
-        estimator = my_classification(
+        estimator_list = my_classification(
             x_train=x_train,
             y_train=y_train,
             x_test=x_test,
@@ -1667,7 +1691,7 @@ def my_bagging_classification(
             **params,
         )
 
-        estimator = estimator["best"]
+        estimator = estimator_list["best"]
 
     if type(estimator) is type:
         params = get_hyper_params(classname=estimator, key="estimator")
@@ -1695,7 +1719,7 @@ def my_bagging_classification(
         dpi=dpi,
         sort=sort,
         is_print=True,
-        base_estimator=estimator,
+        est=estimator,
         **params,
     )
 
@@ -1705,7 +1729,7 @@ def my_ada_classification(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
-    estimator: type = None,
+    estimator: any = None,
     conf_matrix: bool = True,
     cv: int = 5,
     hist: bool = True,
@@ -1724,11 +1748,11 @@ def my_ada_classification(
     """AdaBoosting 앙상블 분류분석을 수행하고 결과를 출력한다.
 
     Args:
-        estimator (type): 기본 분류분석 알고리즘
         x_train (DataFrame): 훈련 데이터의 독립변수
         y_train (Series): 훈련 데이터의 종속변수
         x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
         y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
+        estimator (any): 기본 분류분석 알고리즘
         conf_matrix (bool, optional): 혼동행렬을 출력할지 여부. Defaults to True.
         cv (int, optional): 교차검증 횟수. Defaults to 5.
         hist (bool, optional): 히스토그램을 출력할지 여부. Defaults to False.
@@ -1743,11 +1767,11 @@ def my_ada_classification(
         algorithm (list, optional): 사용하고자 하는 분류분석 알고리즘 리스트. None으로 설정할 경우 모든 알고리즘 수행 ['logistic', 'knn', 'dtree', 'svc', 'sgd']. Defaults to None.
 
     Returns:
-        DataFrame: 분류분석 결과
+        AdaBoostClassifier
     """
 
     if estimator is None:
-        estimator = my_classification(
+        estimator_list = my_classification(
             x_train=x_train,
             y_train=y_train,
             x_test=x_test,
@@ -1768,7 +1792,7 @@ def my_ada_classification(
             **params,
         )
 
-        estimator = estimator["best"]
+        estimator = estimator_list["best"]
 
     if type(estimator) is type:
         params = get_hyper_params(classname=estimator, key="estimator")
@@ -1795,7 +1819,7 @@ def my_ada_classification(
         dpi=dpi,
         sort=sort,
         is_print=True,
-        base_estimator=estimator,
+        est=estimator,
         **params,
     )
 
@@ -1816,8 +1840,6 @@ def my_gbm_classification(
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = "v",
-    algorithm: list = None,
-    scoring: list = ["accuracy", "precision", "recall", "f1", "auc"],
     **params,
 ) -> GradientBoostingClassifier:
     """GradientBoosting 앙상블 분류분석을 수행하고 결과를 출력한다.
@@ -1838,10 +1860,9 @@ def my_gbm_classification(
         figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
-        algorithm (list, optional): 사용하고자 하는 분류분석 알고리즘 리스트. None으로 설정할 경우 모든 알고리즘 수행 ['logistic', 'knn', 'dtree', 'svc', 'sgd']. Defaults to None.
 
     Returns:
-        DataFrame: 분류분석 결과
+        GradientBoosting
     """
     params = get_hyper_params(classname=GradientBoostingClassifier)
 
@@ -1852,6 +1873,49 @@ def my_gbm_classification(
         x_test=x_test,
         y_test=y_test,
         conf_matrix=conf_matrix,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=True,
+        **params,
+    )
+
+
+def my_xgb_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = "v",
+    **params
+) -> XGBClassifier:
+    params = get_hyper_params(classname=XGBClassifier)
+
+    return __my_classification(
+        classname=XGBClassifier,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
         hist=hist,
         roc=roc,
         pr=pr,

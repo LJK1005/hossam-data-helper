@@ -49,8 +49,7 @@ def __my_regression(
     dpi: int = 100,
     sort: str = None,
     is_print: bool = True,
-    estimators: list = None,
-    base_estimator: any = None,
+    est: any = None,
     **params,
 ) -> any:
     """회귀분석을 수행하고 결과를 출력한다.
@@ -71,8 +70,7 @@ def __my_regression(
         dpi (int, optional): 그래프의 해상도. Defaults to 100.
         sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
         is_print (bool, optional): 출력 여부. Defaults to True.
-        estimators (list, optional): Voting 앙상블 모델의 추정기. Defaults to None.
-        base_estimator (any, optional): Bagging 앙상블 모델의 기본 추정기. Defaults to None.
+        est (any, optional): Voting, Bagging 앙상블 모델의 기본 추정기. Defaults to None.
         **params (dict, optional): 하이퍼파라미터. Defaults to None.
 
     Returns:
@@ -89,8 +87,7 @@ def __my_regression(
         y_test=y_test,
         cv=cv,
         is_print=is_print,
-        estimators=estimators,
-        base_estimator=base_estimator,
+        est=est,
         **params,
     )
 
@@ -101,7 +98,7 @@ def __my_regression(
     # ------------------------------------------------------
     # 성능평가
     my_regression_result(
-        estimator,
+        estimator=estimator,
         x_train=x_train,
         y_train=y_train,
         x_test=x_test,
@@ -118,10 +115,10 @@ def __my_regression(
     if report and is_print:
         print("")
         my_regression_report(
-            estimator,
-            estimator.x,
-            estimator.y,
-            sort,
+            estimator=estimator,
+            x_train=estimator.x,
+            y_train=estimator.y,
+            x_test=sort,
             plot=plot,
             deg=deg,
             figsize=figsize,
@@ -133,7 +130,7 @@ def __my_regression(
     if resid_test and is_print:
         print("\n\n[잔차의 가정 확인] ==============================")
         my_resid_test(
-            estimator.x, estimator.y, estimator.y_pred, figsize=figsize, dpi=dpi
+            x=estimator.x, y=estimator.y, y_pred=estimator.y_pred, figsize=figsize, dpi=dpi
         )
 
     return estimator
@@ -1438,34 +1435,34 @@ def my_voting_regression(
     """
 
     params = {}
-    estimators = []
+    est = []
 
     if lr:
-        estimators.append(("lr", get_estimator(classname=LinearRegression)))
+        est.append(("lr", get_estimator(classname=LinearRegression)))
         params.update(get_hyper_params(classname=LinearRegression, key="lr"))
 
     if rg:
-        estimators.append(("rg", get_estimator(classname=Ridge)))
+        est.append(("rg", get_estimator(classname=Ridge)))
         params.update(get_hyper_params(classname=Ridge, key="rg"))
 
     if ls:
-        estimators.append(("ls", get_estimator(classname=Lasso)))
+        est.append(("ls", get_estimator(classname=Lasso)))
         params.update(get_hyper_params(classname=Lasso, key="ls"))
 
     if knn:
-        estimators.append(("knn", get_estimator(classname=KNeighborsRegressor)))
+        est.append(("knn", get_estimator(classname=KNeighborsRegressor)))
         params.update(get_hyper_params(classname=KNeighborsRegressor, key="knn"))
 
     if dtree:
-        estimators.append(("dtree", get_estimator(classname=DecisionTreeRegressor)))
+        est.append(("dtree", get_estimator(classname=DecisionTreeRegressor)))
         params.update(get_hyper_params(classname=DecisionTreeRegressor, key="dtree"))
 
     if svr:
-        estimators.append(("svr", get_estimator(classname=SVR)))
+        est.append(("svr", get_estimator(classname=SVR)))
         params.update(get_hyper_params(classname=SVR, key="svr"))
 
     if sgd:
-        estimators.append(("sgd", get_estimator(classname=SGDRegressor)))
+        est.append(("sgd", get_estimator(classname=SGDRegressor)))
         params.update(get_hyper_params(classname=SGDRegressor, key="sgd"))
 
     return __my_regression(
@@ -1484,7 +1481,7 @@ def my_voting_regression(
         dpi=dpi,
         sort=sort,
         is_print=True,
-        estimators=estimators,
+        est=est,
         **params,
     )
 
@@ -1494,7 +1491,7 @@ def my_bagging_regression(
     y_train: Series,
     x_test: DataFrame = None,
     y_test: Series = None,
-    estimator: type = None,
+    est: any = None,
     cv: int = 5,
     learning_curve: bool = True,
     report=True,
@@ -1511,11 +1508,11 @@ def my_bagging_regression(
     """배깅 앙상블 회귀분석을 수행하고 결과를 출력한다.
 
     Args:
-        estimator (type): 기본 회귀분석 알고리즘
         x_train (DataFrame): 훈련 데이터의 독립변수
         y_train (Series): 훈련 데이터의 종속변수
         x_test (DataFrame, optional): 검증 데이터의 독립변수. Defaults to None.
         y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
+        est (type): 기본 회귀분석 알고리즘
         cv (int, optional): 교차검증 횟수. Defaults to 0.
         learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
         report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
@@ -1532,7 +1529,7 @@ def my_bagging_regression(
         BaggingRegressor: 회귀분석 결과
     """
 
-    if estimator is None:
+    if est is None:
         estimator = my_regression(
             x_train=x_train,
             y_train=y_train,
@@ -1552,11 +1549,11 @@ def my_bagging_regression(
             **params,
         )
 
-        estimator = estimator["best"]
+        est = estimator["best"]
 
-    if type(estimator) is type:
-        params = get_hyper_params(classname=estimator, key="estimator")
-        estimator = get_estimator(classname=estimator)
+    if type(est) is type:
+        params = get_hyper_params(classname=est, key="estimator")
+        est = get_estimator(classname=est)
     else:
         params = get_hyper_params(classname=estimator.__class__, key="estimator")
 
@@ -1579,7 +1576,7 @@ def my_bagging_regression(
         dpi=dpi,
         sort=sort,
         is_print=True,
-        base_estimator=estimator,
+        est=est,
         **params,
     )
 
@@ -1674,7 +1671,7 @@ def my_ada_regression(
         dpi=dpi,
         sort=sort,
         is_print=True,
-        base_estimator=estimator,
+        est=estimator,
         **params,
     )
 

@@ -1,6 +1,6 @@
 import cProfile
-from re import M
 from pycallgraphix.wrapper import register_method, MethodChart
+from datetime import datetime as dt
 
 import inspect
 import sys, os
@@ -525,8 +525,14 @@ def start_trace() -> cProfile.Profile:
     return profiler
 
 
-def stop_trace(profiler: cProfile.Profile, filename: str = None) -> None:
-    if filename:
-        methodchart = MethodChart()
-        methodchart.make_graphviz_chart(time_resolution=3, filename=filename)
+def stop_trace(profiler: cProfile.Profile) -> None:
+    methodchart = MethodChart()
+    filename = "{0}.png".format(dt.now().strftime("%Y%m%d%H%M%S"))
+
+    try:
+        methodchart.make_graphviz_chart(time_resolution=2, filename=filename)
+    except Exception as e:
+        print(e)
+        pass
+
     profiler.disable()

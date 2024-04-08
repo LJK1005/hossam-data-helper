@@ -403,7 +403,7 @@ def my_classification_result(
         my_pretty_table(data)
 
         # print("\n[TREE]")
-        my_xgb_tree(booster=estimator)
+        #my_xgb_tree(booster=estimator)
 
     # ------------------------------------------------------
     # curve
@@ -1504,6 +1504,7 @@ def my_classification(
         "\n\n==================== 최고 성능 모델: %s ====================" % best_idx,
         end="\r",
     )
+    
     my_classification_result(
         estimator=estimators["best"],
         x_train=x_train,

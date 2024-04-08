@@ -1,5 +1,8 @@
+import cProfile
+from re import M
+from pycallgraphix.wrapper import register_method, MethodChart
+
 import inspect
-from re import X
 import sys, os
 import numpy as np
 
@@ -178,6 +181,7 @@ __XGBOOST_CLASSIFICATION_HYPER_PARAMS__ = {
 }
 
 
+@register_method
 def get_estimator(classname: any, est: any = None, **params) -> any:
     """분류분석 추정기 객체를 생성한다. 고정적으로 사용되는 속성들을 일괄 설정한다.
 
@@ -234,6 +238,7 @@ def get_estimator(classname: any, est: any = None, **params) -> any:
     return classname(**args)
 
 
+@register_method
 def __ml(
     classname: any,
     x_train: DataFrame,
@@ -414,6 +419,7 @@ def __ml(
     return estimator
 
 
+@register_method
 def get_random_state() -> int:
     """랜덤 시드를 반환한다.
 
@@ -423,6 +429,7 @@ def get_random_state() -> int:
     return __RANDOM_STATE__
 
 
+@register_method
 def get_max_iter() -> int:
     """최대 반복 횟수를 반환한다.
 
@@ -432,6 +439,7 @@ def get_max_iter() -> int:
     return __MAX_ITER__
 
 
+@register_method
 def get_n_jobs() -> int:
     """병렬 처리 개수를 반환한다.
 
@@ -441,6 +449,7 @@ def get_n_jobs() -> int:
     return __N_JOBS__
 
 
+@register_method
 def get_hyper_params(classname: any, key: str = None) -> dict:
     """분류분석 추정기의 하이퍼파라미터를 반환한다.
 
@@ -508,3 +517,16 @@ def get_hyper_params(classname: any, key: str = None) -> dict:
 
     # print(f"[{classname}] {params}")
     return params
+
+
+def start_trace() -> cProfile.Profile:
+    profiler = cProfile.Profile()
+    profiler.enable()
+    return profiler
+
+
+def stop_trace(profiler: cProfile.Profile, filename: str = None) -> None:
+    if filename:
+        methodchart = MethodChart()
+        methodchart.make_graphviz_chart(time_resolution=3, filename=filename)
+    profiler.disable()

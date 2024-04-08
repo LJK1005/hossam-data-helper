@@ -1,4 +1,5 @@
 import inspect
+from pycallgraphix.wrapper import register_method
 
 import numpy as np
 import seaborn as sb
@@ -33,6 +34,7 @@ from .util import my_pretty_table, my_trend
 from .plot import my_learing_curve, my_residplot, my_qqplot, my_barplot
 
 
+@register_method
 def __my_regression(
     classname: any,
     x_train: DataFrame,
@@ -130,12 +132,17 @@ def __my_regression(
     if resid_test and is_print:
         print("\n\n[잔차의 가정 확인] ==============================")
         my_resid_test(
-            x=estimator.x, y=estimator.y, y_pred=estimator.y_pred, figsize=figsize, dpi=dpi
+            x=estimator.x,
+            y=estimator.y,
+            y_pred=estimator.y_pred,
+            figsize=figsize,
+            dpi=dpi,
         )
 
     return estimator
 
 
+@register_method
 def my_regression_result(
     estimator: any,
     x_train: DataFrame = None,
@@ -246,6 +253,7 @@ def my_regression_result(
                 )
 
 
+@register_method
 def __regression_report_plot(ax: plt.Axes, x, y, xname, yname, y_pred, deg) -> None:
     if deg == 1:
         sb.regplot(x=x, y=y, ci=95, label="관측치", ax=ax)
@@ -271,6 +279,7 @@ def __regression_report_plot(ax: plt.Axes, x, y, xname, yname, y_pred, deg) -> N
     ax.grid()
 
 
+@register_method
 def my_regression_report(
     estimator: any,
     x_train: DataFrame = None,
@@ -525,6 +534,7 @@ def my_regression_report(
         plt.close()
 
 
+@register_method
 def my_resid_normality(y: Series, y_pred: Series) -> None:
     """MSE값을 이용하여 잔차의 정규성 가정을 확인한다.
 
@@ -556,6 +566,7 @@ def my_resid_normality(y: Series, y_pred: Series) -> None:
     print(f"잔차의 정규성 가정 충족 여부: {normality}")
 
 
+@register_method
 def my_resid_equal_var(x: DataFrame, y: Series, y_pred: Series) -> None:
     """잔차의 등분산성 가정을 확인한다.
 
@@ -585,6 +596,7 @@ def my_resid_equal_var(x: DataFrame, y: Series, y_pred: Series) -> None:
     my_pretty_table(bs_result_df)
 
 
+@register_method
 def my_resid_independence(y: Series, y_pred: Series) -> None:
     """잔차의 독립성 가정을 확인한다.
 
@@ -596,6 +608,7 @@ def my_resid_independence(y: Series, y_pred: Series) -> None:
     print(f"Durbin-Watson: {dw}, 잔차의 독립성 가정 만족 여부: {dw > 1.5 and dw < 2.5}")
 
 
+@register_method
 def my_resid_test(
     x: DataFrame, y: Series, y_pred: Series, figsize: tuple = (10, 5), dpi: int = 200
 ) -> None:
@@ -621,6 +634,7 @@ def my_resid_test(
     my_resid_independence(y, y_pred)
 
 
+@register_method
 def my_linear_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -686,6 +700,7 @@ def my_linear_regression(
     )
 
 
+@register_method
 def my_ridge_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -751,6 +766,7 @@ def my_ridge_regression(
     )
 
 
+@register_method
 def my_lasso_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -816,6 +832,7 @@ def my_lasso_regression(
     )
 
 
+@register_method
 def my_knn_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -881,6 +898,7 @@ def my_knn_regression(
     )
 
 
+@register_method
 def my_dtree_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -965,6 +983,7 @@ def my_dtree_regression(
     )
 
 
+@register_method
 def my_svr_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -1030,6 +1049,7 @@ def my_svr_regression(
     )
 
 
+@register_method
 def my_sgd_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -1095,6 +1115,7 @@ def my_sgd_regression(
     )
 
 
+@register_method
 def my_rf_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -1160,6 +1181,7 @@ def my_rf_regression(
     )
 
 
+@register_method
 def my_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -1387,6 +1409,7 @@ def my_regression(
     return estimators
 
 
+@register_method
 def my_voting_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -1486,6 +1509,7 @@ def my_voting_regression(
     )
 
 
+@register_method
 def my_bagging_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -1581,6 +1605,7 @@ def my_bagging_regression(
     )
 
 
+@register_method
 def my_ada_regression(
     x_train: DataFrame,
     y_train: Series,
@@ -1676,6 +1701,7 @@ def my_ada_regression(
     )
 
 
+@register_method
 def my_gbm_regression(
     x_train: DataFrame,
     y_train: Series,

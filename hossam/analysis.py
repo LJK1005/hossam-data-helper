@@ -1,3 +1,5 @@
+from pycallgraphix.wrapper import register_method
+
 from pandas import DataFrame
 from scipy.stats import (
     shapiro,
@@ -27,6 +29,7 @@ from .plot import my_heatmap
 from .core import *
 
 
+@register_method
 def my_normal_test(data: DataFrame, method: str = "n") -> None:
     """데이터프레임 내의 모든 컬럼에 대해 정규성 검정을 수행하고 결과를 출력한다.
 
@@ -49,6 +52,7 @@ def my_normal_test(data: DataFrame, method: str = "n") -> None:
         )
 
 
+@register_method
 def my_equal_var_test(data: DataFrame, normal_dist: bool = True) -> None:
     """데이터프레임 내에 있는 모든 컬럼들에 대해 등분산성 검정을 수행하고 결과를 출력한다.
 
@@ -74,6 +78,7 @@ def my_equal_var_test(data: DataFrame, normal_dist: bool = True) -> None:
     )
 
 
+@register_method
 def my_normal_equal_var_1field(
     data: DataFrame, xname: str = "x", hue: str = "hue"
 ) -> None:
@@ -110,6 +115,7 @@ def my_normal_equal_var_1field(
     my_pretty_table(report_df)
 
 
+@register_method
 def my_normal_equal_var_2field(
     data: DataFrame, xname: str = "x", hue: list = ["h1", "h2"]
 ) -> None:
@@ -155,6 +161,7 @@ def my_normal_equal_var_2field(
     my_pretty_table(report_df)
 
 
+@register_method
 def my_ttest_1samp(data: DataFrame, mean_value: int = 0) -> None:
     """데이터프레임 내에 있는 모든 컬럼에 대해 일표본 t-검정을 수행하고 결과를 출력한다.
 
@@ -195,6 +202,7 @@ def my_ttest_1samp(data: DataFrame, mean_value: int = 0) -> None:
     my_pretty_table(rdf)
 
 
+@register_method
 def my_ttest_ind(
     data: DataFrame, xname: str, yname: str, equal_var: bool = True
 ) -> None:
@@ -242,6 +250,7 @@ def my_ttest_ind(
     my_pretty_table(rdf)
 
 
+@register_method
 def my_ttest_rel(
     data: DataFrame, xname: str, yname: str, equal_var: bool = True
 ) -> None:
@@ -292,6 +301,7 @@ def my_ttest_rel(
     my_pretty_table(rdf)
 
 
+@register_method
 def my_anova(
     data: DataFrame, target: str, hue: any, equal_var: bool = True, post: bool = False
 ) -> None:
@@ -389,6 +399,7 @@ def my_anova(
             my_pretty_table(result)
 
 
+@register_method
 def my_correlation(
     data: DataFrame,
     method: str = "p",

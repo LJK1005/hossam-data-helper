@@ -1,4 +1,5 @@
 import numpy as np
+from pycallgraphix.wrapper import register_method
 from tabulate import tabulate
 from pandas import DataFrame, Series, read_excel, get_dummies, DatetimeIndex
 from sklearn.model_selection import train_test_split
@@ -17,6 +18,7 @@ from matplotlib import pyplot as plt
 from .core import *
 
 
+@register_method
 def my_normalize_data(
     mean: float, std: float, size: int = 100, round: int = 2
 ) -> np.ndarray:
@@ -39,6 +41,7 @@ def my_normalize_data(
     return x
 
 
+@register_method
 def my_normalize_df(
     means: list = [0, 0, 0],
     stds: list = [1, 1, 1],
@@ -63,6 +66,7 @@ def my_normalize_df(
     return DataFrame(data)
 
 
+@register_method
 def my_pretty_table(data: DataFrame, headers: str = "keys") -> None:
     print(
         tabulate(
@@ -71,6 +75,7 @@ def my_pretty_table(data: DataFrame, headers: str = "keys") -> None:
     )
 
 
+@register_method
 def my_read_excel(
     path: str,
     sheet_name: str = None,
@@ -138,6 +143,7 @@ def my_read_excel(
     return data
 
 
+@register_method
 def my_standard_scaler(data: DataFrame, yname: str = None) -> DataFrame:
     """데이터프레임의 연속형 변수에 대해 Standard Scaling을 수행한다.
 
@@ -180,6 +186,7 @@ def my_standard_scaler(data: DataFrame, yname: str = None) -> DataFrame:
     return std_df
 
 
+@register_method
 def my_minmax_scaler(data: DataFrame, yname: str = None) -> DataFrame:
     """데이터프레임의 연속형 변수에 대해 MinMax Scaling을 수행한다.
 
@@ -222,6 +229,7 @@ def my_minmax_scaler(data: DataFrame, yname: str = None) -> DataFrame:
     return std_df
 
 
+@register_method
 def my_train_test_split(
     data: DataFrame,
     yname: str = None,
@@ -280,6 +288,7 @@ def my_train_test_split(
         return train, test
 
 
+@register_method
 def my_category(data: DataFrame, *args: str) -> DataFrame:
     """카테고리 데이터를 설정한다.
 
@@ -298,6 +307,7 @@ def my_category(data: DataFrame, *args: str) -> DataFrame:
     return df
 
 
+@register_method
 def my_unmelt(
     data: DataFrame, id_vars: str = "class", value_vars: str = "values"
 ) -> DataFrame:
@@ -321,6 +331,7 @@ def my_unmelt(
     return DataFrame(mydict)
 
 
+@register_method
 def my_replace_missing_value(data: DataFrame, strategy: str = "mean") -> DataFrame:
     # 결측치 처리 규칙 생성
     imr = SimpleImputer(missing_values=np.nan, strategy=strategy)
@@ -332,6 +343,7 @@ def my_replace_missing_value(data: DataFrame, strategy: str = "mean") -> DataFra
     return DataFrame(df_imr, index=data.index, columns=data.columns)
 
 
+@register_method
 def my_outlier_table(data: DataFrame, *fields: str):
     """데이터프레임의 사분위수와 결측치 경계값을 구한다.
     함수 호출 전 상자그림을 통해 결측치가 확인된 필드에 대해서만 처리하는 것이 좋다.
@@ -384,6 +396,7 @@ def my_outlier_table(data: DataFrame, *fields: str):
     return DataFrame(result).set_index("FIELD")
 
 
+@register_method
 def my_replace_outliner(data: DataFrame, *fields: str) -> DataFrame:
     """이상치 경계값을 넘어가는 데이터를 경계값으로 대체한다.
 
@@ -422,6 +435,7 @@ def my_replace_outliner(data: DataFrame, *fields: str) -> DataFrame:
     return df
 
 
+@register_method
 def my_replace_outliner_to_nan(data: DataFrame, *fields: str) -> DataFrame:
     """이상치를 결측치로 대체한다.
 
@@ -460,6 +474,7 @@ def my_replace_outliner_to_nan(data: DataFrame, *fields: str) -> DataFrame:
     return df
 
 
+@register_method
 def my_replace_outliner_to_mean(data: DataFrame, *fields: str) -> DataFrame:
     """이상치를 평균값으로 대체한다.
 
@@ -498,6 +513,7 @@ def my_replace_outliner_to_mean(data: DataFrame, *fields: str) -> DataFrame:
     return df3
 
 
+@register_method
 def my_drop_outliner(data: DataFrame, *fields: str) -> DataFrame:
     """이상치를 결측치로 변환한 후 모두 삭제한다.
 
@@ -513,6 +529,7 @@ def my_drop_outliner(data: DataFrame, *fields: str) -> DataFrame:
     return df.dropna()
 
 
+@register_method
 def my_dummies(data: DataFrame, *args: str) -> DataFrame:
     """명목형 변수를 더미 변수로 변환한다.
 
@@ -535,6 +552,7 @@ def my_dummies(data: DataFrame, *args: str) -> DataFrame:
     return get_dummies(data, columns=args, drop_first=True, dtype="int")
 
 
+@register_method
 def my_trend(x: any, y: any, degree=2, value_count=100) -> tuple:
     """x, y 데이터에 대한 추세선을 구한다.
 
@@ -566,6 +584,7 @@ def my_trend(x: any, y: any, degree=2, value_count=100) -> tuple:
     return (v_trend, t_trend)
 
 
+@register_method
 def my_poly_features(
     data: DataFrame, columns: any = None, ignore: any = None, degree: int = 2
 ) -> DataFrame:
@@ -613,6 +632,7 @@ def my_poly_features(
     return df
 
 
+@register_method
 def my_labelling(data: DataFrame, *fields: str) -> DataFrame:
     """명목형 변수를 라벨링한다.
 
@@ -644,6 +664,7 @@ def my_labelling(data: DataFrame, *fields: str) -> DataFrame:
     return df
 
 
+@register_method
 def my_balance(xdata: DataFrame, ydata: Series, method: str = "smote") -> DataFrame:
     """불균형 데이터를 균형 데이터로 변환한다.
 
@@ -673,6 +694,7 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = "smote") -> DataFr
     return xdata, ydata
 
 
+@register_method
 def my_vif_filter(
     data: DataFrame, yname: str = None, ignore: list = [], threshold: float = 10
 ) -> DataFrame:
@@ -737,6 +759,7 @@ def my_vif_filter(
     return df
 
 
+@register_method
 def my_pca(
     data: DataFrame,
     n_components: int | float = 0.95,

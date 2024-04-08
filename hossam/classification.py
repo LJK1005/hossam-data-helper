@@ -1,4 +1,5 @@
 import inspect
+from pycallgraphix.wrapper import register_method
 
 # import logging
 import numpy as np
@@ -46,6 +47,7 @@ from .plot import (
 from xgboost import XGBClassifier
 
 
+@register_method
 def __my_classification(
     classname: any,
     x_train: DataFrame,
@@ -138,6 +140,7 @@ def __my_classification(
     return estimator
 
 
+@register_method
 def my_classification_result(
     estimator: any,
     x_train: DataFrame = None,
@@ -468,6 +471,7 @@ def my_classification_result(
             my_tree(estimator=estimator)
 
 
+@register_method
 def my_classification_report(
     estimator: any,
     x_train: DataFrame = None,
@@ -504,6 +508,7 @@ def my_classification_report(
             )
 
 
+@register_method
 def my_classification_binary_report(
     estimator: any, x: DataFrame = None, y: Series = None, sort: str = None
 ) -> None:
@@ -614,6 +619,7 @@ def my_classification_binary_report(
         my_pretty_table(result_df)
 
 
+@register_method
 def my_classification_multiclass_report(
     estimator: any,
     x: DataFrame = None,
@@ -731,6 +737,7 @@ def my_classification_multiclass_report(
             my_pretty_table(result_df)
 
 
+@register_method
 def my_logistic_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -801,6 +808,7 @@ def my_logistic_classification(
     )
 
 
+@register_method
 def my_knn_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -871,6 +879,7 @@ def my_knn_classification(
     )
 
 
+@register_method
 def my_nb_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -936,6 +945,7 @@ def my_nb_classification(
     )
 
 
+@register_method
 def my_dtree_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1021,6 +1031,7 @@ def my_dtree_classification(
     )
 
 
+@register_method
 def my_linear_svc_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1084,6 +1095,7 @@ def my_linear_svc_classification(
     )
 
 
+@register_method
 def my_svc_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1156,6 +1168,7 @@ def my_svc_classification(
     )
 
 
+@register_method
 def my_sgd_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1222,6 +1235,7 @@ def my_sgd_classification(
     )
 
 
+@register_method
 def my_rf_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1288,6 +1302,7 @@ def my_rf_classification(
     )
 
 
+@register_method
 def my_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1519,6 +1534,7 @@ def my_classification(
     return estimators
 
 
+@register_method
 def my_voting_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1640,6 +1656,7 @@ def my_voting_classification(
     )
 
 
+@register_method
 def my_bagging_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1741,6 +1758,7 @@ def my_bagging_classification(
     )
 
 
+@register_method
 def my_ada_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1841,6 +1859,7 @@ def my_ada_classification(
     )
 
 
+@register_method
 def my_gbm_classification(
     x_train: DataFrame,
     y_train: Series,
@@ -1905,6 +1924,7 @@ def my_gbm_classification(
     )
 
 
+@register_method
 def my_xgb_classification(
     x_train: DataFrame,
     y_train: Series,

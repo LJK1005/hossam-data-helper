@@ -1228,6 +1228,7 @@ def my_learing_curve(
     ax.grid()
     ax.set_xlabel(xlabel="훈련 셋트 크기")
     ax.set_ylabel(ylabel=ylabel)
+    ax.set_title(label="Learning Curve")
     ax.legend()
 
     if callback:
@@ -1799,20 +1800,12 @@ def my_roc_curve(
         my_roc_curve_binary(estimator, x, y, hist, roc, pr, figsize, dpi, callback)
     else:
         if multiclass == "ovo":
-            my_roc_curve_multiclass_ovo(
-                estimator, x, y, hist, roc, pr, figsize, dpi
-            )
+            my_roc_curve_multiclass_ovo(estimator, x, y, hist, roc, pr, figsize, dpi)
         elif multiclass == "ovr":
-            my_roc_curve_multiclass_ovr(
-                estimator, x, y, hist, roc, pr, figsize, dpi
-            )
+            my_roc_curve_multiclass_ovr(estimator, x, y, hist, roc, pr, figsize, dpi)
         else:
-            my_roc_curve_multiclass_ovo(
-                estimator, x, y, hist, roc, pr, figsize, dpi
-            )
-            my_roc_curve_multiclass_ovr(
-                estimator, x, y, hist, roc, pr, figsize, dpi
-            )
+            my_roc_curve_multiclass_ovo(estimator, x, y, hist, roc, pr, figsize, dpi)
+            my_roc_curve_multiclass_ovr(estimator, x, y, hist, roc, pr, figsize, dpi)
 
 
 def my_distribution_by_class(
@@ -1979,7 +1972,12 @@ def my_tree(estimator: DecisionTreeClassifier) -> None:
     os.remove("tree.dot")
 
 
-def my_plot_importance(estimator: any, importance_type: str = "weight", figsize: tuple = (10, 5), dpi: int = 100) -> None:
+def my_plot_importance(
+    estimator: any,
+    importance_type: str = "weight",
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+) -> None:
     fig = plt.figure(figsize=figsize, dpi=dpi)
     ax = fig.gca()
     xgb_plot_importance(booster=estimator, importance_type=importance_type, ax=ax)

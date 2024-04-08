@@ -30,7 +30,7 @@ from sklearn.tree import export_graphviz
 from IPython import display
 
 from .core import get_random_state, get_n_jobs
-from xgboost import plot_importance as xgb_plot_importance, XGBClassifier
+from xgboost import plot_importance as xgb_plot_importance, XGBClassifier, to_graphviz
 
 try:
     import google.colab
@@ -1046,7 +1046,7 @@ def my_qqplot(
     plt.close()
 
 
-def my_learing_curve2(
+def my_learing_curve(
     estimator: any,
     data: DataFrame,
     yname: str = "target",
@@ -1062,7 +1062,7 @@ def my_learing_curve2(
     if estimator.__class__.__name__ in ["XGBRegressor", "XGBClassifier"]:
         my_loss_curve(estimator=estimator, figsize=figsize, dpi=dpi, callback=callback)
     else:
-        my_learing_curve(
+        my_ml_learing_curve(
             estimator=estimator,
             data=data,
             yname=yname,
@@ -1077,7 +1077,7 @@ def my_learing_curve2(
         )
 
 
-def my_learing_curve(
+def my_ml_learing_curve(
     estimator: any,
     data: DataFrame,
     yname: str = "target",
@@ -2049,7 +2049,16 @@ def my_plot_importance(
 ) -> None:
     fig = plt.figure(figsize=figsize, dpi=dpi)
     ax = fig.gca()
-    xgb_plot_importance(booster=estimator, importance_type=importance_type, ax=ax)
+    xgb_plot_importance(
+        booster=estimator, height=0.6, importance_type=importance_type, ax=ax
+    )
     plt.tight_layout()
     plt.show()
     plt.close()
+
+
+def my_xgb_tree(booster: XGBClassifier) -> None:
+    image = to_graphviz(booster=booster)
+    image.graph_attr = {"dpi": "400"}
+    image.render("tree", format="png")
+    display.Image(filename="tree.png")

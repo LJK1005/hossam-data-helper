@@ -39,7 +39,8 @@ from .plot import (
     my_roc_curve,
     my_tree,
     my_barplot,
-    my_plot_importance
+    my_plot_importance,
+    my_xgb_tree,
 )
 
 from xgboost import XGBClassifier
@@ -384,6 +385,22 @@ def my_classification_result(
     if is_print and estimator.__class__.__name__ == "XGBClassifier":
         print("\n[변수 중요도]")
         my_plot_importance(estimator=estimator)
+
+        feature_important = estimator.get_booster().get_score(importance_type="weight")
+        keys = list(feature_important.keys())
+        values = list(feature_important.values())
+
+        data = DataFrame(data=values, index=keys, columns=["score"]).sort_values(
+            by="score", ascending=False
+        )
+
+        data["rate"] = data["score"] / data["score"].sum()
+        data["cumsum"] = data["rate"].cumsum()
+
+        my_pretty_table(data)
+
+        # print("\n[TREE]")
+        my_xgb_tree(booster=estimator)
 
     # ------------------------------------------------------
     # curve
@@ -1904,7 +1921,7 @@ def my_xgb_classification(
     figsize=(10, 5),
     dpi: int = 100,
     sort: str = "v",
-    **params
+    **params,
 ) -> XGBClassifier:
     params = get_hyper_params(classname=XGBClassifier)
 

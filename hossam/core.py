@@ -174,13 +174,11 @@ __XGBOOST_CLASSIFICATION_HYPER_PARAMS__ = {
     "subsample": [0.5, 0.7, 1],
     "colsample_bytree": [0.6, 0.7, 0.8, 0.9],
     "reg_alpha": [1, 3, 5, 7, 9],
-    "reg_lambda": [1, 3, 5, 7, 9]
+    "reg_lambda": [1, 3, 5, 7, 9],
 }
 
 
-def get_estimator(
-    classname: any, est: any = None, **params
-) -> any:
+def get_estimator(classname: any, est: any = None, **params) -> any:
     """분류분석 추정기 객체를 생성한다. 고정적으로 사용되는 속성들을 일괄 설정한다.
 
     Args:
@@ -221,14 +219,15 @@ def get_estimator(
         args["verbose"] = False
 
     if classname == AdaBoostClassifier:
-        args['algorithm'] = 'SAMME'
+        args["algorithm"] = "SAMME"
 
     if classname == XGBClassifier:
         # general params
-        args['booster'] ="gbtree"
-        args['device'] = "cpu"
-        args['verbosity'] = 0
- 
+        args["booster"] = "gbtree"
+        args["device"] = "cpu"
+        args["verbosity"] = 0
+        args["early_stopping_rounds"] = 10
+
     if params:
         args.update(params)
 
@@ -275,10 +274,10 @@ def __ml(
 
             if n_classes == 2:
                 objective = "binary:logistic"
-                eval_metric='error'
+                eval_metric = "error"
             else:
                 objective = "multi:softmax"
-                eval_metric='merror'
+                eval_metric = "merror"
 
             prototype_estimator = get_estimator(
                 classname=classname, objective=objective, eval_metric=eval_metric
@@ -322,7 +321,15 @@ def __ml(
             # )
 
         try:
-            grid.fit(x_train, y_train)
+            if classname == XGBClassifier:
+                grid.fit(
+                    X=x_train,
+                    y=y_train,
+                    eval_set=[(x_train, y_train), (x_test, y_test)],
+                    verbose=True,
+                )
+            else:
+                grid.fit(X=x_train, y=y_train)
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]

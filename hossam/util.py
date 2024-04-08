@@ -1,3 +1,7 @@
+import cProfile
+from pycallgraphix.wrapper import register_method, MethodChart
+from datetime import datetime as dt
+
 import numpy as np
 from pycallgraphix.wrapper import register_method
 from tabulate import tabulate
@@ -818,3 +822,24 @@ def my_pca(
         )
 
     return result["PC"]
+
+
+def start_trace() -> cProfile.Profile:
+    profiler = cProfile.Profile()
+    profiler.clear()
+    profiler.enable()
+    return profiler
+
+
+def stop_trace(profiler: cProfile.Profile) -> None:
+    methodchart = MethodChart()
+    filename = "{0}.png".format(dt.now().strftime("%Y%m%d%H%M%S"))
+
+    try:
+        methodchart.make_graphviz_chart(time_resolution=2, filename=filename)
+    except Exception as e:
+        print(e)
+        pass
+
+    profiler.clear()
+    profiler.disable()

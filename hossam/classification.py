@@ -29,6 +29,7 @@ from sklearn.ensemble import (
     BaggingClassifier,
     RandomForestClassifier,
 )
+from xgboost import XGBClassifier
 
 from scipy.stats import norm
 
@@ -43,8 +44,6 @@ from .plot import (
     my_plot_importance,
     my_xgb_tree,
 )
-
-from xgboost import XGBClassifier
 
 
 @register_method
@@ -115,7 +114,7 @@ def __my_classification(
     # ------------------------------------------------------
     # 성능평가
     my_classification_result(
-        estimator,
+        estimator=estimator,
         x_train=x_train,
         y_train=y_train,
         x_test=x_test,
@@ -135,7 +134,7 @@ def __my_classification(
     # ------------------------------------------------------
     # 보고서 출력
     if report and is_print:
-        my_classification_report(estimator, x_train, y_train, x_test, y_test, sort)
+        my_classification_report(estimator=estimator, x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test, sort=sort)
 
     return estimator
 
@@ -403,7 +402,7 @@ def my_classification_result(
         my_pretty_table(data)
 
         # print("\n[TREE]")
-        #my_xgb_tree(booster=estimator)
+        # my_xgb_tree(booster=estimator)
 
     # ------------------------------------------------------
     # curve
@@ -1504,7 +1503,7 @@ def my_classification(
         "\n\n==================== 최고 성능 모델: %s ====================" % best_idx,
         end="\r",
     )
-    
+
     my_classification_result(
         estimator=estimators["best"],
         x_train=x_train,

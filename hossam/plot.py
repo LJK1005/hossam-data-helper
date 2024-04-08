@@ -30,7 +30,7 @@ from sklearn.tree import export_graphviz
 from IPython import display
 
 from .core import get_random_state, get_n_jobs
-from xgboost import plot_importance as xgb_plot_importance
+from xgboost import plot_importance as xgb_plot_importance, XGBClassifier
 
 try:
     import google.colab
@@ -1046,6 +1046,37 @@ def my_qqplot(
     plt.close()
 
 
+def my_learing_curve2(
+    estimator: any,
+    data: DataFrame,
+    yname: str = "target",
+    scalling: bool = False,
+    cv: int = 5,
+    train_sizes: np.ndarray = np.array([0.1, 0.3, 0.5, 0.7, 1]),
+    scoring: str = None,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+    random_state: int = get_random_state(),
+    callback: any = None,
+) -> None:
+    if estimator.__class__.__name__ in ["XGBRegressor", "XGBClassifier"]:
+        my_loss_curve(estimator=estimator, figsize=figsize, dpi=dpi, callback=callback)
+    else:
+        my_learing_curve(
+            estimator=estimator,
+            data=data,
+            yname=yname,
+            scalling=scalling,
+            cv=cv,
+            train_sizes=train_sizes,
+            scoring=scoring,
+            figsize=figsize,
+            dpi=dpi,
+            random_state=random_state,
+            callback=callback,
+        )
+
+
 def my_learing_curve(
     estimator: any,
     data: DataFrame,
@@ -1059,7 +1090,7 @@ def my_learing_curve(
     random_state: int = get_random_state(),
     callback: any = None,
 ) -> None:
-    """학습곡선을 출력한다.
+    """일반적인 머신러닝 알고리즘에 대한 학습곡선을 출력한다.
 
     Args:
         estimator (any): 학습모델 객체
@@ -1237,6 +1268,44 @@ def my_learing_curve(
     plt.tight_layout()
     plt.show()
     plt.close()
+
+
+def my_loss_curve(
+    estimator: any,
+    figsize: tuple = (10, 5),
+    dpi: int = 100,
+    callback: any = None,
+) -> None:
+    # 손실률 데이터 가져오기
+    results = estimator.evals_result()
+
+    result_df = DataFrame(
+        {
+            "train": results["validation_0"][estimator.eval_metric],
+            "test": results["validation_1"][estimator.eval_metric],
+        }
+    )
+
+    result_df2 = result_df.reset_index(drop=False, names="epoch")
+    result_df3 = result_df2.melt(
+        id_vars="epoch", var_name="dataset", value_name="error"
+    )
+
+    def my_callback(ax):
+        ax.set_title("Model Loss")
+
+        if callback:
+            callback(ax)
+
+    my_lineplot(
+        result_df3,
+        xname="epoch",
+        yname="error",
+        hue="dataset",
+        figsize=figsize,
+        dpi=dpi,
+        callback=my_callback,
+    )
 
 
 def my_confusion_matrix(

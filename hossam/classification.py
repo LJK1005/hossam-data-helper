@@ -134,7 +134,14 @@ def __my_classification(
     # ------------------------------------------------------
     # 보고서 출력
     if report and is_print:
-        my_classification_report(estimator=estimator, x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test, sort=sort)
+        my_classification_report(
+            estimator=estimator,
+            x_train=x_train,
+            y_train=y_train,
+            x_test=x_test,
+            y_test=y_test,
+            sort=sort,
+        )
 
     return estimator
 
@@ -566,7 +573,10 @@ def my_classification_binary_report(
             vif = 0
 
         # 결과표 생성
-        xnames = estimator.feature_names_in_
+        if hasattr(estimator, "feature_names_in_"):
+            xnames = estimator.feature_names_in_
+        else:
+            xnames = x.columns
 
         result_df = DataFrame(
             {
@@ -601,7 +611,10 @@ def my_classification_binary_report(
             vif = 0
 
         # 결과표 생성
-        xnames = estimator.feature_names_in_
+        if hasattr(estimator, "feature_names_in_"):
+            xnames = estimator.feature_names_in_
+        else:
+            xnames = x.columns
 
         result_df = DataFrame(
             {
@@ -683,7 +696,10 @@ def my_classification_multiclass_report(
                 vif = 0
 
             # 결과표 생성
-            xnames = estimator.feature_names_in_
+            if hasattr(estimator, "feature_names_in_"):
+                xnames = estimator.feature_names_in_
+            else:
+                xnames = x.columns
 
             result_df = DataFrame(
                 {
@@ -718,7 +734,10 @@ def my_classification_multiclass_report(
                 vif = 0
 
             # 결과표 생성
-            xnames = estimator.feature_names_in_
+            if hasattr(estimator, "feature_names_in_"):
+                xnames = estimator.feature_names_in_
+            else:
+                xnames = x.columns
 
             result_df = DataFrame(
                 {

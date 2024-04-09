@@ -832,7 +832,7 @@ def my_trace() -> cProfile.Profile:
     filename = "{0}.png".format(dt.now().strftime("%Y%m%d%H%M%S"))
 
     try:
-        methodchart.make_graphviz_chart(time_resolution=2, filename=filename)
+        methodchart.make_graphviz_chart(time_resolution=3, filename=filename)
     except Exception as e:
         print(e)
         pass

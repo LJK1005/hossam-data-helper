@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="hossam",
-    version="0.1.3",
+    version="0.1.4",
     description="Hossam Data Helper is a Python package that provides various functions to help you analyze data.",
     author="Lee Kwang-Ho",
     author_email="leekh4232@gmail.com",
@@ -31,5 +31,7 @@ setup(
         "pca",
         "statannotations",
         "pycallgraphix",
+        "xgboost",
+        "lightgbm",
     ],
 )

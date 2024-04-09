@@ -824,14 +824,10 @@ def my_pca(
     return result["PC"]
 
 
-def start_trace() -> cProfile.Profile:
+def my_trace() -> cProfile.Profile:
     profiler = cProfile.Profile()
-    profiler.clear()
     profiler.enable()
-    return profiler
 
-
-def stop_trace(profiler: cProfile.Profile) -> None:
     methodchart = MethodChart()
     filename = "{0}.png".format(dt.now().strftime("%Y%m%d%H%M%S"))
 

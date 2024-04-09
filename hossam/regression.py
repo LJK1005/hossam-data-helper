@@ -1,4 +1,5 @@
 import inspect
+from re import L
 from pycallgraphix.wrapper import register_method
 
 import numpy as np
@@ -28,6 +29,7 @@ from sklearn.ensemble import (
     GradientBoostingRegressor,
 )
 from xgboost import XGBRegressor
+from lightgbm import LGBMRegressor
 
 from scipy.stats import t, f
 from .core import __ml, get_hyper_params, get_estimator
@@ -260,24 +262,32 @@ def my_regression_result(
                     dpi=dpi,
                 )
 
-        if estimator.__class__.__name__ == "XGBRegressor":
+        if estimator.__class__.__name__ in ["XGBRegressor", "LGBMRegressor"]:
             print("\n[변수 중요도]")
             my_plot_importance(estimator=estimator)
 
-            feature_important = estimator.get_booster().get_score(
-                importance_type="weight"
-            )
-            keys = list(feature_important.keys())
-            values = list(feature_important.values())
+            ikeys = None
+            ivalues = None
 
-            data = DataFrame(data=values, index=keys, columns=["score"]).sort_values(
-                by="score", ascending=False
-            )
+            if hasattr(estimator, "get_booster"):
+                feature_important = estimator.get_booster().get_score(
+                    importance_type="weight"
+                )
+                ikeys = list(feature_important.keys())
+                ivalues = list(feature_important.values())
+            elif hasattr(estimator, "booster_"):
+                ikeys = estimator.booster_.feature_name()
+                ivalues = list(estimator.booster_.feature_importance())
 
-            data["rate"] = data["score"] / data["score"].sum()
-            data["cumsum"] = data["rate"].cumsum()
+            if ikeys is not None and ivalues is not None:
+                data = DataFrame(
+                    data=ivalues, index=ikeys, columns=["score"]
+                ).sort_values(by="score", ascending=False)
 
-            my_pretty_table(data)
+                data["rate"] = data["score"] / data["score"].sum()
+                data["cumsum"] = data["rate"].cumsum()
+
+                my_pretty_table(data)
 
             # print("\n[TREE]")
             # my_xgb_tree(booster=estimator)
@@ -1799,7 +1809,6 @@ def my_xgb_regression(
     x_test: DataFrame = None,
     y_test: Series = None,
     cv: int = 5,
-    pruning: bool = False,
     learning_curve: bool = True,
     report=True,
     plot: bool = False,
@@ -1842,6 +1851,73 @@ def my_xgb_regression(
 
     return __my_regression(
         classname=XGBRegressor,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        cv=cv,
+        learning_curve=learning_curve,
+        report=report,
+        plot=plot,
+        deg=deg,
+        resid_test=resid_test,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=is_print,
+        **params,
+    )
+
+
+@register_method
+def my_lgbm_regression(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    cv: int = 5,
+    learning_curve: bool = True,
+    report=True,
+    plot: bool = False,
+    deg: int = 1,
+    resid_test=False,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = None,
+    is_print: bool = True,
+    **params,
+) -> LGBMRegressor:
+    """LGBMRegressor 회귀분석을 수행하고 결과를 출력한다.
+
+    Args:
+        x_train (DataFrame): 독립변수에 대한 훈련 데이터
+        y_train (Series): 종속변수에 대한 훈련 데이터
+        x_test (DataFrame): 독립변수에 대한 검증 데이터. Defaults to None.
+        y_test (Series): 종속변수에 대한 검증 데이터. Defaults to None.
+        cv (int, optional): 교차검증 횟수. Defaults to 0.
+        learning_curve (bool, optional): 학습곡선을 출력할지 여부. Defaults to False.
+        report (bool, optional): 회귀분석 결과를 보고서로 출력할지 여부. Defaults to True.
+        plot (bool, optional): 시각화 여부. Defaults to True.
+        deg (int, optional): 다항회귀분석의 차수. Defaults to 1.
+        resid_test (bool, optional): 잔차의 가정을 확인할지 여부. Defaults to False.
+        figsize (tuple, optional): 그래프의 크기. Defaults to (10, 5).
+        dpi (int, optional): 그래프의 해상도. Defaults to 100.
+        sort (bool, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
+        is_print (bool, optional): 출력 여부. Defaults to True.
+        pruning (bool, optional): 의사결정나무에서 가지치기의 alpha값을 하이퍼 파라미터 튜닝에 포함 할지 여부. Default to False.
+        **params (dict, optional): 하이퍼파라미터. Defaults to None.
+
+    Returns:
+        LGBMRegressor
+    """
+
+    # 교차검증 설정
+    if cv > 0:
+        if not params:
+            params = get_hyper_params(classname=LGBMRegressor)
+
+    return __my_regression(
+        classname=LGBMRegressor,
         x_train=x_train,
         y_train=y_train,
         x_test=x_test,

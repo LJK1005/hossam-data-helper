@@ -1,4 +1,5 @@
 import inspect
+from re import L
 from pycallgraphix.wrapper import register_method
 
 # import logging
@@ -30,6 +31,7 @@ from sklearn.ensemble import (
     RandomForestClassifier,
 )
 from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
 
 from scipy.stats import norm
 
@@ -42,7 +44,6 @@ from .plot import (
     my_tree,
     my_barplot,
     my_plot_importance,
-    my_xgb_tree,
 )
 
 
@@ -391,22 +392,32 @@ def my_classification_result(
             my_confusion_matrix(y_train, y_train_pred, figsize=figsize, dpi=dpi)
 
     # ------------------------------------------------------
-    if is_print and estimator.__class__.__name__ == "XGBClassifier":
+    if is_print and estimator.__class__.__name__ in ["XGBClassifier", "LGBMClassifier"]:
         print("\n[변수 중요도]")
         my_plot_importance(estimator=estimator)
 
-        feature_important = estimator.get_booster().get_score(importance_type="weight")
-        keys = list(feature_important.keys())
-        values = list(feature_important.values())
+        ikeys = None
+        ivalues = None
 
-        data = DataFrame(data=values, index=keys, columns=["score"]).sort_values(
-            by="score", ascending=False
-        )
+        if hasattr(estimator, "get_booster"):
+            feature_important = estimator.get_booster().get_score(
+                importance_type="weight"
+            )
+            ikeys = list(feature_important.keys())
+            ivalues = list(feature_important.values())
+        elif hasattr(estimator, "booster_"):
+            ikeys = estimator.booster_.feature_name()
+            ivalues = list(estimator.booster_.feature_importance())
 
-        data["rate"] = data["score"] / data["score"].sum()
-        data["cumsum"] = data["rate"].cumsum()
+        if ikeys is not None and ivalues is not None:
+            data = DataFrame(data=ivalues, index=ikeys, columns=["score"]).sort_values(
+                by="score", ascending=False
+            )
 
-        my_pretty_table(data)
+            data["rate"] = data["score"] / data["score"].sum()
+            data["cumsum"] = data["rate"].cumsum()
+
+            my_pretty_table(data)
 
         # print("\n[TREE]")
         # my_xgb_tree(booster=estimator)
@@ -1966,6 +1977,49 @@ def my_xgb_classification(
 
     return __my_classification(
         classname=XGBClassifier,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        conf_matrix=conf_matrix,
+        cv=cv,
+        hist=hist,
+        roc=roc,
+        pr=pr,
+        multiclass=multiclass,
+        learning_curve=learning_curve,
+        report=report,
+        figsize=figsize,
+        dpi=dpi,
+        sort=sort,
+        is_print=True,
+        **params,
+    )
+
+
+@register_method
+def my_lgbm_classification(
+    x_train: DataFrame,
+    y_train: Series,
+    x_test: DataFrame = None,
+    y_test: Series = None,
+    conf_matrix: bool = True,
+    cv: int = 5,
+    hist: bool = True,
+    roc: bool = True,
+    pr: bool = True,
+    multiclass: str = None,
+    learning_curve=True,
+    report: bool = True,
+    figsize=(10, 5),
+    dpi: int = 100,
+    sort: str = "v",
+    **params,
+) -> LGBMClassifier:
+    params = get_hyper_params(classname=LGBMClassifier)
+
+    return __my_classification(
+        classname=LGBMClassifier,
         x_train=x_train,
         y_train=y_train,
         x_test=x_test,

@@ -8,7 +8,7 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
 from math import sqrt
-from pandas import DataFrame, Series
+from pandas import DataFrame, Series, concat
 
 from scipy.stats import t
 from scipy.spatial import ConvexHull
@@ -32,7 +32,8 @@ from IPython import display
 from IPython.display import Image
 
 from .core import get_random_state, get_n_jobs
-from xgboost import plot_importance as xgb_plot_importance, XGBClassifier, to_graphviz
+from xgboost import plot_importance as xgb_plot_importance
+from lightgbm import plot_importance as lgb_plot_importance
 
 try:
     import google.colab
@@ -1084,7 +1085,12 @@ def my_learing_curve(
     random_state: int = get_random_state(),
     callback: any = None,
 ) -> None:
-    if estimator.__class__.__name__ in ["XGBRegressor", "XGBClassifier"]:
+    if estimator.__class__.__name__ in [
+        "XGBRegressor",
+        "XGBClassifier",
+        "LGBMRegressor",
+        "LGBMClassifier",
+    ]:
         my_loss_curve(estimator=estimator, figsize=figsize, dpi=dpi, callback=callback)
     else:
         my_ml_learing_curve(
@@ -1304,35 +1310,51 @@ def my_loss_curve(
     callback: any = None,
 ) -> None:
     # 손실률 데이터 가져오기
-    results = estimator.evals_result()
+    if hasattr(estimator, "evals_result"):
+        results = estimator.evals_result()
+    elif hasattr(estimator, "evals_result_"):
+        results = estimator.evals_result_
+    else:
+        print("\x1b[31m손실률 데이터가 존재하지 않습니다.\x1b[0m")
+        return
 
-    result_df = DataFrame(
-        {
-            "train": results["validation_0"][estimator.eval_metric],
-            "test": results["validation_1"][estimator.eval_metric],
-        }
+    # 손실률 데이터 정리
+    keys = list(results.keys())
+    score_df = DataFrame()
+
+    for key in keys:
+        score_keys = list(results[key].keys())
+
+        df = DataFrame({"dataset": [key] * len(results[key][score_keys[0]])})
+
+        for score_key in score_keys:
+            k = score_key[score_key.rfind("_") + 1 :]
+            df[k] = results[key][score_key]
+
+        df.reset_index(drop=False, names="epoch", inplace=True)
+        df["epoch"] = df["epoch"] + 1
+
+        score_df = concat([score_df, df], axis=0, ignore_index=True)
+
+    col = score_df.columns[2:]
+    cols = len(col)
+    figsize = (10 if cols == 1 else 7, 5)
+    fig, ax = plt.subplots(
+        nrows=1, ncols=cols, figsize=(figsize[0] * cols, figsize[1]), dpi=100
     )
 
-    result_df2 = result_df.reset_index(drop=False, names="epoch")
-    result_df3 = result_df2.melt(
-        id_vars="epoch", var_name="dataset", value_name="error"
-    )
+    if cols == 1:
+        ax = [ax]
 
-    def my_callback(ax):
-        ax.set_title("Model Loss")
+    for i in range(cols):
+        sb.lineplot(data=score_df, x="epoch", y=col[i], hue="dataset", ax=ax[i])
+        ax[i].set_title(col[i])
+        ax[i].set_xlabel("epoch")
+        ax[i].set_ylabel(col[i])
+        ax[i].grid(True)
 
-        if callback:
-            callback(ax)
-
-    my_lineplot(
-        result_df3,
-        xname="epoch",
-        yname="error",
-        hue="dataset",
-        figsize=figsize,
-        dpi=dpi,
-        callback=my_callback,
-    )
+    plt.show()
+    plt.close()
 
 
 @register_method
@@ -2079,24 +2101,17 @@ def my_tree(estimator: DecisionTreeClassifier) -> None:
 @register_method
 def my_plot_importance(
     estimator: any,
-    importance_type: str = "weight",
     figsize: tuple = (10, 5),
     dpi: int = 100,
 ) -> None:
     fig = plt.figure(figsize=figsize, dpi=dpi)
     ax = fig.gca()
-    xgb_plot_importance(
-        booster=estimator, height=0.6, importance_type=importance_type, ax=ax
-    )
+
+    if estimator.__class__.__name__ in ["LGBMClassifier", "LGBMRegressor"]:
+        lgb_plot_importance(booster=estimator, height=0.6, ax=ax)
+    elif estimator.__class__.__name__ in ["XGBClassifier", "XGBRegressor"]:
+        xgb_plot_importance(booster=estimator, height=0.6, ax=ax)
+
     plt.tight_layout()
     plt.show()
     plt.close()
-
-
-@register_method
-def my_xgb_tree(booster: XGBClassifier) -> None:
-    # image = to_graphviz(booster=booster)
-    # image.graph_attr = {"dpi": "400"}
-    # image.render("tree", format="png")
-    # display(Image("tree.png"))
-    pass

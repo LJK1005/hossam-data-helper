@@ -227,70 +227,58 @@ def my_regression_result(
         result_df = DataFrame(scores, index=score_names)
         my_pretty_table(result_df.T)
 
-        # 학습곡선
-        if learning_curve:
-            print("\n[학습곡선]")
-            yname = y_train.name
+    # ------------------------------------------------------
+    if is_print and estimator.__class__.__name__ in ["XGBRegressor", "LGBMRegressor"]:
+        print("\n[변수 중요도]")
+        my_plot_importance(estimator=estimator)
 
-            if x_test is not None and y_test is not None:
-                y_df = concat([y_train, y_test])
-                x_df = concat([x_train, x_test])
-            else:
-                y_df = y_train.copy()
-                x_df = x_train.copy()
+        ikeys = None
+        ivalues = None
 
-            x_df[yname] = y_df
-            x_df.sort_index(inplace=True)
+        if hasattr(estimator, "get_booster"):
+            feature_important = estimator.get_booster().get_score(
+                importance_type="weight"
+            )
+            ikeys = list(feature_important.keys())
+            ivalues = list(feature_important.values())
+        elif hasattr(estimator, "booster_"):
+            ikeys = estimator.booster_.feature_name()
+            ivalues = list(estimator.booster_.feature_importance())
 
-            if cv > 0:
-                my_learing_curve(
-                    estimator,
-                    data=x_df,
-                    yname=yname,
-                    cv=cv,
-                    scoring="RMSE",
-                    figsize=figsize,
-                    dpi=dpi,
-                )
-            else:
-                my_learing_curve(
-                    estimator,
-                    data=x_df,
-                    yname=yname,
-                    scoring="RMSE",
-                    figsize=figsize,
-                    dpi=dpi,
-                )
+        if ikeys is not None and ivalues is not None:
+            data = DataFrame(data=ivalues, index=ikeys, columns=["score"]).sort_values(
+                by="score", ascending=False
+            )
 
-        if estimator.__class__.__name__ in ["XGBRegressor", "LGBMRegressor"]:
-            print("\n[변수 중요도]")
-            my_plot_importance(estimator=estimator)
+            data["rate"] = data["score"] / data["score"].sum()
+            data["cumsum"] = data["rate"].cumsum()
 
-            ikeys = None
-            ivalues = None
+            my_pretty_table(data)
 
-            if hasattr(estimator, "get_booster"):
-                feature_important = estimator.get_booster().get_score(
-                    importance_type="weight"
-                )
-                ikeys = list(feature_important.keys())
-                ivalues = list(feature_important.values())
-            elif hasattr(estimator, "booster_"):
-                ikeys = estimator.booster_.feature_name()
-                ivalues = list(estimator.booster_.feature_importance())
+    # ------------------------------------------------------
+    if is_print and learning_curve:
+        print("\n[학습곡선]")
+        yname = y_train.name
 
-            if ikeys is not None and ivalues is not None:
-                data = DataFrame(
-                    data=ivalues, index=ikeys, columns=["score"]
-                ).sort_values(by="score", ascending=False)
+        if x_test is not None and y_test is not None:
+            y_df = concat([y_train, y_test])
+            x_df = concat([x_train, x_test])
+        else:
+            y_df = y_train.copy()
+            x_df = x_train.copy()
 
-                data["rate"] = data["score"] / data["score"].sum()
-                data["cumsum"] = data["rate"].cumsum()
+        x_df[yname] = y_df
+        x_df.sort_index(inplace=True)
 
-                my_pretty_table(data)
-
-            # print("\n[TREE]")
-            # my_xgb_tree(booster=estimator)
+        my_learing_curve(
+            estimator,
+            data=x_df,
+            yname=yname,
+            cv=cv,
+            scoring="RMSE",
+            figsize=figsize,
+            dpi=dpi,
+        )
 
 
 @register_method

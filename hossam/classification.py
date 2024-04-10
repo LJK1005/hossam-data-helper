@@ -466,23 +466,14 @@ def my_classification_result(
             x_df[yname] = y_df
             x_df.sort_index(inplace=True)
 
-            if cv > 0:
-                my_learing_curve(
-                    estimator=estimator,
-                    data=x_df,
-                    yname=yname,
-                    cv=cv,
-                    figsize=figsize,
-                    dpi=dpi,
-                )
-            else:
-                my_learing_curve(
-                    estimator=estimator,
-                    data=x_df,
-                    yname=yname,
-                    figsize=figsize,
-                    dpi=dpi,
-                )
+            my_learing_curve(
+                estimator=estimator,
+                data=x_df,
+                yname=yname,
+                cv=cv,
+                figsize=figsize,
+                dpi=dpi,
+            )
 
         if estimator.__class__.__name__ == "DecisionTreeClassifier":
             my_tree(estimator=estimator)

@@ -34,7 +34,7 @@ def tf_create(
 
 def tf_train(
     model: Sequential,
-    X_train: np.ndarray,
+    x_train: np.ndarray,
     y_train: np.ndarray,
     epochs: int = 500,
     batch_size: int = 32,
@@ -55,7 +55,7 @@ def tf_train(
         callbacks.append(ReduceLROnPlateau(factor=0.1, patience=5, verbose=verbose))
 
     return model.fit(
-        X_train,
+        x_train,
         y_train,
         epochs=epochs,
         batch_size=batch_size,

@@ -1,4 +1,5 @@
 import cProfile
+import joblib
 from pycallgraphix.wrapper import register_method, MethodChart
 from datetime import datetime as dt
 
@@ -148,12 +149,16 @@ def my_read_excel(
 
 
 @register_method
-def my_standard_scaler(data: DataFrame, yname: str = None) -> DataFrame:
+def my_standard_scaler(
+    data: any, yname: str = None, save_path: str = None, load_path: str = None
+) -> DataFrame:
     """데이터프레임의 연속형 변수에 대해 Standard Scaling을 수행한다.
 
     Args:
         data (DataFrame): 데이터프레임 객체
         yname (str, optional): 종속변수의 컬럼명. Defaults to None.
+        save_path (str, optional): 저장할 경로. Defaults to None.
+        load_path (str, optional): 불러올 경로. Defaults to None.
 
     Returns:
         DataFrame: 표준화된 데이터프레임
@@ -161,23 +166,46 @@ def my_standard_scaler(data: DataFrame, yname: str = None) -> DataFrame:
     # 원본 데이터 프레임 복사
     df = data.copy()
 
-    # 종속변수만 별도로 분리
-    if yname:
-        y = df[yname]
-        df = df.drop(yname, axis=1)
+    if data.__class__.__name__ == "DataFrame":
+        # 종속변수만 별도로 분리
+        if yname:
+            y = df[yname]
+            df = df.drop(yname, axis=1)
 
-    # 카테고리 타입만 골라냄
-    category_fields = []
-    for f in df.columns:
-        if df[f].dtypes not in ["int", "int32", "int64", "float", "float32", "float64"]:
-            category_fields.append(f)
+        # 카테고리 타입만 골라냄
+        category_fields = []
+        for f in df.columns:
+            if df[f].dtypes not in [
+                "int",
+                "int32",
+                "int64",
+                "float",
+                "float32",
+                "float64",
+            ]:
+                category_fields.append(f)
 
-    cate = df[category_fields]
-    df = df.drop(category_fields, axis=1)
+        cate = df[category_fields]
+        df = df.drop(category_fields, axis=1)
 
     # 표준화 수행
-    scaler = StandardScaler()
-    std_df = DataFrame(scaler.fit_transform(df), index=data.index, columns=df.columns)
+    if load_path:
+        scaler = joblib.load(load_path)
+        sdata = scaler.transform(df)
+
+    else:
+        scaler = StandardScaler()
+        sdata = scaler.fit_transform(df)
+
+    # 스케일러 저장 경로가 있을 경우
+    if save_path:
+        joblib.dump(value=scaler, filename=save_path)
+
+    if data.__class__.__name__ != "DataFrame":
+        return sdata
+
+    # ----------------------------------
+    std_df = DataFrame(data=sdata, index=data.index, columns=df.columns)
 
     # 분리했던 명목형 변수를 다시 결합
     if category_fields:
@@ -191,13 +219,16 @@ def my_standard_scaler(data: DataFrame, yname: str = None) -> DataFrame:
 
 
 @register_method
-def my_minmax_scaler(data: DataFrame, yname: str = None) -> DataFrame:
+def my_minmax_scaler(
+    data: DataFrame, yname: str = None, save_path: str = None, load_path: str = None
+) -> DataFrame:
     """데이터프레임의 연속형 변수에 대해 MinMax Scaling을 수행한다.
 
     Args:
         data (DataFrame): 데이터프레임 객체
         yname (str, optional): 종속변수의 컬럼명. Defaults to None.
-
+        save_path (str, optional): 저장할 경로. Defaults to None.
+        load_path (str, optional): 불러올 경로. Defaults to None.
     Returns:
         DataFrame: 표준화된 데이터프레임
     """
@@ -219,8 +250,24 @@ def my_minmax_scaler(data: DataFrame, yname: str = None) -> DataFrame:
     df = df.drop(category_fields, axis=1)
 
     # 표준화 수행
-    scaler = MinMaxScaler()
-    std_df = DataFrame(scaler.fit_transform(df), index=data.index, columns=df.columns)
+    if load_path:
+        scaler = joblib.load(load_path)
+        sdata = scaler.transform(df)
+
+    else:
+        scaler = MinMaxScaler()
+        sdata = scaler.fit_transform(df)
+
+    std_df = DataFrame(data=sdata, index=data.index, columns=df.columns)
+
+    # 스케일러 저장 경로가 있을 경우
+    if save_path:
+        joblib.dump(scaler, save_path)
+
+    if data.__class__.__name__ != "DataFrame":
+        return sdata
+
+    # ----------------------------------
 
     # 분리했던 명목형 변수를 다시 결합
     if category_fields:
@@ -240,6 +287,8 @@ def my_train_test_split(
     test_size: float = 0.2,
     random_state: int = get_random_state(),
     scalling: bool = False,
+    save_path: str = None,
+    load_path: str = None,
 ) -> tuple:
     """데이터프레임을 학습용 데이터와 테스트용 데이터로 나눈다.
 
@@ -249,47 +298,52 @@ def my_train_test_split(
         test_size (float, optional): 검증 데이터의 비율(0~1). Defaults to 0.3.
         random_state (int, optional): 난수 시드. Defaults to 123.
         scalling (bool, optional): True일 경우 표준화를 수행한다. Defaults to False.
+        save_path (str, optional): 스케일러 저장 경로. Defaults to None.
+        load_path (str, optional): 스케일러 로드 경로. Defaults to None.
 
     Returns:
         tuple: x_train, x_test, y_train, y_test
     """
+    _train, x_test, y_train, y_test = None, None, None, None
+
     if yname is not None:
         if yname not in data.columns:
             raise Exception(f"\x1b[31m종속변수 {yname}가 존재하지 않습니다.\x1b[0m")
 
-        x = data.drop(yname, axis=1)
+        x = data.drop(labels=yname, axis=1)
         y = data[yname]
         x_train, x_test, y_train, y_test = train_test_split(
             x, y, test_size=test_size, random_state=random_state
         )
-
-        if scalling:
-            scaler = StandardScaler()
-            x_train = DataFrame(
-                scaler.fit_transform(x_train),
-                index=x_train.index,
-                columns=x_train.columns,
-            )
-            x_test = DataFrame(
-                scaler.transform(x_test), index=x_test.index, columns=x_test.columns
-            )
-
-        return x_train, x_test, y_train, y_test
     else:
-        train, test = train_test_split(
+        x_train, x_test = train_test_split(
             data, test_size=test_size, random_state=random_state
         )
 
-        if scalling:
+    if scalling:
+        if load_path:
+            scaler = joblib.load(filename=load_path)
+            x_train_std = scaler.transform(x_train)
+            x_test_std = scaler.transform(x_test)
+        else:
             scaler = StandardScaler()
-            train = DataFrame(
-                scaler.fit_transform(train), index=train.index, columns=train.columns
-            )
-            test = DataFrame(
-                scaler.transform(test), index=test.index, columns=test.columns
-            )
+            x_train_std = scaler.fit_transform(X=x_train)
+            x_test_std = scaler.transform(x_test)
 
-        return train, test
+        x_train = DataFrame(
+            data=x_train_std,
+            index=x_train.index,
+            columns=x_train.columns,
+        )
+        x_test = DataFrame(x_test_std, index=x_test.index, columns=x_test.columns)
+
+        if save_path:
+            joblib.dump(value=scaler, filename=save_path)
+
+    if y_train is not None and y_test is not None:
+        return x_train, x_test, y_train, y_test
+    else:
+        return x_train, x_test
 
 
 @register_method
@@ -741,6 +795,7 @@ def my_vif_filter(
         for x in xnames:
             vif[x] = variance_inflation_factor(df, xnames.index(x))
 
+        print(vif)
         maxkey = max(vif, key=vif.get)
 
         if vif[maxkey] <= threshold:

@@ -1,5 +1,7 @@
 import numpy as np
 
+from datetime import datetime as dt
+
 from tensorflow.random import set_seed
 from tensorflow.keras.initializers import GlorotUniform
 from tensorflow.keras.models import Sequential, load_model
@@ -10,13 +12,111 @@ from tensorflow.keras.callbacks import (
     ReduceLROnPlateau,
     TensorBoard,
 )
+from tensorflow.keras.optimizers import Adam
+
 from pandas import DataFrame
 from matplotlib import pyplot as plt
 from .util import my_pretty_table
 from .core import get_random_state
+from kerastuner import Hyperband
 
 set_seed(get_random_state())
 __initializer__ = GlorotUniform(seed=get_random_state())
+
+
+def tf_tune(
+    x_train: np.ndarray,
+    y_train: np.ndarray,
+    x_test: np.ndarray = None,
+    y_test: np.ndarray = None,
+    dense: list = [],
+    optimizer: any = "adam",
+    learning_rate: list = [1e-2, 1e-3, 1e-4],
+    loss: str = None,
+    metrics: list = None,
+    max_epochs=10,
+    factor=3,
+    seed=get_random_state(),
+    directory="./tensor_hyperband",
+    project_name="tf_hyperband_%s" % dt.now().strftime("%Y%m%d%H%M%S"),
+) -> Sequential:
+    """_summary_
+
+    Args:
+        x_train (np.ndarray): _description_
+        y_train (np.ndarray): _description_
+        x_test (np.ndarray, optional): _description_. Defaults to None.
+        y_test (np.ndarray, optional): _description_. Defaults to None.
+        dense (list, optional): _description_. Defaults to [].
+        optimizer (any, optional): _description_. Defaults to "adam".
+        learning_rate (list, optional): _description_. Defaults to [1e-2, 1e-3, 1e-4].
+        loss (str, optional): _description_. Defaults to None.
+        metrics (list, optional): _description_. Defaults to None.
+        max_epochs (int, optional): _description_. Defaults to 10.
+        factor (int, optional): _description_. Defaults to 3.
+        seed (_type_, optional): _description_. Defaults to get_random_state().
+        directory (str, optional): _description_. Defaults to "./tensor_hyperband".
+        project_name (_type_, optional): _description_. Defaults to "tf_hyperband_%s"%dt.now().strftime("%Y%m%d%H%M%S").
+
+    Returns:
+        Sequential: _description_
+    """
+
+    def __tf_build(hp) -> Sequential:
+        model = Sequential()
+
+        for d in dense:
+            if "input_shape" in d:
+                model.add(
+                    Dense(
+                        units=hp.Choice("units", values=d["units"]),
+                        input_shape=d["input_shape"],
+                        activation=d["activation"],
+                    )
+                )
+            else:
+                model.add(
+                    Dense(
+                        units=hp.Choice("units", values=d["units"]),
+                        activation=d["activation"],
+                    )
+                )
+
+        opt = None
+
+        if optimizer == "adam":
+            opt = Adam(hp.Choice("learning_rate", values=learning_rate))
+
+        model.compile(
+            optimizer=opt,
+            loss=loss,
+            metrics=metrics,
+        )
+
+        return model
+
+    tuner = Hyperband(
+        hypermodel=__tf_build,
+        objective=f"val_{metrics[0]}",
+        max_epochs=max_epochs,
+        factor=factor,
+        seed=seed,
+        directory=directory,
+        project_name=project_name,
+    )
+
+    tuner.search(
+        x_train, y_train, epochs=10, batch_size=32, validation_data=(x_test, y_test)
+    )
+
+    # Get the optimal hyperparameters
+    best_hps = tuner.get_best_hyperparameters()
+
+    if not best_hps:
+        raise ValueError("No best hyperparameters found.")
+
+    model = tuner.hypermodel.build(best_hps[0])
+    return model
 
 
 def tf_create(

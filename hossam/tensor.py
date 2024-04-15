@@ -29,7 +29,7 @@ def tf_tune(
     y_train: np.ndarray,
     x_test: np.ndarray = None,
     y_test: np.ndarray = None,
-    dense: list = [],
+    dense_tune: list = [],
     optimizer: any = "adam",
     learning_rate: list = [1e-2, 1e-3, 1e-4],
     loss: str = None,
@@ -65,7 +65,7 @@ def tf_tune(
     def __tf_build(hp) -> Sequential:
         model = Sequential()
 
-        for d in dense:
+        for d in dense_tune:
             if "input_shape" in d:
                 model.add(
                     Dense(

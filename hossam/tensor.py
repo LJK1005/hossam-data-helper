@@ -486,8 +486,8 @@ def my_tf_linear(
     dpi: int = 100,
     # hyperband parameters
     dense_tune: list = [
-        {"units": [64, 32, 16, 8], "activation": "relu", "input_shape": (0,)},
-        {"units": [32, 16, 8, 4], "activation": "relu"},
+        {"units": [128, 64, 32, 16, 8], "activation": "relu", "input_shape": (0,)},
+        {"units": [64, 32, 16, 8, 4], "activation": "relu"},
         {"units": 1, "activation": "linear"},
     ],
     learning_rate: list = [1e-2, 1e-3, 1e-4],

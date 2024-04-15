@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # -------------------------------------------------------------
+
 import numpy as np
 from datetime import datetime as dt
 
@@ -41,7 +42,14 @@ from .classification import my_classification_result, my_classification_report
 set_seed(get_random_state())
 __initializer__ = GlorotUniform(seed=get_random_state())
 
-__HB_DIR__ = "D:\\tensor_hyperband"
+__HB_DIR__ = "tf_hyperband"
+
+
+def __get_project_name(src) -> str:
+    if src:
+        return src
+
+    return "tf_%s" % dt.now().strftime("%y%m%d_%H%M%S")
 
 
 # -------------------------------------------------------------
@@ -61,7 +69,7 @@ def tf_tune(
     factor: int = 3,
     seed: int = get_random_state(),
     directory: str = __HB_DIR__,
-    project_name: str = "tf_hyperband_%s" % dt.now().strftime("%Y%m%d%H%M%S"),
+    project_name: str = None,
 ) -> Sequential:
     """_summary_
 
@@ -135,7 +143,7 @@ def tf_tune(
         factor=factor,
         seed=seed,
         directory=directory,
-        project_name=project_name,
+        project_name=__get_project_name(project_name),
     )
 
     tuner.search(
@@ -391,7 +399,7 @@ def my_tf(
     factor=3,
     seed=get_random_state(),
     directory=__HB_DIR__,
-    project_name="tf_hyperband_%s" % dt.now().strftime("%Y%m%d%H%M%S"),
+    project_name=None,
 ) -> Sequential:
     """
     텐서플로우 학습 모델을 생성하고 훈련한 후 결과를 출력한다.
@@ -436,7 +444,7 @@ def my_tf(
             factor=factor,
             seed=seed,
             directory=directory,
-            project_name=project_name,
+            project_name=__get_project_name(project_name),
         )
     else:
         model = tf_create(
@@ -499,7 +507,8 @@ def my_tf_linear(
     factor=3,
     seed=get_random_state(),
     directory=__HB_DIR__,
-    project_name="tf_hyperband_%s" % dt.now().strftime("%Y%m%d%H%M%S"),
+    project_name=None,
+    plot: bool = True,
 ) -> Sequential:
     """
     선형회귀에 대한 텐서플로우 학습 모델을 생성하고 훈련한 후 결과를 출력한다.
@@ -552,7 +561,7 @@ def my_tf_linear(
             factor=factor,
             seed=seed,
             directory=directory,
-            project_name=project_name,
+            project_name=__get_project_name(project_name),
         )
     else:
         dense = []
@@ -610,6 +619,7 @@ def my_tf_linear(
         y_train=y_train,
         x_test=x_test,
         y_test=y_test,
+        plot=plot,
         figsize=figsize,
         dpi=dpi,
     )
@@ -648,7 +658,7 @@ def my_tf_sigmoid(
     factor=3,
     seed=get_random_state(),
     directory=__HB_DIR__,
-    project_name="tf_hyperband_%s" % dt.now().strftime("%Y%m%d%H%M%S"),
+    project_name=None,
 ) -> Sequential:
     """
     선형회귀에 대한 텐서플로우 학습 모델을 생성하고 훈련한 후 결과를 출력한다.
@@ -701,7 +711,7 @@ def my_tf_sigmoid(
             factor=factor,
             seed=seed,
             directory=directory,
-            project_name=project_name,
+            project_name=__get_project_name(project_name),
         )
     else:
         dense = []

@@ -14,7 +14,6 @@ from pandas import DataFrame
 from matplotlib import pyplot as plt
 
 # -------------------------------------------------------------
-from regex import R
 from tensorflow.random import set_seed
 from tensorflow.keras.initializers import GlorotUniform
 from tensorflow.keras.models import Sequential, load_model
@@ -495,6 +494,7 @@ def my_tf_linear(
     tensorboard_path: str = None,
     verbose: int = 0,
     history_table: bool = False,
+    deg: int = 1,
     figsize: tuple = (7, 5),
     dpi: int = 100,
     # hyperband parameters
@@ -531,6 +531,7 @@ def my_tf_linear(
         tensorboard_path (str, optional): 텐서보드 로그가 저장될 디렉토리 경로. Defaults to None.
         verbose (int, optional): 학습 과정 출력 레벨. Defaults to 0.
         history_table (bool, optional): 훈련 결과를 표로 출력할지 여부. Defaults to False.
+        deg (int, optional): 차수. Defaults to 1.
         figsize (tuple, optional): 그래프 크기. Defaults to (7, 5).
         dpi (int, optional): 그래프 해상도. Defaults to 100.
 
@@ -622,6 +623,7 @@ def my_tf_linear(
         plot=plot,
         figsize=figsize,
         dpi=dpi,
+        deg=deg,
     )
 
     return model

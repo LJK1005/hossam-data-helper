@@ -304,7 +304,8 @@ def my_minmax_scaler(
 # -------------------------------------------------------------
 @register_method
 def my_train_test_split(
-    data: DataFrame,
+    data: any,
+    ydata: any = None,
     yname: str = None,
     test_size: float = 0.2,
     random_state: int = get_random_state(),
@@ -315,7 +316,8 @@ def my_train_test_split(
     """데이터프레임을 학습용 데이터와 테스트용 데이터로 나눈다.
 
     Args:
-        data (DataFrame): 데이터프레임 객체
+        data (any): 데이터프레임 객체
+        ydata (any, optional): 종속변수 데이터. Defaults to None.
         yname (str, optional): 종속변수의 컬럼명. Defaults to None.
         test_size (float, optional): 검증 데이터의 비율(0~1). Defaults to 0.3.
         random_state (int, optional): 난수 시드. Defaults to 123.
@@ -326,7 +328,7 @@ def my_train_test_split(
     Returns:
         tuple: x_train, x_test, y_train, y_test
     """
-    _train, x_test, y_train, y_test = None, None, None, None
+    x_train, x_test, y_train, y_test = None, None, None, None
 
     if yname is not None:
         if yname not in data.columns:
@@ -336,6 +338,10 @@ def my_train_test_split(
         y = data[yname]
         x_train, x_test, y_train, y_test = train_test_split(
             x, y, test_size=test_size, random_state=random_state
+        )
+    elif ydata is not None:
+        x_train, x_test, y_train, y_test = train_test_split(
+            data, ydata, test_size=test_size, random_state=random_state
         )
     else:
         x_train, x_test = train_test_split(

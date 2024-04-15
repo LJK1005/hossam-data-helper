@@ -1422,7 +1422,15 @@ def my_confusion_matrix(
     ax = plt.gca()
 
     # 이진분류인지 다항분류인지 구분
-    labels = sorted(list(y.unique()))
+    if y.ndim > 1:
+        y = np.argmax(y, axis=1)
+        y_pred = np.argmax(y_pred, axis=1)
+
+    if hasattr(y, "unique"):
+        labels = sorted(list(y.unique()))
+    else:
+        labels = sorted(list(set(y)))
+
     is_binary = len(labels) == 2
 
     if is_binary:
@@ -1638,7 +1646,12 @@ def my_roc_curve_multiclass_ovo(
     figsize_ = (figsize[0] * cols, figsize[1])
 
     # 추정확률
-    y_proba = estimator.predict_proba(x)
+    if estimator.__class__.__name__ == "Sequential":
+        y_proba = estimator.predict(x)
+    elif hasattr(estimator, "predict_proba"):
+        y_proba = estimator.predict_proba(x)[:, 1]
+    else:
+        y_proba = estimator.predict(x).flatten()
 
     # 히스토그램을 위한 구간
     bins = [i / 20 for i in range(0, 21)]
@@ -1646,7 +1659,6 @@ def my_roc_curve_multiclass_ovo(
     # 각 대조군 별로 auc값을 저장할 리스트
     auc_list = []
 
-    
     if not hasattr(estimator, "classes_"):
         estimator.classes_ = list(set(y))
 
@@ -1821,7 +1833,12 @@ def my_roc_curve_multiclass_ovr(
     figsize_ = (figsize[0] * cols, figsize[1])
 
     # 추정확률
-    y_proba = estimator.predict_proba(x)
+    if estimator.__class__.__name__ == "Sequential":
+        y_proba = estimator.predict(x)
+    elif hasattr(estimator, "predict_proba"):
+        y_proba = estimator.predict_proba(x)[:, 1]
+    else:
+        y_proba = estimator.predict(x).flatten()
 
     # 히스토그램을 위한 구간
     bins = [i / 20 for i in range(0, 21)]
@@ -1829,7 +1846,6 @@ def my_roc_curve_multiclass_ovr(
     # 각 대조군 별로 auc값을 저장할 리스트
     auc_list = []
 
-    
     if not hasattr(estimator, "classes_"):
         estimator.classes_ = list(set(y))
 

@@ -200,6 +200,13 @@ def my_classification_result(
     scores = []
     score_names = []
 
+    if estimator.__class__.__name__ == "Sequential":
+        if y_train is not None and y_train.ndim > 1:
+            y_train = np.argmax(y_train, axis=1)
+
+        if y_test is not None and y_test.ndim > 1:
+            y_test = np.argmax(y_test, axis=1)
+
     # ------------------------------------------------------
     # 이진분류인지 다항분류인지 구분
     if hasattr(estimator, "classes_"):
@@ -213,6 +220,10 @@ def my_classification_result(
 
     is_binary = len(labels) == 2
 
+    print("~" * 50)
+    print(is_binary)
+    print("~" * 50)
+
     # ------------------------------------------------------
     # 훈련데이터
     if x_train is not None and y_train is not None:
@@ -220,9 +231,14 @@ def my_classification_result(
         y_train_pred = estimator.predict(x_train)
 
         if estimator.__class__.__name__ == "Sequential":
-            y_train_pred_proba = y_train_pred.flatten()
-            y_train_pred_proba_1 = y_train_pred_proba
-            y_train_pred = np.where(y_train_pred_proba > 0.5, 1, 0)
+            if is_binary:
+                y_train_pred_proba = y_train_pred.flatten()
+                y_train_pred_proba_1 = y_train_pred_proba
+                y_train_pred = np.where(y_train_pred_proba > 0.5, 1, 0)
+            else:
+                y_train_pred_proba = y_train_pred
+                y_train_pred_proba_1 = y_train_pred_proba
+                y_train_pred = np.argmax(y_train_pred_proba, axis=1)
         else:
             if hasattr(estimator, "predict_proba"):
                 y_train_pred_proba = estimator.predict_proba(x_train)
@@ -291,9 +307,14 @@ def my_classification_result(
         y_test_pred = estimator.predict(x_test)
 
         if estimator.__class__.__name__ == "Sequential":
-            y_test_pred_proba = y_test_pred.flatten()
-            y_test_pred_proba_1 = y_test_pred_proba
-            y_test_pred = np.where(y_test_pred_proba_1 > 0.5, 1, 0)
+            if is_binary:
+                y_test_pred_proba = y_test_pred.flatten()
+                y_test_pred_proba_1 = y_test_pred_proba
+                y_test_pred = np.where(y_test_pred_proba > 0.5, 1, 0)
+            else:
+                y_test_pred_proba = y_test_pred
+                y_test_pred_proba_1 = y_train_pred_proba
+                y_test_pred = np.argmax(y_test_pred_proba, axis=1)
         else:
             if hasattr(estimator, "predict_proba"):
                 y_test_pred_proba = estimator.predict_proba(x_test)
@@ -475,9 +496,9 @@ def my_classification_result(
                 )
 
         # 학습곡선
-        if learning_curve:
+        if learning_curve and estimator.__class__.__name__ != "Sequential":
             print("\n[학습곡선]")
-            yname = y_train.name
+            yname = y_train.name if hasattr(y_train, "name") else "target"
 
             if x_test is not None and y_test is not None:
                 y_df = concat([y_train, y_test])
@@ -522,6 +543,13 @@ def my_classification_report(
         y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
         sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
     """
+    if estimator.__class__.__name__ == "Sequential":
+        if y_train is not None and y_train.ndim > 1:
+            y_train = np.argmax(y_train, axis=1)
+
+        if y_test is not None and y_test.ndim > 1:
+            y_test = np.argmax(y_test, axis=1)
+
     if not hasattr(estimator, "classes_"):
         estimator.classes_ = list(set(y_train))
 
@@ -738,7 +766,8 @@ def my_classification_multiclass_report(
 
             result_df = DataFrame(
                 {
-                    "종속변수": [y.name] * len(xnames),
+                    "종속변수": [y.name if hasattr(y, "name") else "target"]
+                    * len(xnames),
                     "CLASS": [class_list[i]] * len(xnames),
                     "독립변수": xnames,
                     "B(계수)": np.round(estimator.coef_[i], 4),
@@ -776,7 +805,8 @@ def my_classification_multiclass_report(
 
             result_df = DataFrame(
                 {
-                    "종속변수": [y.name] * len(xnames),
+                    "종속변수": [y.name if hasattr(y, "name") else "target"]
+                    * len(xnames),
                     "CLASS": [class_list[i]] * len(xnames),
                     "독립변수": xnames,
                     "VIF": vif,

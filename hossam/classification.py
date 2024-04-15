@@ -219,6 +219,9 @@ def my_classification_result(
         # 추정치
         y_train_pred = estimator.predict(x_train)
 
+        if estimator.__class__.__name__ == "Sequential":
+            y_train_pred = y_train_pred.flatten()
+
         if hasattr(estimator, "predict_proba"):
             y_train_pred_proba = estimator.predict_proba(x_train)
             y_train_pred_proba_1 = y_train_pred_proba[:, 1]
@@ -284,6 +287,9 @@ def my_classification_result(
     if x_test is not None and y_test is not None:
         # 추정치
         y_test_pred = estimator.predict(x_test)
+
+        if estimator.__class__.__name__ == "Sequential":
+            y_test_pred = y_test_pred.flatten()
 
         if hasattr(estimator, "predict_proba"):
             y_test_pred_proba = estimator.predict_proba(x_test)

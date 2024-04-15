@@ -196,6 +196,9 @@ def my_regression_result(
     if x_train is not None and y_train is not None:
         y_train_pred = estimator.predict(x_train)
 
+        if estimator.__class__.__name__ == "Sequential":
+            y_train_pred = y_train_pred.flatten()
+
         # 성능평가
         result = {
             "결정계수(R2)": r2_score(y_train, y_train_pred),
@@ -212,7 +215,11 @@ def my_regression_result(
         score_names.append("훈련데이터")
 
     if x_test is not None and y_test is not None:
+
         y_test_pred = estimator.predict(x_test)
+
+        if estimator.__class__.__name__ == "Sequential":
+            y_test_pred = y_test_pred.flatten()
 
         # 성능평가
         result = {
@@ -361,6 +368,9 @@ def my_regression_report(
     xnames = x.columns
     yname = y.name
     y_pred = estimator.predict(x)
+
+    if estimator.__class__.__name__ == "Sequential":
+        y_pred = y_pred.flatten()
 
     if estimator.__class__.__name__ in ["LinearRegression", "Lasso", "Ridge"]:
         expr = "{yname} = ".format(yname=yname)

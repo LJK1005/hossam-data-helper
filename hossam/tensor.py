@@ -37,7 +37,7 @@ def tf_tune(
     max_epochs=10,
     factor=3,
     seed=get_random_state(),
-    directory="./tensor_hyperband",
+    directory="D:\\tensor_hyperband",
     project_name="tf_hyperband_%s" % dt.now().strftime("%Y%m%d%H%M%S"),
 ) -> Sequential:
     """_summary_
@@ -69,7 +69,11 @@ def tf_tune(
             if "input_shape" in d:
                 model.add(
                     Dense(
-                        units=hp.Choice("units", values=d["units"]),
+                        units=(
+                            hp.Choice("units", values=d["units"])
+                            if type(d["units"]) == list
+                            else d["units"]
+                        ),
                         input_shape=d["input_shape"],
                         activation=d["activation"],
                     )
@@ -77,7 +81,11 @@ def tf_tune(
             else:
                 model.add(
                     Dense(
-                        units=hp.Choice("units", values=d["units"]),
+                        units=(
+                            hp.Choice("units", values=d["units"])
+                            if type(d["units"]) == list
+                            else d["units"]
+                        ),
                         activation=d["activation"],
                     )
                 )
@@ -106,7 +114,11 @@ def tf_tune(
     )
 
     tuner.search(
-        x_train, y_train, epochs=10, batch_size=32, validation_data=(x_test, y_test)
+        x_train,
+        y_train,
+        epochs=max_epochs,
+        batch_size=32,
+        validation_data=(x_test, y_test),
     )
 
     # Get the optimal hyperparameters

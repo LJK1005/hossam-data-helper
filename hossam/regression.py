@@ -1,26 +1,33 @@
-import inspect
-from re import L
-from pycallgraphix.wrapper import register_method
-
+# -*- coding: utf-8 -*-
+# -------------------------------------------------------------
 import numpy as np
-import seaborn as sb
-import matplotlib.pyplot as plt
 import concurrent.futures as futures
 
+# -------------------------------------------------------------
 from pandas import DataFrame, Series, concat
 
-from sklearn.linear_model import LinearRegression, Ridge, Lasso
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.svm import SVR
-from sklearn.linear_model import SGDRegressor
+# -------------------------------------------------------------
+import seaborn as sb
+import matplotlib.pyplot as plt
 
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-from sklearn.preprocessing import StandardScaler
+# -------------------------------------------------------------
+from pycallgraphix.wrapper import register_method
 
+# -------------------------------------------------------------
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson
 from statsmodels.stats.api import het_breuschpagan
+
+# -------------------------------------------------------------
+from scipy.stats import t, f
+
+# -------------------------------------------------------------
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, SGDRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.svm import SVR
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.ensemble import (
     VotingRegressor,
     BaggingRegressor,
@@ -28,10 +35,12 @@ from sklearn.ensemble import (
     AdaBoostRegressor,
     GradientBoostingRegressor,
 )
+
+# -------------------------------------------------------------
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 
-from scipy.stats import t, f
+# -------------------------------------------------------------
 from .core import __ml, get_hyper_params, get_estimator
 from .util import my_pretty_table, my_trend
 from .plot import (
@@ -43,6 +52,7 @@ from .plot import (
 )
 
 
+# -------------------------------------------------------------
 @register_method
 def __my_regression(
     classname: any,
@@ -151,6 +161,7 @@ def __my_regression(
     return estimator
 
 
+# -------------------------------------------------------------
 @register_method
 def my_regression_result(
     estimator: any,
@@ -281,6 +292,7 @@ def my_regression_result(
         )
 
 
+# -------------------------------------------------------------
 @register_method
 def __regression_report_plot(ax: plt.Axes, x, y, xname, yname, y_pred, deg) -> None:
     if deg == 1:
@@ -307,6 +319,7 @@ def __regression_report_plot(ax: plt.Axes, x, y, xname, yname, y_pred, deg) -> N
     ax.grid()
 
 
+# -------------------------------------------------------------
 @register_method
 def my_regression_report(
     estimator: any,
@@ -562,6 +575,7 @@ def my_regression_report(
         plt.close()
 
 
+# -------------------------------------------------------------
 @register_method
 def my_resid_normality(y: Series, y_pred: Series) -> None:
     """MSE값을 이용하여 잔차의 정규성 가정을 확인한다.
@@ -594,6 +608,7 @@ def my_resid_normality(y: Series, y_pred: Series) -> None:
     print(f"잔차의 정규성 가정 충족 여부: {normality}")
 
 
+# -------------------------------------------------------------
 @register_method
 def my_resid_equal_var(x: DataFrame, y: Series, y_pred: Series) -> None:
     """잔차의 등분산성 가정을 확인한다.
@@ -624,6 +639,7 @@ def my_resid_equal_var(x: DataFrame, y: Series, y_pred: Series) -> None:
     my_pretty_table(bs_result_df)
 
 
+# -------------------------------------------------------------
 @register_method
 def my_resid_independence(y: Series, y_pred: Series) -> None:
     """잔차의 독립성 가정을 확인한다.
@@ -636,6 +652,7 @@ def my_resid_independence(y: Series, y_pred: Series) -> None:
     print(f"Durbin-Watson: {dw}, 잔차의 독립성 가정 만족 여부: {dw > 1.5 and dw < 2.5}")
 
 
+# -------------------------------------------------------------
 @register_method
 def my_resid_test(
     x: DataFrame, y: Series, y_pred: Series, figsize: tuple = (10, 5), dpi: int = 200
@@ -662,6 +679,7 @@ def my_resid_test(
     my_resid_independence(y, y_pred)
 
 
+# -------------------------------------------------------------
 @register_method
 def my_linear_regression(
     x_train: DataFrame,
@@ -728,6 +746,7 @@ def my_linear_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_ridge_regression(
     x_train: DataFrame,
@@ -794,6 +813,7 @@ def my_ridge_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_lasso_regression(
     x_train: DataFrame,
@@ -860,6 +880,7 @@ def my_lasso_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_knn_regression(
     x_train: DataFrame,
@@ -926,6 +947,7 @@ def my_knn_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_dtree_regression(
     x_train: DataFrame,
@@ -1011,6 +1033,7 @@ def my_dtree_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_svr_regression(
     x_train: DataFrame,
@@ -1077,6 +1100,7 @@ def my_svr_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_sgd_regression(
     x_train: DataFrame,
@@ -1143,6 +1167,7 @@ def my_sgd_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_rf_regression(
     x_train: DataFrame,
@@ -1209,6 +1234,7 @@ def my_rf_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_regression(
     x_train: DataFrame,
@@ -1436,6 +1462,7 @@ def my_regression(
     return estimators
 
 
+# -------------------------------------------------------------
 @register_method
 def my_voting_regression(
     x_train: DataFrame,
@@ -1536,6 +1563,7 @@ def my_voting_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_bagging_regression(
     x_train: DataFrame,
@@ -1632,6 +1660,7 @@ def my_bagging_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_ada_regression(
     x_train: DataFrame,
@@ -1728,6 +1757,7 @@ def my_ada_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_gbm_regression(
     x_train: DataFrame,
@@ -1790,6 +1820,7 @@ def my_gbm_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_xgb_regression(
     x_train: DataFrame,
@@ -1857,6 +1888,7 @@ def my_xgb_regression(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_lgbm_regression(
     x_train: DataFrame,

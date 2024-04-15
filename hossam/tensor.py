@@ -1,7 +1,18 @@
+# -*- coding: utf-8 -*-
+# -------------------------------------------------------------
 import numpy as np
-
 from datetime import datetime as dt
 
+# -------------------------------------------------------------
+from pycallgraphix.wrapper import register_method
+
+# -------------------------------------------------------------
+from pandas import DataFrame
+
+# -------------------------------------------------------------
+from matplotlib import pyplot as plt
+
+# -------------------------------------------------------------
 from tensorflow.random import set_seed
 from tensorflow.keras.initializers import GlorotUniform
 from tensorflow.keras.models import Sequential, load_model
@@ -11,19 +22,27 @@ from tensorflow.keras.callbacks import (
     EarlyStopping,
     ReduceLROnPlateau,
     TensorBoard,
+    ModelCheckpoint,
 )
 from tensorflow.keras.optimizers import Adam
 
-from pandas import DataFrame
-from matplotlib import pyplot as plt
+# -------------------------------------------------------------
+from kerastuner import Hyperband
+
+# -------------------------------------------------------------
 from .util import my_pretty_table
 from .core import get_random_state
-from kerastuner import Hyperband
+
+# -------------------------------------------------------------
 
 set_seed(get_random_state())
 __initializer__ = GlorotUniform(seed=get_random_state())
 
+__HB_DIR__ = "D:\\tensor_hyperband"
 
+
+# -------------------------------------------------------------
+@register_method
 def tf_tune(
     x_train: np.ndarray,
     y_train: np.ndarray,
@@ -34,11 +53,12 @@ def tf_tune(
     learning_rate: list = [1e-2, 1e-3, 1e-4],
     loss: str = None,
     metrics: list = None,
-    max_epochs=10,
-    factor=3,
-    seed=get_random_state(),
-    directory="D:\\tensor_hyperband",
-    project_name="tf_hyperband_%s" % dt.now().strftime("%Y%m%d%H%M%S"),
+    epochs: int = 500,
+    batch_size: int = 32,
+    factor: int = 3,
+    seed: int = get_random_state(),
+    directory: str = __HB_DIR__,
+    project_name: str = "tf_hyperband_%s" % dt.now().strftime("%Y%m%d%H%M%S"),
 ) -> Sequential:
     """_summary_
 
@@ -52,7 +72,7 @@ def tf_tune(
         learning_rate (list, optional): _description_. Defaults to [1e-2, 1e-3, 1e-4].
         loss (str, optional): _description_. Defaults to None.
         metrics (list, optional): _description_. Defaults to None.
-        max_epochs (int, optional): _description_. Defaults to 10.
+        epochs (int, optional): _description_. Defaults to 10.
         factor (int, optional): _description_. Defaults to 3.
         seed (_type_, optional): _description_. Defaults to get_random_state().
         directory (str, optional): _description_. Defaults to "./tensor_hyperband".
@@ -106,7 +126,7 @@ def tf_tune(
     tuner = Hyperband(
         hypermodel=__tf_build,
         objective=f"val_{metrics[0]}",
-        max_epochs=max_epochs,
+        max_epochs=epochs,
         factor=factor,
         seed=seed,
         directory=directory,
@@ -116,8 +136,8 @@ def tf_tune(
     tuner.search(
         x_train,
         y_train,
-        epochs=max_epochs,
-        batch_size=32,
+        epochs=epochs,
+        batch_size=batch_size,
         validation_data=(x_test, y_test),
     )
 
@@ -131,6 +151,8 @@ def tf_tune(
     return model
 
 
+# -------------------------------------------------------------
+@register_method
 def tf_create(
     dense: list = [],
     optimizer: any = "adam",
@@ -186,6 +208,8 @@ def tf_create(
     return model
 
 
+# -------------------------------------------------------------
+@register_method
 def tf_train(
     model: Sequential,
     x_train: np.ndarray,
@@ -272,6 +296,8 @@ def tf_train(
     return history
 
 
+# -------------------------------------------------------------
+@register_method
 def tf_result(
     result: History,
     history_table: bool = False,
@@ -332,6 +358,8 @@ def tf_result(
         my_pretty_table(result_df)
 
 
+# -------------------------------------------------------------
+@register_method
 def my_tf(
     x_train: np.ndarray,
     y_train: np.ndarray,
@@ -352,6 +380,13 @@ def my_tf(
     history_table: bool = False,
     figsize: tuple = (7, 5),
     dpi: int = 100,
+    # hyperband parameters
+    dense_tune: list = [],
+    learning_rate: list = [1e-2, 1e-3, 1e-4],
+    factor=3,
+    seed=get_random_state(),
+    directory=__HB_DIR__,
+    project_name="tf_hyperband_%s" % dt.now().strftime("%Y%m%d%H%M%S"),
 ) -> Sequential:
     """
     텐서플로우 학습 모델을 생성하고 훈련한 후 결과를 출력한다.
@@ -380,13 +415,32 @@ def my_tf(
     Returns:
         Sequential: 훈련된 TensorFlow Sequential 모델
     """
-    model = tf_create(
-        dense=dense,
-        optimizer=optimizer,
-        loss=loss,
-        metrics=metrics,
-        model_path=model_path,
-    )
+    if dense_tune is not None and len(dense_tune) > 0:
+        model = tf_tune(
+            x_train=x_train,
+            y_train=y_train,
+            x_test=x_test,
+            y_test=y_test,
+            dense_tune=dense_tune,
+            optimizer=optimizer,
+            learning_rate=learning_rate,
+            loss=loss,
+            metrics=metrics,
+            epochs=epochs,
+            batch_size=batch_size,
+            factor=factor,
+            seed=seed,
+            directory=directory,
+            project_name=project_name,
+        )
+    else:
+        model = tf_create(
+            dense=dense,
+            optimizer=optimizer,
+            loss=loss,
+            metrics=metrics,
+            model_path=model_path,
+        )
 
     result = tf_train(
         model=model,
@@ -408,6 +462,8 @@ def my_tf(
     return model
 
 
+# -------------------------------------------------------------
+@register_method
 def my_tf_linear(
     x_train: np.ndarray,
     y_train: np.ndarray,
@@ -428,6 +484,17 @@ def my_tf_linear(
     history_table: bool = False,
     figsize: tuple = (7, 5),
     dpi: int = 100,
+    # hyperband parameters
+    dense_tune: list = [
+        {"units": [64, 32, 16, 8], "activation": "relu", "input_shape": (0,)},
+        {"units": [32, 16, 8, 4], "activation": "relu"},
+        {"units": 1, "activation": "linear"},
+    ],
+    learning_rate: list = [1e-2, 1e-3, 1e-4],
+    factor=3,
+    seed=get_random_state(),
+    directory=__HB_DIR__,
+    project_name="tf_hyperband_%s" % dt.now().strftime("%Y%m%d%H%M%S"),
 ) -> Sequential:
     """
     선형회귀에 대한 텐서플로우 학습 모델을 생성하고 훈련한 후 결과를 출력한다.
@@ -456,42 +523,68 @@ def my_tf_linear(
     Returns:
         Sequential: 훈련된 TensorFlow Sequential 모델
     """
+    if dense_tune is not None and len(dense_tune) > 0:
+        dense_tune[0]["input_shape"] = (x_train.shape[1],)
 
-    dense = []
+        return my_tf(
+            x_train=x_train,
+            y_train=y_train,
+            x_test=x_test,
+            y_test=y_test,
+            optimizer=optimizer,
+            loss=loss,
+            metrics=metrics,
+            epochs=epochs,
+            batch_size=batch_size,
+            tensorboard_path=tensorboard_path,
+            verbose=verbose,
+            history_table=history_table,
+            figsize=figsize,
+            dpi=dpi,
+            # hyperband parameters
+            dense_tune=dense_tune,
+            learning_rate=learning_rate,
+            factor=factor,
+            seed=seed,
+            directory=directory,
+            project_name=project_name,
+        )
+    else:
+        dense = []
 
-    s = len(dense_units)
-    for i, v in enumerate(iterable=dense_units):
-        if i == 0:
-            dense.append(
-                {
-                    "units": v,
-                    "input_shape": (x_train.shape[1],),
-                    "activation": "relu",
-                }
-            )
-        else:
-            dense.append({"units": v, "activation": "relu"})
+        s = len(dense_units)
+        for i, v in enumerate(iterable=dense_units):
+            if i == 0:
+                dense.append(
+                    {
+                        "units": v,
+                        "input_shape": (x_train.shape[1],),
+                        "activation": "relu",
+                    }
+                )
+            else:
+                dense.append({"units": v, "activation": "relu"})
 
-    dense.append({"units": 1, "activation": "linear"})
+        dense.append({"units": 1, "activation": "linear"})
 
-    return my_tf(
-        x_train=x_train,
-        y_train=y_train,
-        x_test=x_test,
-        y_test=y_test,
-        dense=dense,
-        optimizer=optimizer,
-        loss=loss,
-        metrics=metrics,
-        epochs=epochs,
-        batch_size=batch_size,
-        early_stopping=early_stopping,
-        reduce_lr=reduce_lr,
-        checkpoint_path=checkpoint_path,
-        model_path=model_path,
-        tensorboard_path=tensorboard_path,
-        verbose=verbose,
-        history_table=history_table,
-        figsize=figsize,
-        dpi=dpi,
-    )
+        return my_tf(
+            x_train=x_train,
+            y_train=y_train,
+            x_test=x_test,
+            y_test=y_test,
+            dense=dense,
+            optimizer=optimizer,
+            loss=loss,
+            metrics=metrics,
+            epochs=epochs,
+            batch_size=batch_size,
+            early_stopping=early_stopping,
+            reduce_lr=reduce_lr,
+            checkpoint_path=checkpoint_path,
+            model_path=model_path,
+            tensorboard_path=tensorboard_path,
+            verbose=verbose,
+            history_table=history_table,
+            figsize=figsize,
+            dpi=dpi,
+        )

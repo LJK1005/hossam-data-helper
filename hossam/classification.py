@@ -1,12 +1,26 @@
-import inspect
-from re import L
-from pycallgraphix.wrapper import register_method
-
-# import logging
+# -*- coding: utf-8 -*-
+# -------------------------------------------------------------
 import numpy as np
 import concurrent.futures as futures
 
+# -------------------------------------------------------------
+from pycallgraphix.wrapper import register_method
+
+# -------------------------------------------------------------
 from pandas import DataFrame, Series, concat
+
+# -------------------------------------------------------------
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+# -------------------------------------------------------------
+from scipy.stats import norm
+
+# -------------------------------------------------------------
+from sklearn.linear_model import LogisticRegression, SGDClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import LinearSVC, SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import (
     log_loss,
     confusion_matrix,
@@ -16,13 +30,6 @@ from sklearn.metrics import (
     f1_score,
     roc_auc_score,
 )
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import LinearSVC, SVC
-from sklearn.naive_bayes import GaussianNB
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import (
     AdaBoostClassifier,
     GradientBoostingClassifier,
@@ -30,11 +37,12 @@ from sklearn.ensemble import (
     BaggingClassifier,
     RandomForestClassifier,
 )
+
+# -------------------------------------------------------------
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 
-from scipy.stats import norm
-
+# -------------------------------------------------------------
 from .core import __ml, get_hyper_params, get_estimator
 from .util import my_pretty_table
 from .plot import (
@@ -47,6 +55,7 @@ from .plot import (
 )
 
 
+# -------------------------------------------------------------
 @register_method
 def __my_classification(
     classname: any,
@@ -147,6 +156,7 @@ def __my_classification(
     return estimator
 
 
+# -------------------------------------------------------------
 @register_method
 def my_classification_result(
     estimator: any,
@@ -479,6 +489,7 @@ def my_classification_result(
             my_tree(estimator=estimator)
 
 
+# -------------------------------------------------------------
 @register_method
 def my_classification_report(
     estimator: any,
@@ -516,6 +527,7 @@ def my_classification_report(
             )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_classification_binary_report(
     estimator: any, x: DataFrame = None, y: Series = None, sort: str = None
@@ -633,6 +645,7 @@ def my_classification_binary_report(
         my_pretty_table(result_df)
 
 
+# -------------------------------------------------------------
 @register_method
 def my_classification_multiclass_report(
     estimator: any,
@@ -757,6 +770,7 @@ def my_classification_multiclass_report(
             my_pretty_table(result_df)
 
 
+# -------------------------------------------------------------
 @register_method
 def my_logistic_classification(
     x_train: DataFrame,
@@ -828,6 +842,7 @@ def my_logistic_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_knn_classification(
     x_train: DataFrame,
@@ -899,6 +914,7 @@ def my_knn_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_nb_classification(
     x_train: DataFrame,
@@ -965,6 +981,7 @@ def my_nb_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_dtree_classification(
     x_train: DataFrame,
@@ -1051,6 +1068,7 @@ def my_dtree_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_linear_svc_classification(
     x_train: DataFrame,
@@ -1115,6 +1133,7 @@ def my_linear_svc_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_svc_classification(
     x_train: DataFrame,
@@ -1188,6 +1207,7 @@ def my_svc_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_sgd_classification(
     x_train: DataFrame,
@@ -1255,6 +1275,7 @@ def my_sgd_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_rf_classification(
     x_train: DataFrame,
@@ -1322,6 +1343,7 @@ def my_rf_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_classification(
     x_train: DataFrame,
@@ -1555,6 +1577,7 @@ def my_classification(
     return estimators
 
 
+# -------------------------------------------------------------
 @register_method
 def my_voting_classification(
     x_train: DataFrame,
@@ -1677,6 +1700,7 @@ def my_voting_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_bagging_classification(
     x_train: DataFrame,
@@ -1779,6 +1803,7 @@ def my_bagging_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_ada_classification(
     x_train: DataFrame,
@@ -1880,6 +1905,7 @@ def my_ada_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_gbm_classification(
     x_train: DataFrame,
@@ -1945,6 +1971,7 @@ def my_gbm_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_xgb_classification(
     x_train: DataFrame,
@@ -1988,6 +2015,7 @@ def my_xgb_classification(
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_lgbm_classification(
     x_train: DataFrame,

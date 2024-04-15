@@ -1,28 +1,44 @@
+# -*- coding: utf-8 -*-
+# -------------------------------------------------------------
+import sys
+import numpy as np
+from datetime import datetime as dt
+
+# -------------------------------------------------------------
 import cProfile
 import joblib
 from pycallgraphix.wrapper import register_method, MethodChart
-from datetime import datetime as dt
 
-import numpy as np
-from pycallgraphix.wrapper import register_method
-from tabulate import tabulate
+# -------------------------------------------------------------
 from pandas import DataFrame, Series, read_excel, get_dummies, DatetimeIndex
+
+# -------------------------------------------------------------
+from matplotlib import pyplot as plt
+from tabulate import tabulate
+
+# -------------------------------------------------------------
+from scipy.stats import normaltest
+
+# -------------------------------------------------------------
+from pca import pca
+
+# -------------------------------------------------------------
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+# -------------------------------------------------------------
+from imblearn.over_sampling import SMOTE, RandomOverSampler
+from imblearn.under_sampling import RandomUnderSampler
+
+# -------------------------------------------------------------
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, PolynomialFeatures
 from sklearn.impute import SimpleImputer
-from scipy.stats import normaltest
 
-from imblearn.over_sampling import SMOTE, RandomOverSampler
-from imblearn.under_sampling import RandomUnderSampler
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-
-import sys
-from pca import pca
-from matplotlib import pyplot as plt
-
+# -------------------------------------------------------------
 from .core import *
 
 
+# -------------------------------------------------------------
 @register_method
 def my_normalize_data(
     mean: float, std: float, size: int = 100, round: int = 2
@@ -46,6 +62,7 @@ def my_normalize_data(
     return x
 
 
+# -------------------------------------------------------------
 @register_method
 def my_normalize_df(
     means: list = [0, 0, 0],
@@ -71,6 +88,7 @@ def my_normalize_df(
     return DataFrame(data)
 
 
+# -------------------------------------------------------------
 @register_method
 def my_pretty_table(data: DataFrame, headers: str = "keys") -> None:
     print(
@@ -80,6 +98,7 @@ def my_pretty_table(data: DataFrame, headers: str = "keys") -> None:
     )
 
 
+# -------------------------------------------------------------
 @register_method
 def my_read_excel(
     path: str,
@@ -148,6 +167,7 @@ def my_read_excel(
     return data
 
 
+# -------------------------------------------------------------
 @register_method
 def my_standard_scaler(
     data: any, yname: str = None, save_path: str = None, load_path: str = None
@@ -218,6 +238,7 @@ def my_standard_scaler(
     return std_df
 
 
+# -------------------------------------------------------------
 @register_method
 def my_minmax_scaler(
     data: DataFrame, yname: str = None, save_path: str = None, load_path: str = None
@@ -280,6 +301,7 @@ def my_minmax_scaler(
     return std_df
 
 
+# -------------------------------------------------------------
 @register_method
 def my_train_test_split(
     data: DataFrame,
@@ -346,6 +368,7 @@ def my_train_test_split(
         return x_train, x_test
 
 
+# -------------------------------------------------------------
 @register_method
 def my_category(data: DataFrame, *args: str) -> DataFrame:
     """카테고리 데이터를 설정한다.
@@ -365,6 +388,7 @@ def my_category(data: DataFrame, *args: str) -> DataFrame:
     return df
 
 
+# -------------------------------------------------------------
 @register_method
 def my_unmelt(
     data: DataFrame, id_vars: str = "class", value_vars: str = "values"
@@ -389,6 +413,7 @@ def my_unmelt(
     return DataFrame(mydict)
 
 
+# -------------------------------------------------------------
 @register_method
 def my_replace_missing_value(data: DataFrame, strategy: str = "mean") -> DataFrame:
     # 결측치 처리 규칙 생성
@@ -401,6 +426,7 @@ def my_replace_missing_value(data: DataFrame, strategy: str = "mean") -> DataFra
     return DataFrame(df_imr, index=data.index, columns=data.columns)
 
 
+# -------------------------------------------------------------
 @register_method
 def my_outlier_table(data: DataFrame, *fields: str):
     """데이터프레임의 사분위수와 결측치 경계값을 구한다.
@@ -454,6 +480,7 @@ def my_outlier_table(data: DataFrame, *fields: str):
     return DataFrame(result).set_index("FIELD")
 
 
+# -------------------------------------------------------------
 @register_method
 def my_replace_outliner(data: DataFrame, *fields: str) -> DataFrame:
     """이상치 경계값을 넘어가는 데이터를 경계값으로 대체한다.
@@ -493,6 +520,7 @@ def my_replace_outliner(data: DataFrame, *fields: str) -> DataFrame:
     return df
 
 
+# -------------------------------------------------------------
 @register_method
 def my_replace_outliner_to_nan(data: DataFrame, *fields: str) -> DataFrame:
     """이상치를 결측치로 대체한다.
@@ -532,6 +560,7 @@ def my_replace_outliner_to_nan(data: DataFrame, *fields: str) -> DataFrame:
     return df
 
 
+# -------------------------------------------------------------
 @register_method
 def my_replace_outliner_to_mean(data: DataFrame, *fields: str) -> DataFrame:
     """이상치를 평균값으로 대체한다.
@@ -571,6 +600,7 @@ def my_replace_outliner_to_mean(data: DataFrame, *fields: str) -> DataFrame:
     return df3
 
 
+# -------------------------------------------------------------
 @register_method
 def my_drop_outliner(data: DataFrame, *fields: str) -> DataFrame:
     """이상치를 결측치로 변환한 후 모두 삭제한다.
@@ -587,6 +617,7 @@ def my_drop_outliner(data: DataFrame, *fields: str) -> DataFrame:
     return df.dropna()
 
 
+# -------------------------------------------------------------
 @register_method
 def my_dummies(data: DataFrame, *args: str) -> DataFrame:
     """명목형 변수를 더미 변수로 변환한다.
@@ -610,6 +641,7 @@ def my_dummies(data: DataFrame, *args: str) -> DataFrame:
     return get_dummies(data, columns=args, drop_first=True, dtype="int")
 
 
+# -------------------------------------------------------------
 @register_method
 def my_trend(x: any, y: any, degree=2, value_count=100) -> tuple:
     """x, y 데이터에 대한 추세선을 구한다.
@@ -642,6 +674,7 @@ def my_trend(x: any, y: any, degree=2, value_count=100) -> tuple:
     return (v_trend, t_trend)
 
 
+# -------------------------------------------------------------
 @register_method
 def my_poly_features(
     data: DataFrame, columns: any = None, ignore: any = None, degree: int = 2
@@ -690,6 +723,7 @@ def my_poly_features(
     return df
 
 
+# -------------------------------------------------------------
 @register_method
 def my_labelling(data: DataFrame, *fields: str) -> DataFrame:
     """명목형 변수를 라벨링한다.
@@ -722,6 +756,7 @@ def my_labelling(data: DataFrame, *fields: str) -> DataFrame:
     return df
 
 
+# -------------------------------------------------------------
 @register_method
 def my_balance(xdata: DataFrame, ydata: Series, method: str = "smote") -> DataFrame:
     """불균형 데이터를 균형 데이터로 변환한다.
@@ -752,6 +787,7 @@ def my_balance(xdata: DataFrame, ydata: Series, method: str = "smote") -> DataFr
     return xdata, ydata
 
 
+# -------------------------------------------------------------
 @register_method
 def my_vif_filter(
     data: DataFrame, yname: str = None, ignore: list = [], threshold: float = 10
@@ -818,6 +854,7 @@ def my_vif_filter(
     return df
 
 
+# -------------------------------------------------------------
 @register_method
 def my_pca(
     data: DataFrame,

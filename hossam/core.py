@@ -1,19 +1,32 @@
+# -*- coding: utf-8 -*-
+# -------------------------------------------------------------
 import inspect
 import sys, os
 import numpy as np
+
+# -------------------------------------------------------------
 from pycallgraphix.wrapper import register_method
 
+# -------------------------------------------------------------
 from tabulate import tabulate
+
+# -------------------------------------------------------------
 from pandas import DataFrame, Series
+
+# -------------------------------------------------------------
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
-
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, LogisticRegression
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 from sklearn.svm import SVR, LinearSVC, SVC
 from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
-from sklearn.linear_model import SGDRegressor, SGDClassifier
+from sklearn.linear_model import (
+    LinearRegression,
+    Ridge,
+    Lasso,
+    LogisticRegression,
+    SGDRegressor,
+    SGDClassifier,
+)
 from sklearn.ensemble import (
     BaggingClassifier,
     BaggingRegressor,
@@ -24,10 +37,12 @@ from sklearn.ensemble import (
     GradientBoostingClassifier,
     GradientBoostingRegressor,
 )
+
+# -------------------------------------------------------------
 from xgboost import XGBClassifier, XGBRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 
-
+# -------------------------------------------------------------
 __RANDOM_STATE__ = 0
 
 __MAX_ITER__ = 1000
@@ -215,6 +230,7 @@ __LIGHTGBM_REGRESSION_HYPER_PARAMS__ = {
 }
 
 
+# -------------------------------------------------------------
 @register_method
 def get_estimator(
     classname: any,
@@ -288,6 +304,7 @@ def get_estimator(
     return classname(**args)
 
 
+# -------------------------------------------------------------
 @register_method
 def __ml(
     classname: any,
@@ -485,6 +502,7 @@ def __ml(
     return estimator
 
 
+# -------------------------------------------------------------
 @register_method
 def get_random_state() -> int:
     """랜덤 시드를 반환한다.
@@ -495,6 +513,7 @@ def get_random_state() -> int:
     return __RANDOM_STATE__
 
 
+# -------------------------------------------------------------
 @register_method
 def get_max_iter() -> int:
     """최대 반복 횟수를 반환한다.
@@ -505,6 +524,7 @@ def get_max_iter() -> int:
     return __MAX_ITER__
 
 
+# -------------------------------------------------------------
 @register_method
 def get_n_jobs() -> int:
     """병렬 처리 개수를 반환한다.
@@ -515,6 +535,7 @@ def get_n_jobs() -> int:
     return __N_JOBS__
 
 
+# -------------------------------------------------------------
 @register_method
 def get_hyper_params(classname: any, key: str = None) -> dict:
     """분류분석 추정기의 하이퍼파라미터를 반환한다.

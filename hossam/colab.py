@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# -------------------------------------------------------------
 def init(package: bool = False, mecab: bool = False) -> None:
     import warnings, os, sys
 
@@ -62,5 +64,6 @@ def init(package: bool = False, mecab: bool = False) -> None:
     return IN_COLAB
 
 
+# -------------------------------------------------------------
 if __name__ == "__main__":
     IN_COLAB = init()

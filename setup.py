@@ -34,5 +34,6 @@ setup(
         "xgboost",
         "lightgbm",
         "tensorflow",
+        "keras-tuner",
     ],
 )

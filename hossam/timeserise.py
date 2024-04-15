@@ -1,28 +1,42 @@
-# import logging
-from pycallgraphix.wrapper import register_method
+# -*- coding: utf-8 -*-
+# -------------------------------------------------------------
 import numpy as np
-import seaborn as sb
 import datetime as dt
 import concurrent.futures as futures
 
+# -------------------------------------------------------------
+from pycallgraphix.wrapper import register_method
+
+# -------------------------------------------------------------
 from pandas import DataFrame, Series, date_range
+
+# -------------------------------------------------------------
+import seaborn as sb
 from matplotlib import pyplot as plt
 
+# -------------------------------------------------------------
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.arima.model import ARIMA
+
+# -------------------------------------------------------------
 from pmdarima.arima import auto_arima
+
+# -------------------------------------------------------------
 from prophet import Prophet
 from prophet.plot import add_changepoints_to_plot
 
+# -------------------------------------------------------------
 from sklearn.model_selection import ParameterGrid
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
+# -------------------------------------------------------------
 from .util import my_pretty_table
 from .plot import my_lineplot
 
 
+# -------------------------------------------------------------
 @register_method
 def my_diff(
     data: DataFrame,
@@ -94,6 +108,7 @@ def my_diff(
     return df
 
 
+# -------------------------------------------------------------
 @register_method
 def my_rolling(
     data: Series,
@@ -131,6 +146,7 @@ def my_rolling(
     return rolling
 
 
+# -------------------------------------------------------------
 @register_method
 def my_ewm(
     data: Series, span: int, plot: bool = True, figsize: tuple = (10, 5), dpi: int = 100
@@ -164,6 +180,7 @@ def my_ewm(
     return ewm
 
 
+# -------------------------------------------------------------
 @register_method
 def my_seasonal_decompose(
     data: Series,
@@ -215,6 +232,7 @@ def my_seasonal_decompose(
     return sd_df
 
 
+# -------------------------------------------------------------
 @register_method
 def my_timeseries_split(data: DataFrame, test_size: float = 0.2) -> tuple:
     """시계열 데이터를 학습 데이터와 테스트 데이터로 분할한다.
@@ -237,6 +255,7 @@ def my_timeseries_split(data: DataFrame, test_size: float = 0.2) -> tuple:
     return (train, test)
 
 
+# -------------------------------------------------------------
 @register_method
 def my_acf_plot(
     data: Series, figsize: tuple = (10, 5), dpi: int = 100, callback: any = None
@@ -262,6 +281,7 @@ def my_acf_plot(
     plt.close()
 
 
+# -------------------------------------------------------------
 @register_method
 def my_pacf_plot(
     data: Series, figsize: tuple = (10, 5), dpi: int = 100, callback: any = None
@@ -287,6 +307,7 @@ def my_pacf_plot(
     plt.close()
 
 
+# -------------------------------------------------------------
 @register_method
 def my_acf_pacf_plot(
     data: Series, figsize: tuple = (10, 5), dpi: int = 100, callback: any = None
@@ -314,6 +335,7 @@ def my_acf_pacf_plot(
     plt.close()
 
 
+# -------------------------------------------------------------
 @register_method
 def my_arima(
     train: Series,
@@ -420,6 +442,7 @@ def my_arima(
     return model
 
 
+# -------------------------------------------------------------
 @register_method
 def __prophet_execute(
     train: DataFrame,
@@ -465,6 +488,7 @@ def __prophet_execute(
     return model, score, dict(params), forecast, pred
 
 
+# -------------------------------------------------------------
 @register_method
 def my_prophet(
     train: DataFrame,
@@ -571,6 +595,7 @@ def my_prophet(
     return best_model, best_params, best_score, best_forecast, best_pred
 
 
+# -------------------------------------------------------------
 @register_method
 def my_prophet_report(
     model: Prophet,
@@ -659,6 +684,7 @@ def my_prophet_report(
         my_pretty_table(DataFrame(result, index=["Prophet"]).T)
 
 
+# -------------------------------------------------------------
 @register_method
 def get_weekend_df(start: any, end: any = None) -> DataFrame:
     """주말 데이터 프레임을 생성한다.

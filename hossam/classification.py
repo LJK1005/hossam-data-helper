@@ -220,11 +220,13 @@ def my_classification_result(
         y_train_pred = estimator.predict(x_train)
 
         if estimator.__class__.__name__ == "Sequential":
-            y_train_pred = y_train_pred.flatten()
-
-        if hasattr(estimator, "predict_proba"):
-            y_train_pred_proba = estimator.predict_proba(x_train)
-            y_train_pred_proba_1 = y_train_pred_proba[:, 1]
+            y_train_pred_proba = y_train_pred.flatten()
+            y_train_pred_proba_1 = y_train_pred_proba
+            y_train_pred = np.where(y_train_pred_proba > 0.5, 1, 0)
+        else:
+            if hasattr(estimator, "predict_proba"):
+                y_train_pred_proba = estimator.predict_proba(x_train)
+                y_train_pred_proba_1 = y_train_pred_proba[:, 1]
 
         # 의사결정계수 --> 다항로지스틱에서는 사용 X
         y_train_pseudo_r2 = 0
@@ -289,11 +291,13 @@ def my_classification_result(
         y_test_pred = estimator.predict(x_test)
 
         if estimator.__class__.__name__ == "Sequential":
-            y_test_pred = y_test_pred.flatten()
-
-        if hasattr(estimator, "predict_proba"):
-            y_test_pred_proba = estimator.predict_proba(x_test)
-            y_test_pred_proba_1 = y_test_pred_proba[:, 1]
+            y_test_pred_proba = y_test_pred.flatten()
+            y_test_pred_proba_1 = y_test_pred_proba
+            y_test_pred = np.where(y_test_pred_proba_1 > 0.5, 1, 0)
+        else:
+            if hasattr(estimator, "predict_proba"):
+                y_test_pred_proba = estimator.predict_proba(x_test)
+                y_test_pred_proba_1 = y_test_pred_proba[:, 1]
 
         # 의사결정계수
         y_test_pseudo_r2 = 0
@@ -441,7 +445,10 @@ def my_classification_result(
     # ------------------------------------------------------
     # curve
     if is_print:
-        if hasattr(estimator, "predict_proba"):
+        if (
+            hasattr(estimator, "predict_proba")
+            or estimator.__class__.__name__ == "Sequential"
+        ):
             if x_test is None or y_test is None:
                 print("\n[Roc Curve]")
                 my_roc_curve(
@@ -515,6 +522,9 @@ def my_classification_report(
         y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
         sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
     """
+    if not hasattr(estimator, "classes_"):
+        estimator.classes_ = list(set(y_train))
+
     is_binary = len(estimator.classes_) == 2
 
     if is_binary:
@@ -667,7 +677,11 @@ def my_classification_multiclass_report(
         y (Series, optional): 종속변수. Defaults to None.
         sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
     """
-    class_list = list(estimator.classes_)
+    if hasattr(estimator, "classes_"):
+        class_list = list(estimator.classes_)
+    else:
+        classes = list(set(y))
+
     class_size = len(class_list)
 
     if estimator.__class__.__name__ == "LogisticRegression":

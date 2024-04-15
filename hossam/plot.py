@@ -1496,10 +1496,16 @@ def my_roc_curve_binary(
     # 히스토그램을 위한 구간
     bins = [i / 20 for i in range(0, 21)]
 
+    if not hasattr(estimator, "classes_"):
+        estimator.classes_ = list(set(y))
+
     title = "{0} vs {1}".format(estimator.classes_[0], estimator.classes_[1])
 
     # 예측확률
-    y_proba = estimator.predict_proba(x)[:, 1]
+    if hasattr(estimator, "predict_proba"):
+        y_proba = estimator.predict_proba(x)[:, 1]
+    else:
+        y_proba = estimator.predict(x).flatten()
 
     # 비교 대상을 위한 데이터
     df_aux = DataFrame({"class": y, "prob": y_proba})
@@ -1639,6 +1645,10 @@ def my_roc_curve_multiclass_ovo(
 
     # 각 대조군 별로 auc값을 저장할 리스트
     auc_list = []
+
+    
+    if not hasattr(estimator, "classes_"):
+        estimator.classes_ = list(set(y))
 
     # 모든 클래스 쌍의 조합 만들기
     class_combinations = []
@@ -1819,6 +1829,10 @@ def my_roc_curve_multiclass_ovr(
     # 각 대조군 별로 auc값을 저장할 리스트
     auc_list = []
 
+    
+    if not hasattr(estimator, "classes_"):
+        estimator.classes_ = list(set(y))
+
     # 모든 클래스
     class_list = list(estimator.classes_)
     size = len(class_list)
@@ -1962,6 +1976,10 @@ def my_roc_curve(
         dpi (int, optional): 그래프의 해상도. Defaults to 200.
         callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
     """
+
+    if not hasattr(estimator, "classes_"):
+        estimator.classes_ = list(set(y))
+
     is_binary = len(estimator.classes_) == 2
 
     if is_binary:

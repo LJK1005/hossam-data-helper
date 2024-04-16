@@ -305,13 +305,13 @@ def my_minmax_scaler(
 @register_method
 def my_train_test_split(
     data: any,
-    ydata: any = None,
     yname: str = None,
     test_size: float = 0.2,
     random_state: int = get_random_state(),
     scalling: bool = False,
     save_path: str = None,
     load_path: str = None,
+    ydata: any = None,
 ) -> tuple:
     """데이터프레임을 학습용 데이터와 테스트용 데이터로 나눈다.
 

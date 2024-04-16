@@ -1,26 +1,12 @@
-# -*- coding: utf-8 -*-
-# -------------------------------------------------------------
+import inspect
+from re import L
+from pycallgraphix.wrapper import register_method
+
+# import logging
 import numpy as np
 import concurrent.futures as futures
 
-# -------------------------------------------------------------
-from pycallgraphix.wrapper import register_method
-
-# -------------------------------------------------------------
 from pandas import DataFrame, Series, concat
-
-# -------------------------------------------------------------
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-
-# -------------------------------------------------------------
-from scipy.stats import norm
-
-# -------------------------------------------------------------
-from sklearn.linear_model import LogisticRegression, SGDClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import LinearSVC, SVC
-from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import (
     log_loss,
     confusion_matrix,
@@ -30,6 +16,13 @@ from sklearn.metrics import (
     f1_score,
     roc_auc_score,
 )
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import LinearSVC, SVC
+from sklearn.naive_bayes import GaussianNB
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import (
     AdaBoostClassifier,
     GradientBoostingClassifier,
@@ -37,12 +30,11 @@ from sklearn.ensemble import (
     BaggingClassifier,
     RandomForestClassifier,
 )
-
-# -------------------------------------------------------------
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 
-# -------------------------------------------------------------
+from scipy.stats import norm
+
 from .core import __ml, get_hyper_params, get_estimator
 from .util import my_pretty_table
 from .plot import (
@@ -55,7 +47,6 @@ from .plot import (
 )
 
 
-# -------------------------------------------------------------
 @register_method
 def __my_classification(
     classname: any,
@@ -156,7 +147,6 @@ def __my_classification(
     return estimator
 
 
-# -------------------------------------------------------------
 @register_method
 def my_classification_result(
     estimator: any,
@@ -200,13 +190,6 @@ def my_classification_result(
     scores = []
     score_names = []
 
-    if estimator.__class__.__name__ == "Sequential":
-        if y_train is not None and y_train.ndim > 1:
-            y_train = np.argmax(y_train, axis=1)
-
-        if y_test is not None and y_test.ndim > 1:
-            y_test = np.argmax(y_test, axis=1)
-
     # ------------------------------------------------------
     # 이진분류인지 다항분류인지 구분
     if hasattr(estimator, "classes_"):
@@ -220,29 +203,15 @@ def my_classification_result(
 
     is_binary = len(labels) == 2
 
-    print("~" * 50)
-    print(is_binary)
-    print("~" * 50)
-
     # ------------------------------------------------------
     # 훈련데이터
     if x_train is not None and y_train is not None:
         # 추정치
         y_train_pred = estimator.predict(x_train)
 
-        if estimator.__class__.__name__ == "Sequential":
-            if is_binary:
-                y_train_pred_proba = y_train_pred.flatten()
-                y_train_pred_proba_1 = y_train_pred_proba
-                y_train_pred = np.where(y_train_pred_proba > 0.5, 1, 0)
-            else:
-                y_train_pred_proba = y_train_pred
-                y_train_pred_proba_1 = y_train_pred_proba
-                y_train_pred = np.argmax(y_train_pred_proba, axis=1)
-        else:
-            if hasattr(estimator, "predict_proba"):
-                y_train_pred_proba = estimator.predict_proba(x_train)
-                y_train_pred_proba_1 = y_train_pred_proba[:, 1]
+        if hasattr(estimator, "predict_proba"):
+            y_train_pred_proba = estimator.predict_proba(x_train)
+            y_train_pred_proba_1 = y_train_pred_proba[:, 1]
 
         # 의사결정계수 --> 다항로지스틱에서는 사용 X
         y_train_pseudo_r2 = 0
@@ -306,19 +275,9 @@ def my_classification_result(
         # 추정치
         y_test_pred = estimator.predict(x_test)
 
-        if estimator.__class__.__name__ == "Sequential":
-            if is_binary:
-                y_test_pred_proba = y_test_pred.flatten()
-                y_test_pred_proba_1 = y_test_pred_proba
-                y_test_pred = np.where(y_test_pred_proba > 0.5, 1, 0)
-            else:
-                y_test_pred_proba = y_test_pred
-                y_test_pred_proba_1 = y_train_pred_proba
-                y_test_pred = np.argmax(y_test_pred_proba, axis=1)
-        else:
-            if hasattr(estimator, "predict_proba"):
-                y_test_pred_proba = estimator.predict_proba(x_test)
-                y_test_pred_proba_1 = y_test_pred_proba[:, 1]
+        if hasattr(estimator, "predict_proba"):
+            y_test_pred_proba = estimator.predict_proba(x_test)
+            y_test_pred_proba_1 = y_test_pred_proba[:, 1]
 
         # 의사결정계수
         y_test_pseudo_r2 = 0
@@ -466,10 +425,7 @@ def my_classification_result(
     # ------------------------------------------------------
     # curve
     if is_print:
-        if (
-            hasattr(estimator, "predict_proba")
-            or estimator.__class__.__name__ == "Sequential"
-        ):
+        if hasattr(estimator, "predict_proba"):
             if x_test is None or y_test is None:
                 print("\n[Roc Curve]")
                 my_roc_curve(
@@ -496,9 +452,9 @@ def my_classification_result(
                 )
 
         # 학습곡선
-        if learning_curve and estimator.__class__.__name__ != "Sequential":
+        if learning_curve:
             print("\n[학습곡선]")
-            yname = y_train.name if hasattr(y_train, "name") else "target"
+            yname = y_train.name
 
             if x_test is not None and y_test is not None:
                 y_df = concat([y_train, y_test])
@@ -523,7 +479,6 @@ def my_classification_result(
             my_tree(estimator=estimator)
 
 
-# -------------------------------------------------------------
 @register_method
 def my_classification_report(
     estimator: any,
@@ -543,16 +498,6 @@ def my_classification_report(
         y_test (Series, optional): 검증 데이터의 종속변수. Defaults to None.
         sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
     """
-    if estimator.__class__.__name__ == "Sequential":
-        if y_train is not None and y_train.ndim > 1:
-            y_train = np.argmax(y_train, axis=1)
-
-        if y_test is not None and y_test.ndim > 1:
-            y_test = np.argmax(y_test, axis=1)
-
-    if not hasattr(estimator, "classes_"):
-        estimator.classes_ = list(set(y_train))
-
     is_binary = len(estimator.classes_) == 2
 
     if is_binary:
@@ -571,7 +516,6 @@ def my_classification_report(
             )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_classification_binary_report(
     estimator: any, x: DataFrame = None, y: Series = None, sort: str = None
@@ -689,7 +633,6 @@ def my_classification_binary_report(
         my_pretty_table(result_df)
 
 
-# -------------------------------------------------------------
 @register_method
 def my_classification_multiclass_report(
     estimator: any,
@@ -705,11 +648,7 @@ def my_classification_multiclass_report(
         y (Series, optional): 종속변수. Defaults to None.
         sort (str, optional): 독립변수 결과 보고 표의 정렬 기준 (v, p)
     """
-    if hasattr(estimator, "classes_"):
-        class_list = list(estimator.classes_)
-    else:
-        classes = list(set(y))
-
+    class_list = list(estimator.classes_)
     class_size = len(class_list)
 
     if estimator.__class__.__name__ == "LogisticRegression":
@@ -766,8 +705,7 @@ def my_classification_multiclass_report(
 
             result_df = DataFrame(
                 {
-                    "종속변수": [y.name if hasattr(y, "name") else "target"]
-                    * len(xnames),
+                    "종속변수": [y.name] * len(xnames),
                     "CLASS": [class_list[i]] * len(xnames),
                     "독립변수": xnames,
                     "B(계수)": np.round(estimator.coef_[i], 4),
@@ -805,8 +743,7 @@ def my_classification_multiclass_report(
 
             result_df = DataFrame(
                 {
-                    "종속변수": [y.name if hasattr(y, "name") else "target"]
-                    * len(xnames),
+                    "종속변수": [y.name] * len(xnames),
                     "CLASS": [class_list[i]] * len(xnames),
                     "독립변수": xnames,
                     "VIF": vif,
@@ -820,7 +757,6 @@ def my_classification_multiclass_report(
             my_pretty_table(result_df)
 
 
-# -------------------------------------------------------------
 @register_method
 def my_logistic_classification(
     x_train: DataFrame,
@@ -892,7 +828,6 @@ def my_logistic_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_knn_classification(
     x_train: DataFrame,
@@ -964,7 +899,6 @@ def my_knn_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_nb_classification(
     x_train: DataFrame,
@@ -1031,7 +965,6 @@ def my_nb_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_dtree_classification(
     x_train: DataFrame,
@@ -1118,7 +1051,6 @@ def my_dtree_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_linear_svc_classification(
     x_train: DataFrame,
@@ -1183,7 +1115,6 @@ def my_linear_svc_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_svc_classification(
     x_train: DataFrame,
@@ -1257,7 +1188,6 @@ def my_svc_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_sgd_classification(
     x_train: DataFrame,
@@ -1325,7 +1255,6 @@ def my_sgd_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_rf_classification(
     x_train: DataFrame,
@@ -1393,7 +1322,6 @@ def my_rf_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_classification(
     x_train: DataFrame,
@@ -1627,7 +1555,6 @@ def my_classification(
     return estimators
 
 
-# -------------------------------------------------------------
 @register_method
 def my_voting_classification(
     x_train: DataFrame,
@@ -1750,7 +1677,6 @@ def my_voting_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_bagging_classification(
     x_train: DataFrame,
@@ -1853,7 +1779,6 @@ def my_bagging_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_ada_classification(
     x_train: DataFrame,
@@ -1955,7 +1880,6 @@ def my_ada_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_gbm_classification(
     x_train: DataFrame,
@@ -2021,7 +1945,6 @@ def my_gbm_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_xgb_classification(
     x_train: DataFrame,
@@ -2065,7 +1988,6 @@ def my_xgb_classification(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_lgbm_classification(
     x_train: DataFrame,

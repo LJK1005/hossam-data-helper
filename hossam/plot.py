@@ -1,36 +1,21 @@
-# -*- coding: utf-8 -*-
-# -------------------------------------------------------------
+from pycallgraphix.wrapper import register_method
 import os
 import sys
-import numpy as np
-from math import sqrt
-
-# -------------------------------------------------------------
-from pycallgraphix.wrapper import register_method
-
-# -------------------------------------------------------------
-from pandas import DataFrame, Series, concat
-
-# -------------------------------------------------------------
 import graphviz
+import numpy as np
 import seaborn as sb
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
-# -------------------------------------------------------------
-from IPython import display
-from IPython.display import Image
-
-# -------------------------------------------------------------
+from math import sqrt
+from pandas import DataFrame, Series, concat
 
 from scipy.stats import t
 from scipy.spatial import ConvexHull
 from scipy.stats import zscore, probplot
 
-# -------------------------------------------------------------
 from statannotations.Annotator import Annotator
 
-# -------------------------------------------------------------
 from sklearn.metrics import (
     mean_squared_error,
     ConfusionMatrixDisplay,
@@ -40,16 +25,16 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import learning_curve
 from sklearn.preprocessing import StandardScaler
-from sklearn.tree import DecisionTreeClassifier, export_graphviz
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import export_graphviz
 
-# -------------------------------------------------------------
+from IPython import display
+from IPython.display import Image
+
+from .core import get_random_state, get_n_jobs
 from xgboost import plot_importance as xgb_plot_importance
 from lightgbm import plot_importance as lgb_plot_importance
 
-# -------------------------------------------------------------
-from .core import get_random_state, get_n_jobs
-
-# -------------------------------------------------------------
 try:
     import google.colab
 
@@ -71,7 +56,6 @@ plt.rcParams["figure.dpi"] = 200
 plt.rcParams["axes.unicode_minus"] = False
 
 
-# -------------------------------------------------------------
 @register_method
 def my_lineplot(
     df: DataFrame,
@@ -108,7 +92,6 @@ def my_lineplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_boxplot(
     df: DataFrame,
@@ -153,7 +136,6 @@ def my_boxplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_kdeplot(
     df: DataFrame,
@@ -224,7 +206,6 @@ def my_kdeplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_histplot(
     df: DataFrame,
@@ -280,7 +261,6 @@ def my_histplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_stackplot(
     df: DataFrame,
@@ -351,7 +331,6 @@ def my_stackplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_scatterplot(
     df: DataFrame,
@@ -390,7 +369,6 @@ def my_scatterplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_regplot(
     df: DataFrame,
@@ -428,7 +406,6 @@ def my_regplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_lmplot(
     df: DataFrame,
@@ -462,7 +439,6 @@ def my_lmplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_pairplot(
     df: DataFrame,
@@ -495,7 +471,6 @@ def my_pairplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_countplot(
     df: DataFrame,
@@ -543,7 +518,6 @@ def my_countplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_barplot(
     df: DataFrame,
@@ -582,7 +556,6 @@ def my_barplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_boxenplot(
     df: DataFrame,
@@ -621,7 +594,6 @@ def my_boxenplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_violinplot(
     df: DataFrame,
@@ -660,7 +632,6 @@ def my_violinplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_pointplot(
     df: DataFrame,
@@ -699,7 +670,6 @@ def my_pointplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_jointplot(
     df: DataFrame,
@@ -733,7 +703,6 @@ def my_jointplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_heatmap(
     data: DataFrame,
@@ -766,7 +735,6 @@ def my_heatmap(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_convex_hull(
     data: DataFrame,
@@ -829,7 +797,6 @@ def my_convex_hull(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_kde_confidence_interval(
     data: DataFrame,
@@ -900,7 +867,6 @@ def my_kde_confidence_interval(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_pvalue1_anotation(
     data: DataFrame,
@@ -950,7 +916,6 @@ def my_pvalue1_anotation(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_resid_histplot(
     y: np.ndarray,
@@ -988,7 +953,6 @@ def my_resid_histplot(
     )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_residplot(
     y,
@@ -1077,7 +1041,6 @@ def my_residplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_qqplot(
     y_pred, figsize: tuple = (10, 5), dpi: int = 100, callback: any = None, **params
@@ -1108,7 +1071,6 @@ def my_qqplot(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_learing_curve(
     estimator: any,
@@ -1146,7 +1108,6 @@ def my_learing_curve(
         )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_ml_learing_curve(
     estimator: any,
@@ -1341,7 +1302,6 @@ def my_ml_learing_curve(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_loss_curve(
     estimator: any,
@@ -1397,7 +1357,6 @@ def my_loss_curve(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_confusion_matrix(
     y: np.ndarray,
@@ -1422,15 +1381,7 @@ def my_confusion_matrix(
     ax = plt.gca()
 
     # 이진분류인지 다항분류인지 구분
-    if y.ndim > 1:
-        y = np.argmax(y, axis=1)
-        y_pred = np.argmax(y_pred, axis=1)
-
-    if hasattr(y, "unique"):
-        labels = sorted(list(y.unique()))
-    else:
-        labels = sorted(list(set(y)))
-
+    labels = sorted(list(y.unique()))
     is_binary = len(labels) == 2
 
     if is_binary:
@@ -1457,7 +1408,6 @@ def my_confusion_matrix(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_roc_curve_binary(
     estimator: any,
@@ -1504,16 +1454,10 @@ def my_roc_curve_binary(
     # 히스토그램을 위한 구간
     bins = [i / 20 for i in range(0, 21)]
 
-    if not hasattr(estimator, "classes_"):
-        estimator.classes_ = list(set(y))
-
     title = "{0} vs {1}".format(estimator.classes_[0], estimator.classes_[1])
 
     # 예측확률
-    if hasattr(estimator, "predict_proba"):
-        y_proba = estimator.predict_proba(x)[:, 1]
-    else:
-        y_proba = estimator.predict(x).flatten()
+    y_proba = estimator.predict_proba(x)[:, 1]
 
     # 비교 대상을 위한 데이터
     df_aux = DataFrame({"class": y, "prob": y_proba})
@@ -1605,7 +1549,6 @@ def my_roc_curve_binary(
     plt.close()
 
 
-# -------------------------------------------------------------
 @register_method
 def my_roc_curve_multiclass_ovo(
     estimator: any,
@@ -1646,21 +1589,13 @@ def my_roc_curve_multiclass_ovo(
     figsize_ = (figsize[0] * cols, figsize[1])
 
     # 추정확률
-    if estimator.__class__.__name__ == "Sequential":
-        y_proba = estimator.predict(x)
-    elif hasattr(estimator, "predict_proba"):
-        y_proba = estimator.predict_proba(x)[:, 1]
-    else:
-        y_proba = estimator.predict(x).flatten()
+    y_proba = estimator.predict_proba(x)
 
     # 히스토그램을 위한 구간
     bins = [i / 20 for i in range(0, 21)]
 
     # 각 대조군 별로 auc값을 저장할 리스트
     auc_list = []
-
-    if not hasattr(estimator, "classes_"):
-        estimator.classes_ = list(set(y))
 
     # 모든 클래스 쌍의 조합 만들기
     class_combinations = []
@@ -1792,7 +1727,6 @@ def my_roc_curve_multiclass_ovo(
         print(f"mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}")
 
 
-# -------------------------------------------------------------
 @register_method
 def my_roc_curve_multiclass_ovr(
     estimator: any,
@@ -1833,21 +1767,13 @@ def my_roc_curve_multiclass_ovr(
     figsize_ = (figsize[0] * cols, figsize[1])
 
     # 추정확률
-    if estimator.__class__.__name__ == "Sequential":
-        y_proba = estimator.predict(x)
-    elif hasattr(estimator, "predict_proba"):
-        y_proba = estimator.predict_proba(x)[:, 1]
-    else:
-        y_proba = estimator.predict(x).flatten()
+    y_proba = estimator.predict_proba(x)
 
     # 히스토그램을 위한 구간
     bins = [i / 20 for i in range(0, 21)]
 
     # 각 대조군 별로 auc값을 저장할 리스트
     auc_list = []
-
-    if not hasattr(estimator, "classes_"):
-        estimator.classes_ = list(set(y))
 
     # 모든 클래스
     class_list = list(estimator.classes_)
@@ -1964,7 +1890,6 @@ def my_roc_curve_multiclass_ovr(
         print(f"mean roc auc ovo: {sum(auc_list)/len(auc_list):.4f}")
 
 
-# -------------------------------------------------------------
 @register_method
 def my_roc_curve(
     estimator: any,
@@ -1992,10 +1917,6 @@ def my_roc_curve(
         dpi (int, optional): 그래프의 해상도. Defaults to 200.
         callback (any, optional): ax객체를 전달받아 추가적인 옵션을 처리할 수 있는 콜백함수. Defaults to None.
     """
-
-    if not hasattr(estimator, "classes_"):
-        estimator.classes_ = list(set(y))
-
     is_binary = len(estimator.classes_) == 2
 
     if is_binary:
@@ -2010,7 +1931,6 @@ def my_roc_curve(
             my_roc_curve_multiclass_ovr(estimator, x, y, hist, roc, pr, figsize, dpi)
 
 
-# -------------------------------------------------------------
 @register_method
 def my_distribution_by_class(
     data: DataFrame,
@@ -2090,7 +2010,6 @@ def my_distribution_by_class(
             )
 
 
-# -------------------------------------------------------------
 @register_method
 def my_scatter_by_class(
     data: DataFrame,
@@ -2148,7 +2067,6 @@ def my_scatter_by_class(
             my_scatterplot(data, v[0], v[1], hue, palette, figsize, dpi, callback)
 
 
-# -------------------------------------------------------------
 @register_method
 def my_tree(estimator: DecisionTreeClassifier) -> None:
     """의사결정나무를 출력한다.
@@ -2180,7 +2098,6 @@ def my_tree(estimator: DecisionTreeClassifier) -> None:
     os.remove("tree.dot")
 
 
-# -------------------------------------------------------------
 @register_method
 def my_plot_importance(
     estimator: any,

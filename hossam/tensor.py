@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # -------------------------------------------------------------
 
+import sys
 import numpy as np
 from datetime import datetime as dt
 
@@ -41,7 +42,10 @@ from .classification import my_classification_result, my_classification_report
 set_seed(get_random_state())
 __initializer__ = GlorotUniform(seed=get_random_state())
 
-__HB_DIR__ = "tf_hyperband"
+if sys.platform == "darwin":
+    __HB_DIR__ = "tf_hyperband"
+else:
+    __HB_DIR__ = "D:\\tf_hyperband"
 
 
 def __get_project_name(src) -> str:
@@ -604,27 +608,27 @@ def my_tf_linear(
             dpi=dpi,
         )
 
-    my_regression_result(
-        estimator=model,
-        x_train=x_train,
-        y_train=y_train,
-        x_test=x_test,
-        y_test=y_test,
-        figsize=figsize,
-        dpi=dpi,
-    )
+    # my_regression_result(
+    #     estimator=model,
+    #     x_train=x_train,
+    #     y_train=y_train,
+    #     x_test=x_test,
+    #     y_test=y_test,
+    #     figsize=figsize,
+    #     dpi=dpi,
+    # )
 
-    my_regression_report(
-        estimator=model,
-        x_train=x_train,
-        y_train=y_train,
-        x_test=x_test,
-        y_test=y_test,
-        plot=plot,
-        figsize=figsize,
-        dpi=dpi,
-        deg=deg,
-    )
+    # my_regression_report(
+    #     estimator=model,
+    #     x_train=x_train,
+    #     y_train=y_train,
+    #     x_test=x_test,
+    #     y_test=y_test,
+    #     plot=plot,
+    #     figsize=figsize,
+    #     dpi=dpi,
+    #     deg=deg,
+    # )
 
     return model
 
@@ -755,18 +759,18 @@ def my_tf_sigmoid(
             dpi=dpi,
         )
 
-    my_classification_result(
-        estimator=model,
-        x_train=x_train,
-        y_train=y_train,
-        x_test=x_test,
-        y_test=y_test,
-        figsize=figsize,
-        dpi=dpi,
-    )
+    # my_classification_result(
+    #     estimator=model,
+    #     x_train=x_train,
+    #     y_train=y_train,
+    #     x_test=x_test,
+    #     y_test=y_test,
+    #     figsize=figsize,
+    #     dpi=dpi,
+    # )
 
-    my_classification_report(
-        estimator=model, x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test
-    )
+    # my_classification_report(
+    #     estimator=model, x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test
+    # )
 
     return model

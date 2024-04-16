@@ -312,6 +312,7 @@ def my_train_test_split(
     save_path: str = None,
     load_path: str = None,
     ydata: any = None,
+    categorical: bool = False,
 ) -> tuple:
     """데이터프레임을 학습용 데이터와 테스트용 데이터로 나눈다.
 
@@ -336,10 +337,21 @@ def my_train_test_split(
 
         x = data.drop(labels=yname, axis=1)
         y = data[yname]
+
+        if categorical:
+            res = np.zeros((len(y), len(y.unique())), dtype=int)
+            res[np.arange(len(y)), y] = 1
+            y = res
+
         x_train, x_test, y_train, y_test = train_test_split(
             x, y, test_size=test_size, random_state=random_state
         )
     elif ydata is not None:
+        if categorical:
+            res = np.zeros((len(ydata), len(ydata.unique())), dtype=int)
+            res[np.arange(len(ydata)), ydata] = 1
+            ydata = res
+
         x_train, x_test, y_train, y_test = train_test_split(
             data, ydata, test_size=test_size, random_state=random_state
         )

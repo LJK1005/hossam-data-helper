@@ -18,7 +18,15 @@ from matplotlib import pyplot as plt
 from tensorflow.random import set_seed
 from tensorflow.keras.initializers import GlorotUniform
 from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import (
+    Dense,
+    BatchNormalization,
+    Dropout,
+    Activation,
+    Conv2D,
+    MaxPool2D,
+    Flatten,
+)
 from tensorflow.keras.callbacks import (
     History,
     EarlyStopping,
@@ -62,14 +70,15 @@ def __tf_stack_layers(model: Sequential, layer: list, hp: Hyperband = None):
         if "type" not in v:
             v["type"] = "dense"
 
+        # 활성화 함수가 없을 경우 기본값 설정
+        if "activation" not in v:
+            v["activation"] = "relu"
+
+        print(v)
+
+        # ------------------------------------------------
         # 층의 종류가 dense일 경우
         if v["type"].lower() == "dense":
-            # 활성화 함수가 없을 경우 기본값 None으로 설정
-            if "activation" not in v:
-                v["input_shape"] = None
-
-            print(v)
-
             if hp is not None:
                 newrun = Dense(
                     units=(
@@ -90,6 +99,73 @@ def __tf_stack_layers(model: Sequential, layer: list, hp: Hyperband = None):
             # 입력 모양이 있을 경우 추가 설정
             if "input_shape" in v:
                 newrun.input_shape = v["input_shape"]
+
+        # ------------------------------------------------
+        elif v["type"].lower() == "conv2d":
+            if hp is not None:
+                newrun = Conv2D(
+                    filters=(
+                        hp.Choice("filters", values=v["filters"])
+                        if type(v["filters"]) == list
+                        else v["filters"]
+                    ),
+                    kernel_size=(
+                        hp.Choice("kernel_size", values=v["kernel_size"])
+                        if type(v["kernel_size"]) == list
+                        else v["kernel_size"]
+                    ),
+                    activation=v["activation"],
+                    kernel_initializer=__initializer__,
+                )
+            else:
+                newrun = Conv2D(
+                    filters=v["filters"],
+                    kernel_size=v["kernel_size"],
+                    activation=v["activation"],
+                    kernel_initializer=__initializer__,
+                )
+
+            # 입력 모양이 있을 경우 추가 설정
+            if "input_shape" in v:
+                newrun.input_shape = v["input_shape"]
+
+        # ------------------------------------------------
+        elif v["type"].lower() == "maxpool2d":
+            if hp is not None:
+                newrun = MaxPool2D(
+                    pool_size=(
+                        hp.Choice("pool_size", values=v["pool_size"])
+                        if type(v["pool_size"]) == list
+                        else v["pool_size"]
+                    )
+                )
+            else:
+                newrun = MaxPool2D(pool_size=v["pool_size"])
+
+        # ------------------------------------------------
+        elif v["type"].lower() == "flatten":
+            newrun = Flatten()
+
+        # ------------------------------------------------
+        elif v["type"].lower() == "batchnorm":
+            newrun = BatchNormalization()
+
+        # ------------------------------------------------
+        elif v["type"].lower() == "dropout":
+            if hp is not None:
+                newrun = Dropout(
+                    rate=(
+                        hp.Choice("rate", values=v["rate"])
+                        if type(v["rate"]) == list
+                        else v["rate"]
+                    )
+                )
+            else:
+                newrun = Dropout(rate=v["rate"])
+
+        # ------------------------------------------------
+        elif v["type"].lower() == "activation":
+            newrun = Activation(activation=v["function"])
 
         model.add(newrun)
 

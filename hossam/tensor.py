@@ -71,104 +71,117 @@ def __tf_stack_layers(model: Sequential, layer: list, hp: Hyperband = None):
             v["type"] = "dense"
 
         # 활성화 함수가 없을 경우 기본값 설정
-        if "activation" not in v:
-            v["activation"] = "relu"
+        # if "activation" not in v:
+        #     v["activation"] = "relu"
 
         print(v)
 
+        layer_type = v["type"].lower()
+        params = v.copy()
+        del params["type"]
+
         # ------------------------------------------------
         # 층의 종류가 dense일 경우
-        if v["type"].lower() == "dense":
+        if layer_type == "dense":
+            units = v["units"] if "units" in v else 0
+            del params["units"]
+
             if hp is not None:
-                newrun = Dense(
+                neurons = Dense(
                     units=(
-                        hp.Choice("units", values=v["units"])
-                        if type(v["units"]) == list
-                        else v["units"]
+                        hp.Choice("units", values=units)
+                        if type(units) == list
+                        else units
                     ),
-                    activation=v["activation"],
                     kernel_initializer=__initializer__,
+                    **params,
                 )
             else:
-                newrun = Dense(
-                    units=v["units"],
-                    activation=v["activation"],
-                    kernel_initializer=__initializer__,
+                neurons = Dense(
+                    units=units, kernel_initializer=__initializer__, **params
                 )
 
-            # 입력 모양이 있을 경우 추가 설정
-            if "input_shape" in v:
-                newrun.input_shape = v["input_shape"]
-
         # ------------------------------------------------
-        elif v["type"].lower() == "conv2d":
-            if "input_shape" not in v:
-                v["input_shape"] = None
+        elif layer_type == "conv2d":
+            filters = v["filters"] if "filters" in v else 0
+            del params["filters"]
+
+            kernel_size = v["kernel_size"] if "kernel_size" in v else 0
+            del params["kernel_size"]
 
             if hp is not None:
-                newrun = Conv2D(
+                neurons = Conv2D(
                     filters=(
-                        hp.Choice("filters", values=v["filters"])
-                        if type(v["filters"]) == list
-                        else v["filters"]
+                        hp.Choice("filters", values=filters)
+                        if type(filters) == list
+                        else filters
                     ),
                     kernel_size=(
-                        hp.Choice("kernel_size", values=v["kernel_size"])
-                        if type(v["kernel_size"]) == list
-                        else v["kernel_size"]
+                        hp.Choice("kernel_size", values=kernel_size)
+                        if type(kernel_size) == list
+                        else kernel_size
                     ),
-                    padding="same",
-                    input_shape=v["input_shape"],
                     kernel_initializer=__initializer__,
+                    **params,
                 )
             else:
-                newrun = Conv2D(
-                    filters=v["filters"],
-                    kernel_size=v["kernel_size"],
-                    padding="same",
-                    input_shape=v["input_shape"],
+                neurons = Conv2D(
+                    filters=filters,
+                    kernel_size=kernel_size,
                     kernel_initializer=__initializer__,
+                    **params,
                 )
 
         # ------------------------------------------------
-        elif v["type"].lower() == "maxpool2d":
+        elif layer_type == "maxpool2d":
+            pool_size = v["pool_size"] if "pool_size" in v else 0
+            del params["pool_size"]
+
             if hp is not None:
-                newrun = MaxPool2D(
+                neurons = MaxPool2D(
                     pool_size=(
-                        hp.Choice("pool_size", values=v["pool_size"])
-                        if type(v["pool_size"]) == list
-                        else v["pool_size"]
-                    )
+                        hp.Choice("pool_size", values=pool_size)
+                        if type(pool_size) == list
+                        else pool_size
+                    ),
+                    kernel_initializer=__initializer__,
+                    **params,
                 )
             else:
-                newrun = MaxPool2D(pool_size=v["pool_size"])
+                neurons = MaxPool2D(
+                    pool_size=pool_size, kernel_initializer=__initializer__, **params
+                )
 
         # ------------------------------------------------
-        elif v["type"].lower() == "flatten":
-            newrun = Flatten()
+        elif layer_type == "flatten":
+            neurons = Flatten(**params)
 
         # ------------------------------------------------
-        elif v["type"].lower() == "batchnorm":
-            newrun = BatchNormalization()
+        elif layer_type == "batchnorm":
+            neurons = BatchNormalization(**params)
 
         # ------------------------------------------------
-        elif v["type"].lower() == "dropout":
+        elif layer_type == "dropout":
+            rate = v["rate"] if "rate" in v else 0
+            del params["rate"]
+
             if hp is not None:
-                newrun = Dropout(
+                neurons = Dropout(
                     rate=(
-                        hp.Choice("rate", values=v["rate"])
-                        if type(v["rate"]) == list
-                        else v["rate"]
-                    )
+                        hp.Choice("rate", values=rate) if type(rate) == list else rate
+                    ),
+                    **params,
                 )
             else:
-                newrun = Dropout(rate=v["rate"])
+                neurons = Dropout(rate=rate, **params)
 
         # ------------------------------------------------
-        elif v["type"].lower() == "activation":
-            newrun = Activation(activation=v["function"])
+        elif layer_type == "activation":
+            function = v["function"] if "function" in v else 0
+            del params["function"]
+            neurons = Activation(activation=function, **params)
 
-        model.add(newrun)
+        model.add(neurons)
 
     return model
 

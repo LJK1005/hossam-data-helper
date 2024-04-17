@@ -56,6 +56,46 @@ def __get_project_name(src) -> str:
     return "tf_%s" % dt.now().strftime("%y%m%d_%H%M%S")
 
 
+def __tf_stack_layers(model: Sequential, layer: list, hp: Hyperband = None):
+    for i, v in enumerate(layer):
+        # 층의 종류가 없을 경우 기본값을 dense로 설정
+        if "type" not in v:
+            v["type"] = "dense"
+
+        # 층의 종류가 dense일 경우
+        if v["type"].lower() == "dense":
+            # 활성화 함수가 없을 경우 기본값 None으로 설정
+            if "activation" not in v:
+                v["input_shape"] = None
+
+            print(v)
+
+            if hp is not None:
+                newrun = Dense(
+                    units=(
+                        hp.Choice("units", values=v["units"])
+                        if type(v["units"]) == list
+                        else v["units"]
+                    ),
+                    activation=v["activation"],
+                    kernel_initializer=__initializer__,
+                )
+            else:
+                newrun = Dense(
+                    units=v["units"],
+                    activation=v["activation"],
+                    kernel_initializer=__initializer__,
+                )
+
+            # 입력 모양이 있을 경우 추가 설정
+            if "input_shape" in v:
+                newrun.input_shape = v["input_shape"]
+
+        model.add(newrun)
+
+    return model
+
+
 # -------------------------------------------------------------
 @register_method
 def tf_create(
@@ -89,23 +129,7 @@ def tf_create(
         raise ValueError("layer, loss, and metrics are required arguments")
 
     model = Sequential()
-
-    for i, v in enumerate(layer):
-        if "type" not in v:
-            v["type"] = "dense"
-
-        if v["type"].lower() == "dense":
-            newrun = Dense(
-                units=v["units"],
-                activation=v["activation"],
-                kernel_initializer=__initializer__,
-            )
-
-            if "input_shape" in v:
-                newrun.input_shape = v["input_shape"]
-
-        model.add(newrun)
-
+    model = __tf_stack_layers(model=model, layer=layer)
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
     return model
 
@@ -131,26 +155,7 @@ def tf_tune(
 ) -> Sequential:
     def __tf_build(hp) -> Sequential:
         model = Sequential()
-
-        for l in layer:
-            if "type" not in l:
-                l["type"] = "dense"
-
-            if l["type"].lower() == "dense":
-                newrun = Dense(
-                    units=(
-                        hp.Choice("units", values=l["units"])
-                        if type(l["units"]) == list
-                        else l["units"]
-                    ),
-                    activation=l["activation"],
-                    kernel_initializer=__initializer__,
-                )
-
-                if "input_shape" in l:
-                    newrun.input_shape = l["input_shape"]
-
-            model.add(newrun)
+        model = __tf_stack_layers(model=model, layer=layer, hp=hp)
 
         opt = None
 

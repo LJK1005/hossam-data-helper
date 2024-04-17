@@ -102,6 +102,9 @@ def __tf_stack_layers(model: Sequential, layer: list, hp: Hyperband = None):
 
         # ------------------------------------------------
         elif v["type"].lower() == "conv2d":
+            if "input_shape" not in v:
+                v["input_shape"] = None
+
             if hp is not None:
                 newrun = Conv2D(
                     filters=(
@@ -114,20 +117,18 @@ def __tf_stack_layers(model: Sequential, layer: list, hp: Hyperband = None):
                         if type(v["kernel_size"]) == list
                         else v["kernel_size"]
                     ),
-                    activation=v["activation"],
+                    padding="same",
+                    input_shape=v["input_shape"],
                     kernel_initializer=__initializer__,
                 )
             else:
                 newrun = Conv2D(
                     filters=v["filters"],
                     kernel_size=v["kernel_size"],
-                    activation=v["activation"],
+                    padding="same",
+                    input_shape=v["input_shape"],
                     kernel_initializer=__initializer__,
                 )
-
-            # 입력 모양이 있을 경우 추가 설정
-            if "input_shape" in v:
-                newrun.input_shape = v["input_shape"]
 
         # ------------------------------------------------
         elif v["type"].lower() == "maxpool2d":

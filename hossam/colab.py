@@ -41,7 +41,7 @@ def init(package: bool = False, mecab: bool = False) -> None:
             "pingouin",
             "statannotations",
             "pycallgraphix",
-            "kerastuner",
+            "keras-tuner",
         ]
         l = len(addon_packages)
 

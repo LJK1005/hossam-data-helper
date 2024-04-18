@@ -1020,6 +1020,8 @@ def tune_image(
             factor=sharpness if sharpness > 0 else 0
         )
 
+    img.array = np.array(img)
+
     return img
 
 
@@ -1056,6 +1058,5 @@ def load_image(
         brightness=brightness,
         sharpness=sharpness,
     )
-    img.array = np.array(img)
 
     return img

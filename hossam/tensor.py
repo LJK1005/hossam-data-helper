@@ -133,7 +133,7 @@ def __tf_stack_layers(model: Sequential, layer: list, hp: Hyperband = None):
                 )
 
         # ------------------------------------------------
-        elif layer_type == "maxpool2d":
+        elif layer_type == "maxpool2d" or layer_type == "maxpooling":
             pool_size = v["pool_size"] if "pool_size" in v else 0
             del params["pool_size"]
 
@@ -144,13 +144,10 @@ def __tf_stack_layers(model: Sequential, layer: list, hp: Hyperband = None):
                         if type(pool_size) == list
                         else pool_size
                     ),
-                    kernel_initializer=__initializer__,
                     **params,
                 )
             else:
-                neurons = MaxPool2D(
-                    pool_size=pool_size, kernel_initializer=__initializer__, **params
-                )
+                neurons = MaxPool2D(pool_size=pool_size, **params)
 
         # ------------------------------------------------
         elif layer_type == "flatten":

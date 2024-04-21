@@ -370,13 +370,25 @@ def tf_train(
     dataset = []
     result_set = []
 
-    if x_train is not None and y_train is not None:
+    if x_train is not None:
         dataset.append("train")
-        result_set.append(model.evaluate(x_train, y_train, verbose=0, return_dict=True))
 
-    if x_test is not None and y_test is not None:
+        if y_train is not None:
+            result_set.append(
+                model.evaluate(x_train, y_train, verbose=0, return_dict=True)
+            )
+        else:
+            result_set.append(model.evaluate(x_train, verbose=0, return_dict=True))
+
+    if x_test is not None:
         dataset.append("test")
-        result_set.append(model.evaluate(x_test, y_test, verbose=0, return_dict=True))
+
+        if y_test is not None:
+            result_set.append(
+                model.evaluate(x_test, y_test, verbose=0, return_dict=True)
+            )
+        else:
+            result_set.append(model.evaluate(x_test, verbose=0, return_dict=True))
 
     result_df = DataFrame(result_set, index=dataset)
     my_pretty_table(result_df)

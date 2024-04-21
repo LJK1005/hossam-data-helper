@@ -291,8 +291,8 @@ def tf_tune(
 @register_method
 def tf_train(
     model: Sequential,
-    x_train: np.ndarray,
-    y_train: np.ndarray,
+    x_train: np.ndarray = None,
+    y_train: np.ndarray = None,
     x_test: np.ndarray = None,
     y_test: np.ndarray = None,
     epochs: int = 500,
@@ -302,6 +302,7 @@ def tf_train(
     checkpoint_path: str = None,
     tensorboard_path: str = None,
     verbose: int = 0,
+    **params,
 ) -> History:
     """파라미터로 전달된 tensroflow 모델을 사용하여 지정된 데이터로 훈련을 수행하고 결과를 반환한다.
 
@@ -348,14 +349,22 @@ def tf_train(
             TensorBoard(log_dir=tensorboard_path, histogram_freq=1, write_graph=True)
         )
 
+    test_set = None
+
+    if x_test is not None and y_test is not None:
+        test_set = (x_test, y_test)
+    elif x_test is not None:
+        test_set = x_test
+
     history = model.fit(
-        x_train,
-        y_train,
+        x=x_train,
+        y=y_train,
         epochs=epochs,
         batch_size=batch_size,
-        validation_data=(x_test, y_test) if x_test is not None else None,
+        validation_data=test_set,
         verbose=verbose,
         callbacks=callbacks,
+        **params,
     )
 
     dataset = []

@@ -46,6 +46,8 @@ __FONT_NAME__ = "Malgun Gothic"
 
 if sys.platform == "darwin":
     __FONT_NAME__ = "AppleGothic"
+elif sys.platform in ["linux", "linux2"]:
+    __FONT_NAME__ = "NanumGothic"
 elif IN_COLAB:
     __FONT_NAME__ = "NanumGothic"
 

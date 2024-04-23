@@ -1162,7 +1162,6 @@ def my_tokenizer(
     if num_words is None:
         tokenizer = Tokenizer(oov_token=oov_token)
     else:
-        print("토큰 사이즈 설정함")
         tokenizer = Tokenizer(num_words=num_words, oov_token=oov_token)
 
     tokenizer.fit_on_texts(source)
@@ -1172,7 +1171,7 @@ def my_tokenizer(
 
 # -------------------------------------------------------------
 @register_method
-def my_eng_str_preprocessing(
+def my_text_preprocessing(
     source: str,
     rm_abbr: bool = True,
     rm_email: bool = True,
@@ -1239,7 +1238,7 @@ def my_eng_str_preprocessing(
 
 # -------------------------------------------------------------
 @register_method
-def my_eng_data_preprocessing(
+def my_text_data_preprocessing(
     data: DataFrame,
     fields: list = None,
     rm_abbr: bool = True,
@@ -1261,7 +1260,7 @@ def my_eng_data_preprocessing(
 
     for f in fields:
         df[f] = df[f].apply(
-            lambda x: my_eng_str_preprocessing(
+            lambda x: my_text_preprocessing(
                 source=x,
                 rm_abbr=rm_abbr,
                 rm_email=rm_email,

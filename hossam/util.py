@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # -------------------------------------------------------------
 import sys
+import requests
 import numpy as np
 from typing import Literal
 from datetime import datetime as dt
@@ -35,6 +36,16 @@ from imblearn.under_sampling import RandomUnderSampler
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, PolynomialFeatures
 from sklearn.impute import SimpleImputer
+
+# -------------------------------------------------------------
+from tensorflow.keras.preprocessing.text import Tokenizer
+
+# -------------------------------------------------------------
+# 형태소 분석 엔진 -> Okt
+# from konlpy.tag import Okt
+
+# 형태소 분석 엔진 -> Mecab
+from konlpy.tag import Mecab
 
 # -------------------------------------------------------------
 from .core import *
@@ -964,6 +975,8 @@ def my_trace() -> cProfile.Profile:
     profiler.disable()
 
 
+# -------------------------------------------------------------
+@register_method
 def tune_image(
     img: Image,
     mode: Literal["RGB", "color", "L", "gray"] = "RGB",
@@ -1025,6 +1038,8 @@ def tune_image(
     return img
 
 
+# -------------------------------------------------------------
+@register_method
 def load_image(
     path: str,
     mode: Literal["RGB", "L"] = None,
@@ -1060,3 +1075,79 @@ def load_image(
     )
 
     return img
+
+
+# -------------------------------------------------------------
+@register_method
+def my_stopwords() -> list:
+    session = requests.Session()
+    session.headers.update(
+        {
+            "Referer": "",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        }
+    )
+
+    stopwords = None
+
+    try:
+        r = session.get("https://data.hossam.kr/tmdata/stopwords-ko.txt")
+
+        # HTTP 상태값이 200이 아닌 경우는 에러로 간주한다.
+        if r.status_code != 200:
+            msg = "[%d Error] %s 에러가 발생함" % (r.status_code, r.reason)
+            raise Exception(msg)
+
+        r.encoding = "utf-8"
+        stopwords = r.text.split("\n")
+    except Exception as e:
+        print(e)
+
+    return stopwords
+
+
+# -------------------------------------------------------------
+@register_method
+def my_text_morph(source: str, mode: str = "nouns", stopwords: list = None, dicpath: str = None) -> list:
+    """Mecab을 사용하여 텍스트를 형태소 분석한다.
+
+    Args:
+        source (str): 텍스트
+        mode (str, optional): 분석 모드. Defaults to 'nouns'.
+
+    Returns:
+        list: 형태소 분석 결과
+    """
+    desc = None
+    mecab = Mecab(dicpath=dicpath)
+
+    if mode == "nouns":
+        desc = mecab.nouns(phrase=source)
+    elif mode == "morphs":
+        desc = mecab.morphs(phrase=source)
+    elif mode == "pos":
+        desc = mecab.pos(phrase=source)
+    else:
+        desc = mecab.nouns(phrase=source)
+
+    if stopwords:
+        desc = [w for w in desc if w not in stopwords]
+
+    return desc
+
+
+# -------------------------------------------------------------
+@register_method
+def my_tokenizer(
+    source: any, num_words: int = None, oov_token: str = "<OOV>", stopwords: list = None
+):
+    if type(source) == str:
+        source = my_text_morph(source=source, stopwords=stopwords)
+
+    if num_words is None:
+        num_words = len(set(source))
+
+    tokenizer = Tokenizer(num_words=num_words, oov_token=oov_token)
+    tokenizer.fit_on_texts(source)
+
+    return tokenizer

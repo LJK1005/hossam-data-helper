@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 # -------------------------------------------------------------
 import sys
+import re
 import requests
+import contractions
 import numpy as np
+import nltk
+from nltk.corpus import stopwords as stw
 from typing import Literal
 from datetime import datetime as dt
 from PIL import Image, ImageEnhance
@@ -1079,36 +1083,43 @@ def load_image(
 
 # -------------------------------------------------------------
 @register_method
-def my_stopwords() -> list:
-    session = requests.Session()
-    session.headers.update(
-        {
-            "Referer": "",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        }
-    )
-
+def my_stopwords(lang: str = "ko") -> list:
     stopwords = None
 
-    try:
-        r = session.get("https://data.hossam.kr/tmdata/stopwords-ko.txt")
+    if lang == "ko":
+        session = requests.Session()
+        session.headers.update(
+            {
+                "Referer": "",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            }
+        )
 
-        # HTTP 상태값이 200이 아닌 경우는 에러로 간주한다.
-        if r.status_code != 200:
-            msg = "[%d Error] %s 에러가 발생함" % (r.status_code, r.reason)
-            raise Exception(msg)
+        try:
+            r = session.get("https://data.hossam.kr/tmdata/stopwords-ko.txt")
 
-        r.encoding = "utf-8"
-        stopwords = r.text.split("\n")
-    except Exception as e:
-        print(e)
+            # HTTP 상태값이 200이 아닌 경우는 에러로 간주한다.
+            if r.status_code != 200:
+                msg = "[%d Error] %s 에러가 발생함" % (r.status_code, r.reason)
+                raise Exception(msg)
+
+            r.encoding = "utf-8"
+            stopwords = r.text.split("\n")
+        except Exception as e:
+            print(e)
+
+    elif lang == "en":
+        nltk.download("stopwords")
+        stopwords = list(stw.words("english"))
 
     return stopwords
 
 
 # -------------------------------------------------------------
 @register_method
-def my_text_morph(source: str, mode: str = "nouns", stopwords: list = None, dicpath: str = None) -> list:
+def my_text_morph(
+    source: str, mode: str = "nouns", stopwords: list = None, dicpath: str = None
+) -> list:
     """Mecab을 사용하여 텍스트를 형태소 분석한다.
 
     Args:
@@ -1119,7 +1130,11 @@ def my_text_morph(source: str, mode: str = "nouns", stopwords: list = None, dicp
         list: 형태소 분석 결과
     """
     desc = None
-    mecab = Mecab(dicpath=dicpath)
+
+    if dicpath is not None:
+        mecab = Mecab(dicpath=dicpath)
+    else:
+        mecab = Mecab()
 
     if mode == "nouns":
         desc = mecab.nouns(phrase=source)
@@ -1145,9 +1160,117 @@ def my_tokenizer(
         source = my_text_morph(source=source, stopwords=stopwords)
 
     if num_words is None:
-        num_words = len(set(source))
+        tokenizer = Tokenizer(oov_token=oov_token)
+    else:
+        print("토큰 사이즈 설정함")
+        tokenizer = Tokenizer(num_words=num_words, oov_token=oov_token)
 
-    tokenizer = Tokenizer(num_words=num_words, oov_token=oov_token)
     tokenizer.fit_on_texts(source)
 
     return tokenizer
+
+
+# -------------------------------------------------------------
+@register_method
+def my_eng_str_preprocessing(
+    source: str,
+    rm_abbr: bool = True,
+    rm_email: bool = True,
+    rm_html: bool = True,
+    rm_url: bool = True,
+    rm_num: bool = True,
+    rm_special: bool = True,
+    stopwords: list = None,
+) -> str:
+    """영문 텍스트를 전처리한다.
+
+    Args:
+        source (str): 텍스트
+        rm_abbr (bool, optional): 약어 제거. Defaults to True.
+        rm_email (bool, optional): 이메일 주소 제거. Defaults to True.
+        rm_html (bool, optional): HTML 태그 제거. Defaults to True.
+        rm_url (bool, optional): URL 주소 제거. Defaults to True.
+        rm_num (bool, optional): 숫자 제거. Defaults to True.
+        rm_special (bool, optional): 특수문자 제거. Defaults to True.
+        stopwords (list, optional): 불용어 목록. Defaults to None.
+
+    Returns:
+        str: 전처리된 텍스트
+    """
+    # print(source)
+
+    if stopwords is not None:
+        source = " ".join([w for w in source.split() if w not in stopwords])
+        # print(source)
+
+    if rm_abbr:
+        source = contractions.fix(source)
+        # print(source)
+
+    if rm_email:
+        source = re.sub(
+            r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b", "", source
+        )
+        # print(source)
+
+    if rm_html:
+        source = re.sub(r"<[^>]*>", "", source)
+        # print(source)
+
+    if rm_url:
+        source = re.sub(
+            r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
+            "",
+            source,
+        )
+        # print(source)
+
+    if rm_num:
+        source = re.sub(r"\b[0-9]+\b", "", source)
+        # print(source)
+
+    if rm_special:
+        x = re.sub(r"[^\w ]+", "", source)
+        source = " ".join(x.split())
+        # print(source)
+
+    return source
+
+
+# -------------------------------------------------------------
+@register_method
+def my_eng_data_preprocessing(
+    data: DataFrame,
+    fields: list = None,
+    rm_abbr: bool = True,
+    rm_email: bool = True,
+    rm_html: bool = True,
+    rm_url: bool = True,
+    rm_num: bool = True,
+    rm_special: bool = True,
+    rm_stopwords: bool = True,
+    stopwords: list = None,
+) -> DataFrame:
+    if not fields:
+        fields = data.columns
+
+    if type(fields) == str:
+        fields = [fields]
+
+    df = data.copy()
+
+    for f in fields:
+        df[f] = df[f].apply(
+            lambda x: my_eng_str_preprocessing(
+                source=x,
+                rm_abbr=rm_abbr,
+                rm_email=rm_email,
+                rm_html=rm_html,
+                rm_url=rm_url,
+                rm_num=rm_num,
+                rm_special=rm_special,
+                stopwords=stopwords,
+            )
+        )
+
+    return df

@@ -270,9 +270,7 @@ def __tf_stack_layers(model: Sequential, layer: list, hp: Hyperband = None):
                     **params,
                 )
             else:
-                neurons = GRU(
-                    units=units, kernel_initializer=__initializer__, **params
-                )
+                neurons = GRU(units=units, kernel_initializer=__initializer__, **params)
 
         model.add(neurons)
 
@@ -397,7 +395,7 @@ def tf_train(
     reduce_lr: bool = True,
     checkpoint_path: str = None,
     tensorboard_path: str = None,
-    verbose: int = 0,
+    verbose: int = 1,
     **params,
 ) -> History:
     """파라미터로 전달된 tensroflow 모델을 사용하여 지정된 데이터로 훈련을 수행하고 결과를 반환한다.
@@ -474,20 +472,22 @@ def tf_train(
 
         if y_train is not None:
             result_set.append(
-                model.evaluate(x_train, y_train, verbose=0, return_dict=True)
+                model.evaluate(x_train, y_train, verbose=verbose, return_dict=True)
             )
         else:
-            result_set.append(model.evaluate(x_train, verbose=0, return_dict=True))
+            result_set.append(
+                model.evaluate(x_train, verbose=verbose, return_dict=True)
+            )
 
     if x_test is not None:
         dataset.append("test")
 
         if y_test is not None:
             result_set.append(
-                model.evaluate(x_test, y_test, verbose=0, return_dict=True)
+                model.evaluate(x_test, y_test, verbose=verbose, return_dict=True)
             )
         else:
-            result_set.append(model.evaluate(x_test, verbose=0, return_dict=True))
+            result_set.append(model.evaluate(x_test, verbose=verbose, return_dict=True))
 
     result_df = DataFrame(result_set, index=dataset)
     my_pretty_table(result_df)
@@ -575,7 +575,7 @@ def my_tf(
     checkpoint_path: str = None,
     model_path: str = None,
     tensorboard_path: str = None,
-    verbose: int = 0,
+    verbose: int = 1,
     history_table: bool = False,
     figsize: tuple = (7, 5),
     dpi: int = 100,

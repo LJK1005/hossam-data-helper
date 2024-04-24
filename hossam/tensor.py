@@ -30,6 +30,9 @@ from tensorflow.keras.layers import (
     MaxPool2D,
     Flatten,
     Embedding,
+    SimpleRNN,
+    LSTM,
+    GRU,
 )
 from tensorflow.keras.callbacks import (
     History,
@@ -209,6 +212,66 @@ def __tf_stack_layers(model: Sequential, layer: list, hp: Hyperband = None):
                     input_dim=input_dim,
                     output_dim=output_dim,
                     **params,
+                )
+
+        # ------------------------------------------------
+        elif layer_type == "rnn":
+            units = v["units"] if "units" in v else 0
+            del params["units"]
+
+            if hp is not None:
+                neurons = SimpleRNN(
+                    units=(
+                        hp.Choice("units", values=units)
+                        if type(units) == list
+                        else units
+                    ),
+                    kernel_initializer=__initializer__,
+                    **params,
+                )
+            else:
+                neurons = SimpleRNN(
+                    units=units, kernel_initializer=__initializer__, **params
+                )
+
+        # ------------------------------------------------
+        elif layer_type == "lstm":
+            units = v["units"] if "units" in v else 0
+            del params["units"]
+
+            if hp is not None:
+                neurons = LSTM(
+                    units=(
+                        hp.Choice("units", values=units)
+                        if type(units) == list
+                        else units
+                    ),
+                    kernel_initializer=__initializer__,
+                    **params,
+                )
+            else:
+                neurons = LSTM(
+                    units=units, kernel_initializer=__initializer__, **params
+                )
+
+        # ------------------------------------------------
+        elif layer_type == "gru":
+            units = v["units"] if "units" in v else 0
+            del params["units"]
+
+            if hp is not None:
+                neurons = GRU(
+                    units=(
+                        hp.Choice("units", values=units)
+                        if type(units) == list
+                        else units
+                    ),
+                    kernel_initializer=__initializer__,
+                    **params,
+                )
+            else:
+                neurons = GRU(
+                    units=units, kernel_initializer=__initializer__, **params
                 )
 
         model.add(neurons)

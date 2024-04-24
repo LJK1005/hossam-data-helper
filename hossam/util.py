@@ -43,6 +43,7 @@ from sklearn.impute import SimpleImputer
 
 # -------------------------------------------------------------
 from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 # -------------------------------------------------------------
 # 형태소 분석 엔진 -> Okt
@@ -1273,3 +1274,119 @@ def my_text_data_preprocessing(
         )
 
     return df
+
+
+# -------------------------------------------------------------
+@register_method
+def my_token_process(
+    data: any,
+    xname: str = None,
+    yname: str = None,
+    threshold: int = 10,
+    num_words: int = None,
+    max_word_count: int = None,
+) -> DataFrame:
+    # 훈련, 종속변수 분리
+    x = None
+    y = None
+
+    if xname is not None:
+        x = data[xname]
+    else:
+        x = data
+
+    if yname is not None:
+        y = data[yname]
+
+    # 토큰화
+    tokenizer = my_tokenizer(source=x)
+
+    # 전체 단어의 수
+    total_cnt = len(tokenizer.word_index)
+
+    # 등장 빈도수가 threshold보다 작은 단어의 개수를 카운트할 값
+    rare_cnt = 0
+
+    # 훈련 데이터의 전체 단어 빈도수 총 합
+    total_freq = 0
+
+    # 등장 빈도수가 threshold보다 작은 단어의 등장 빈도수의 총 합
+    rare_freq = 0
+
+    # 단어와 빈도수의 쌍(pair)을 key와 value로 받는다.
+    # --> [('one', 50324), ('reviewers', 500), ('mentioned', 1026), ('watching', 8909), ('oz', 256)]
+    # --> key = 'one', value = 50324
+    for key, value in tokenizer.word_counts.items():
+        total_freq = total_freq + value
+
+        # 단어의 등장 빈도수가 threshold보다 작으면
+        if value < threshold:
+            rare_cnt = rare_cnt + 1
+            rare_freq = rare_freq + value
+
+    print("단어 집합(vocabulary)의 크기 :", total_cnt)
+    print("등장 빈도가 %s번 미만인 희귀 단어의 수: %s" % (threshold, rare_cnt))
+    print("단어 집합에서 희귀 단어의 비율:", (rare_cnt / total_cnt) * 100)
+    print(
+        "전체 등장 빈도에서 희귀 단어 등장 빈도 비율:", (rare_freq / total_freq) * 100
+    )
+
+    # 자주 등장하는 단어 집합의 크기 구하기 -> 이 값이 첫 번째 학습층의 input 수가 된다.
+    vocab_size = total_cnt - rare_cnt + 1
+    print("단어 집합의 크기 :", vocab_size)
+
+    # 최종 토큰화
+    if num_words is None:
+        num_words = vocab_size
+
+    tokenizer2 = my_tokenizer(x, num_words=num_words)
+    token_set = tokenizer2.texts_to_sequences(x)
+
+    # 토큰화 결과 길이가 0인 항목의 index 찾기
+    drop_target_index = []
+
+    for i, v in enumerate(token_set):
+        if len(v) < 1:
+            drop_target_index.append(i)
+
+    token_set2 = np.asarray(token_set, dtype="object")
+
+    # 토큰 결과에서 해당 위치의 항목들을 삭제한다.
+    fill_token_set = np.delete(token_set2, drop_target_index, axis=0)
+
+    # 종속변수와 원래의 독립변수에서도 같은 위치의 항목들을 삭제해야 한다.
+    future_set = np.delete(x, drop_target_index, axis=0)
+    print("독립변수(텍스트) 데이터 수: ", len(fill_token_set))
+
+    if y is not None:
+        label_set = np.delete(y, drop_target_index, axis=0)
+        print("종속변수(레이블) 데이터 수: ", len(label_set))
+
+    # 문장별 단어 수 계산
+    word_counts = []
+
+    for s in fill_token_set:
+        word_counts.append(len(s))
+
+    if max_word_count is None:
+        max_word_count = max(word_counts)
+
+    pad_token_set = pad_sequences(fill_token_set, maxlen=max_word_count)
+    pad_token_set_arr = [np.array(x, dtype="int") for x in pad_token_set]
+
+    datadic = {}
+
+    if y is not None:
+        datadic[yname] = label_set
+
+    if xname is not None:
+        xname = "text"
+
+    datadic[xname] = future_set
+    datadic["count"] = word_counts
+    datadic["token"] = fill_token_set
+    datadic["pad_token"] = pad_token_set_arr
+
+    df = DataFrame(data=datadic)
+
+    return df, pad_token_set, vocab_size

@@ -36,5 +36,6 @@ setup(
         "tensorflow",
         "keras-tuner",
         "nltk",
+        "contractions",
     ],
 )

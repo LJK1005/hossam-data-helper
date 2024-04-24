@@ -398,7 +398,7 @@ def tf_train(
         epochs=epochs,
         batch_size=batch_size,
         validation_data=test_set,
-        verbose=verbose,
+        verbose=0,
         callbacks=callbacks,
         **params,
     )
